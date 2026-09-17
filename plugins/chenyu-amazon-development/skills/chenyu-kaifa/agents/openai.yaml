@@ -1,0 +1,8 @@
+interface:
+  display_name: "晨玙 Amazon 开发"
+  short_description: "分析市场机会，设计差异化产品并支持开发决策。"
+  default_prompt: "使用 $chenyu-kaifa，根据我提供的市场、竞品和成本资料，形成产品开发判断与下一步建议。"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+policy:
+  allow_implicit_invocation: true

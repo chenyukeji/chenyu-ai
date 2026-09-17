@@ -1,0 +1,8 @@
+interface:
+  display_name: "晨玙 Amazon 采购"
+  short_description: "比较供应商、制定采购计划并跟踪供应链风险。"
+  default_prompt: "使用 $chenyu-caigou，根据我提供的产品需求、供应商、库存和预测资料，形成采购与风险建议。"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+policy:
+  allow_implicit_invocation: true
