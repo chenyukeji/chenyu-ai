@@ -1,0 +1,7 @@
+{
+  "python": ">=3.10",
+  "virtual_environment": "env/.venv",
+  "node_modules": "env/node_modules",
+  "database": "SQLite (Python standard library)",
+  "workbook_runtime": "Node.js with @oai/artifact-tool"
+}

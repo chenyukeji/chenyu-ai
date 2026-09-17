@@ -1,0 +1,6 @@
+interface:
+  display_name: "Amazon 开品（开发岗）"
+  short_description: "独立完成竞品、产品方案、供应链、利润与合规评估"
+  default_prompt: "Use $amazon-product-decision to evaluate this product independently and create a sourced Product Decision Card for development review."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,28 @@
+{
+  "DE": {
+    "title": "ExampleBrand Skelett Handschuhe leuchtend, Touchscreen, Schwarz, 1 Paar",
+    "bullets": [
+      "Gut sichtbarer Knochenaufdruck mit Leuchteffekt nach Lichteinwirkung",
+      "Touchscreen-Fläche am Zeigefinger für die Bedienung kompatibler Geräte",
+      "Elastisches Strickmaterial für einen bequemen Sitz bei Erwachsenen und Jugendlichen ab 14 Jahren",
+      "Schwarzes Design für Halloween-Kostüme, Partys und Abendveranstaltungen",
+      "Lieferumfang: 1 Paar Handschuhe in einer recycelbaren Papierbanderole"
+    ],
+    "description": "Schwarze Skelett-Handschuhe mit leuchtendem Knochenaufdruck und Touchscreen-Zeigefinger. Das elastische Strickmaterial ist für Erwachsene und Jugendliche ab 14 Jahren ausgelegt. Vor Gebrauch unter einer Lichtquelle aufladen.",
+    "search_terms": "skelett handschuhe halloween leuchtend knochen kostüm touchscreen schwarz",
+    "attributes": {"department": "Unisex", "occasion": "Halloween"}
+  },
+  "FR": {
+    "title": "ExampleBrand Gants squelette phosphorescents, tactiles, noirs, 1 paire",
+    "bullets": [
+      "Motif os phosphorescent visible après exposition à une source lumineuse",
+      "Zone tactile sur l’index pour utiliser les appareils compatibles",
+      "Maille extensible conçue pour les adultes et adolescents à partir de 14 ans",
+      "Design noir adapté aux costumes d’Halloween, fêtes et soirées",
+      "Contenu : 1 paire de gants dans une bande en papier recyclable"
+    ],
+    "description": "Gants squelette noirs avec motif os phosphorescent et index tactile. La maille extensible convient aux adultes et adolescents à partir de 14 ans. Exposer le motif à la lumière avant utilisation.",
+    "search_terms": "gants squelette halloween phosphorescent os costume tactile noir",
+    "attributes": {"department": "Unisexe", "occasion": "Halloween"}
+  }
+}

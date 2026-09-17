@@ -1,20 +1,12 @@
-# Python
 __pycache__/
 *.py[cod]
-.env
+*.egg-info/
+.pytest_cache/
 .venv/
-
-# Node
+env/.venv/
 node_modules/
-dist/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
+env/node_modules/
+data/*.db
+data/*.sqlite*
+outputs/*
+!outputs/.gitkeep

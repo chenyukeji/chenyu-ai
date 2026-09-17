@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "candidate.schema.json",
+  "title": "Amazon Product OS Candidate",
+  "type": "object",
+  "required": ["schema_version", "product_type", "source", "evidence"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "product_type": {"type": "string", "minLength": 1},
+    "source": {"enum": ["New Releases", "Historical Spike", "Manual"]},
+    "evidence": {"type": "object"},
+    "marketplace": {"type": "string"},
+    "source_ref": {"type": "string"},
+    "observed_at": {"type": "string", "format": "date"},
+    "score": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+    "representative_asins": {"type": "array", "items": {"type": "string"}},
+    "representative_titles": {"type": "array", "items": {"type": "string"}},
+    "price_band": {"type": "object", "additionalProperties": {"type": "number"}}
+  },
+  "additionalProperties": false
+}
+

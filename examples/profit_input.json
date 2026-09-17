@@ -1,0 +1,16 @@
+{
+  "currency": "EUR",
+  "sale_price": 12.99,
+  "vat_rate": 0.19,
+  "commission_rate": 0.15,
+  "fba_fee": 3.0,
+  "purchase_cost_cny": 5.8,
+  "cny_per_currency": 7.8,
+  "domestic_logistics_cny": 1.0,
+  "first_mile": 0.55,
+  "packaging_cny": 0.5,
+  "ad_rate": 0.06,
+  "return_reserve_rate": 0.025,
+  "target_margin": 0.2
+}
+

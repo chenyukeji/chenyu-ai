@@ -1,0 +1,64 @@
+{
+  "candidate": {
+    "schema_version": "1.0",
+    "product_type": "Skeleton Glow Gloves",
+    "source": "Historical Spike",
+    "evidence": {"same_type_asins": 4, "spike_asins": 4, "low_review_success": 3, "peak_months": ["2025-10", "2025-11"]},
+    "marketplace": "DE",
+    "source_ref": "examples/sellersprite_sample.csv",
+    "observed_at": "2026-09-01",
+    "score": 86,
+    "representative_asins": ["B0HIST0001", "B0HIST0002", "B0HIST0003"],
+    "representative_titles": ["Glow Skeleton Gloves Halloween"],
+    "price_band": {"p25": 10.99, "median": 11.49, "p75": 12.24}
+  },
+  "market": {
+    "demand": 4.5,
+    "new_product_success": 4.4,
+    "competition_opportunity": 4.0,
+    "top_asins": ["B0HIST0001", "B0HIST0002"],
+    "review_threshold": 100,
+    "brand_concentration": "low"
+  },
+  "development_plan": {
+    "quantity": "1 Pair",
+    "color": "Black",
+    "material": "Polyester knit",
+    "functions": ["Enhanced glow print", "Touchscreen index finger"],
+    "packaging": "Recyclable paper sleeve",
+    "core_differentiation": "Sharper bone print, stronger glow layer, touchscreen index finger",
+    "differentiation_score": 4.5
+  },
+  "supply_chain": {
+    "score": 4.5,
+    "search_terms_1688": ["夜光骷髅手套", "万圣节骷髅触屏手套", "发光骨骼针织手套"],
+    "quoted_suppliers": 3,
+    "target_purchase_price_cny": 5.8
+  },
+  "profit_inputs": {
+    "currency": "EUR",
+    "sale_price": 12.99,
+    "vat_rate": 0.19,
+    "commission_rate": 0.15,
+    "fba_fee": 3.0,
+    "purchase_cost_cny": 5.8,
+    "cny_per_currency": 7.8,
+    "domestic_logistics_cny": 1.0,
+    "first_mile": 0.55,
+    "packaging_cny": 0.5,
+    "ad_rate": 0.06,
+    "return_reserve_rate": 0.025,
+    "target_margin": 0.2
+  },
+  "compliance_profile": {
+    "textile": true,
+    "packaging": true,
+    "documents": ["GPSR", "REACH", "TEXTILE_LABEL", "PACKAGING_EPR"]
+  },
+  "recommended_marketplaces": ["DE", "FR"],
+  "recommended_price": {"min": 11.99, "max": 13.99, "currency": "EUR"},
+  "target_purchase_price_cny": 6.0,
+  "largest_risks": ["Halloween seasonality requires controlled inbound timing and inventory"],
+  "evidence_notes": ["Example values are workflow fixtures, not live market research"]
+}
+

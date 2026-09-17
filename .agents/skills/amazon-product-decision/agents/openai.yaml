@@ -1,0 +1,6 @@
+interface:
+  display_name: "Amazon 产品开发决策"
+  short_description: "独立完成竞品、产品方案、供应链、利润与合规评估"
+  default_prompt: "使用 $amazon-product-decision 独立评估这个产品，并生成一份带有证据来源、供开发负责人审核的产品决策卡。"
+policy:
+  allow_implicit_invocation: true

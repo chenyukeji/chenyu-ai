@@ -1,0 +1,6 @@
+interface:
+  display_name: "Amazon Listing（运营岗）"
+  short_description: "按已审核产品事实独立生成Listing、图片方案和上传包"
+  default_prompt: "Use $amazon-listing-launch to create a checked Amazon Upload Package from these operations-approved product facts."
+policy:
+  allow_implicit_invocation: true
