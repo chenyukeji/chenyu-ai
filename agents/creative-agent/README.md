@@ -64,8 +64,6 @@ Review痛点
 
 ## 1. Visual Strategy Skill（视觉策略 Skill）
 
-### 作用
-
 负责决定：
 
 - 做什么图片
@@ -74,8 +72,6 @@ Review痛点
 - 如何提高点击和转化
 
 它是 AI 美工主管，而不是图片生成工具。
-
----
 
 ## Input
 
@@ -90,11 +86,7 @@ Review痛点
 }
 ```
 
----
-
 ## Output
-
-生成图片规划：
 
 ```json
 {
@@ -113,8 +105,6 @@ Review痛点
   "production_requirements": []
 }
 ```
-
----
 
 ## MCP依赖
 
@@ -142,11 +132,7 @@ Review痛点
 
 `chenyu-zuotu`
 
-## 作用
-
-根据视觉策略生成 Amazon 商品图片。
-
----
+负责根据视觉策略生成 Amazon 商品图片。
 
 ## Input
 
@@ -158,22 +144,7 @@ Review痛点
 视觉风格
 ```
 
-示例：
-
-```json
-{
- "type":"feature",
- "selling_point":"静音",
- "style":"premium",
- "reference":"product.jpg"
-}
-```
-
----
-
 ## Output
-
-生成：
 
 ```
 Amazon Images
@@ -183,17 +154,6 @@ feature_01.jpg
 feature_02.jpg
 scene.jpg
 ```
-
-返回：
-
-```json
-{
- "status":"completed",
- "images":[]
-}
-```
-
----
 
 ## MCP依赖
 
@@ -226,8 +186,6 @@ edit_image()
 
 `chenyu-jingxiu`
 
-## 作用
-
 负责已有图片的问题修复。
 
 原则：
@@ -235,8 +193,6 @@ edit_image()
 - 不重新设计产品
 - 保留真实性
 - 最小修改
-
----
 
 ## Input
 
@@ -246,52 +202,21 @@ edit_image()
 保留规则
 ```
 
-示例：
-
-```json
-{
- "image":"product.jpg",
- "instruction":"修复边缘白线",
- "preserve":[
-   "shape",
-   "logo",
-   "material"
- ]
-}
-```
-
----
-
 ## Output
 
 ```
 product_fixed.jpg
 ```
 
-```json
-{
- "status":"completed",
- "changes":["remove artifact"]
-}
-```
-
----
-
 ## MCP依赖
 
 ### Image MCP
 
-负责：
-
-- 图片编辑
-- 局部修复
+负责图片编辑和局部修复。
 
 ### File MCP
 
-负责：
-
-- 图片读取
-- 文件保存
+负责图片读取和文件保存。
 
 ---
 
@@ -320,9 +245,7 @@ product_fixed.jpg
 ```
 Creative Agent
        |
-       |
      Skills
-       |
        |
       MCP
        |
@@ -334,9 +257,169 @@ Creative Agent
 
 ---
 
-# 第一阶段最小实现
+# 美工使用方式（低代码模式）
 
-推荐：
+普通美工不需要理解 Agent、Skill、MCP，只需要通过任务工作台完成操作。
+
+用户入口：
+
+```
+AI商品图片工作台
+```
+
+---
+
+# 功能入口1：新品图片制作
+
+用户点击：
+
+```
+创建新品图片任务
+```
+
+填写：
+
+```
+产品名称
+销售市场
+产品类别
+核心卖点
+目标用户
+```
+
+上传：
+
+```
+产品图片
+产品资料
+竞品图片
+Listing文案
+```
+
+选择：
+
+```
+图片数量
+图片风格
+视觉方向
+```
+
+点击：
+
+```
+开始生成
+```
+
+后台自动执行：
+
+```
+Visual Strategy Skill
+        ↓
+Image Production Skill
+        ↓
+Image Optimization Skill
+```
+
+输出：
+
+```
+Amazon图片包
+
+主图
+卖点图
+场景图
+尺寸图
+```
+
+---
+
+# 功能入口2：图片精修
+
+用户上传：
+
+```
+原图片
+```
+
+选择问题：
+
+```
+产品边缘问题
+背景问题
+AI生成痕迹
+阴影问题
+其他修改
+```
+
+填写：
+
+```
+修改要求
+```
+
+输出：
+
+```
+修复后的商品图片
+```
+
+---
+
+# 功能入口3：竞品视觉分析
+
+输入：
+
+```
+竞品ASIN
+竞品图片
+产品资料
+```
+
+输出：
+
+```
+竞品视觉分析
+
+推荐图片结构
+7张图规划
+生成建议
+```
+
+---
+
+# 产品化架构
+
+前端使用者看到：
+
+```
+AI美工工作台
+
+[新品图片制作]
+
+[图片精修]
+
+[竞品分析]
+```
+
+后台：
+
+```
+Web UI
+  ↓
+Creative Agent
+  ↓
+Workflow
+  ↓
+Skills
+  ↓
+MCP
+  ↓
+图片模型 / 文件系统 / Amazon数据
+```
+
+---
+
+# 第一阶段最小实现
 
 ```
 1 Creative Agent
@@ -344,7 +427,6 @@ Creative Agent
 3 Skills
 
 2 MCP
-
 ```
 
 Skills:
@@ -367,3 +449,4 @@ File MCP
 - Creative QA
 - 视频生产
 - 素材管理
+- AI设计工作台
