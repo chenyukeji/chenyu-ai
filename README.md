@@ -52,6 +52,117 @@ plugins/
 
 四个部门使用各自的压缩包，互不依赖；更新某个部门时只需重新发放该部门 ZIP。
 
+## 后续架构计划
+
+当前版本先把各岗位最核心的 Skills 做成可安装插件。后续扩展分为三层：
+
+```text
+Agent（岗位负责人：理解目标、选择能力、控制权限）
+  ↓
+Workflow（业务流程：规定步骤、输入输出、检查点和交接）
+  ↓
+Skill + MCP（专业能力 + 外部系统和实时数据）
+```
+
+- **Skill**：完成一个边界明确、可重复使用的专业任务。
+- **Workflow**：把多个 Skills 和人工确认点组合成端到端业务流程。
+- **MCP**：连接 Amazon、ERP、素材库、供应商和内部数据库，提供结构化工具与数据。
+- **Agent**：代表一个岗位负责接收目标、选择 Workflow、调用 Skills/MCP、汇总结果和控制高风险操作。
+
+Agent 与 Workflow 是本仓库的业务编排规范；Skills 与 MCP 是插件可直接打包的能力。只有真实实现完成后才创建对应目录，不建立空占位目录。
+
+设计依据参考 OpenAI 官方的 [Skills 与 Plugins 说明](https://learn.chatgpt.com/zh-Hans/docs/skills-and-plugins) 和 [创建 Plugins 指南](https://learn.chatgpt.com/zh-Hans/docs/build-plugins)。
+
+### Agent 计划
+
+| Agent | 定位 | 主要调度内容 | 权限原则 |
+| --- | --- | --- | --- |
+| `creative-agent` | Amazon 视觉负责人 | 作图、精修、视觉检查、素材交付 | 可生成文件，不自动发布商品图 |
+| `operation-agent` | Amazon 店铺负责人 | Listing、广告、销售、库存和日常任务 | 默认只读，修改店铺必须人工确认 |
+| `development-agent` | Amazon 产品负责人 | 市场机会、产品方案、利润模型和开发决策 | 输出建议，不自动立项或采购 |
+| `procurement-agent` | 供应链负责人 | 供应商比较、采购计划、交期和质量风险 | 不自动询价、签约、下单或付款 |
+
+岗位 Agent 首先只在自己的插件内部调度。等四个岗位稳定后，再评估增加独立的 `management-agent`，用于跨部门查看进度和发起流程，但不取代各岗位的专业判断。
+
+### MCP 计划
+
+MCP 按数据域建设，不按单个 Prompt 建设。第一阶段全部使用只读工具；涉及写入、发布、预算、下单或付款的工具必须单独授权，并保留确认步骤和操作记录。
+
+| MCP | 计划连接 | 主要使用方 | 第一阶段能力 |
+| --- | --- | --- | --- |
+| `amazon-mcp` | Amazon 店铺、Listing、广告、订单和库存 | 运营、开发 | 查询与报表读取 |
+| `erp-mcp` | 产品、成本、库存、采购单和物流 | 开发、采购、运营 | 查询与数据汇总 |
+| `asset-mcp` | 产品实拍、参考图、成品图和版本记录 | 美工、运营 | 素材检索与读取 |
+| `supplier-mcp` | 供应商档案、报价、MOQ、交期和质检记录 | 采购、开发 | 查询与供应商比较 |
+| `collector-mcp` | Amazon New Releases 采集结果 | 开发、运营 | 只读查询采集快照 |
+
+`collector-mcp` 的数据采集和数据库维护继续属于同级项目 `../amazon-new-release-collector`；本仓库未来只接入其只读查询能力，不复制采集逻辑。
+
+### Workflow 计划
+
+#### 美工 Workflow
+
+- `creative-brief-to-image-set`：解析作图单 → 匹配素材 → 逐图生成 → 质量检查 → 局部返修 → 交付。
+- `creative-retouch-review`：接收原图与修改点 → 累积局部精修 → 对照检查 → 返回最终完整图。
+- `creative-to-operation-handoff`：整理成品、版本、卖点和使用位置，交给运营确认上线。
+
+#### 运营 Workflow
+
+- `operation-daily-diagnosis`：汇总销售、广告、排名、库存和 Review → 识别异常 → 生成当日任务。
+- `listing-optimization-review`：产品资料与关键词 → Listing 草稿 → 合规检查 → 人工确认 → 发布准备。
+- `advertising-optimization-review`：广告报表 → 搜索词与投放分析 → 预算/竞价建议 → 人工确认。
+- `operation-weekly-review`：周度数据汇总 → 目标差异 → 原因分析 → 下周行动计划。
+
+#### 开发 Workflow
+
+- `market-opportunity-to-proposal`：市场机会 → 用户需求 → 竞品差距 → 差异化产品方案。
+- `proposal-to-profitability`：产品规格 → 供应链成本 → 平台与物流费用 → 利润模型。
+- `development-gate-review`：市场、产品、利润、合规和供应风险 → 开发/验证/暂缓/放弃决策。
+
+#### 采购 Workflow
+
+- `supplier-evaluation`：产品需求 → 报价标准化 → 供应商评分 → 推荐与备选方案。
+- `replenishment-planning`：销售预测、库存和供应周期 → 采购数量 → 下单与到货窗口。
+- `purchase-order-follow-up`：采购节点 → 交期、质量和物流偏差 → 风险升级与处置建议。
+
+#### 跨部门 Workflow
+
+- `new-product-launch`：开发立项 → 采购打样与备货 → 美工生产素材 → 运营准备 Listing 与广告 → 人工批准上线。
+- `product-improvement-loop`：运营收集 Review 与退货问题 → 开发形成改款方案 → 采购验证成本和供应 → 美工更新视觉表达。
+- `inventory-risk-response`：运营发现库存风险 → 采购评估补货 → 开发/运营评估利润与促销 → 人工确认执行。
+
+### 规划目录规范
+
+以下是单个插件未来完成 Agent、Workflow 和 MCP 后的目标结构；未实现的目录不会提前加入仓库或员工 ZIP：
+
+```text
+chenyu-amazon-operation/
+├── plugin.json
+├── skills/
+│   └── chenyu-yunying/
+├── agents/                 # 岗位级调度配置与职责说明
+│   └── operation-agent/
+├── workflows/              # 可复用流程定义、检查点与交接格式
+│   ├── operation-daily-diagnosis/
+│   └── operation-weekly-review/
+├── mcp/                    # 属于本插件的数据连接实现
+│   └── amazon-operation-mcp/
+└── .mcp.json               # MCP 注册与连接配置（接入 MCP 后才创建）
+```
+
+跨部门 Workflow 不复制到四个插件中，统一放在仓库级 `workflows/`，并明确每一步由哪个岗位插件负责。员工日常仍只安装自己岗位的插件；需要完整跨部门自动化时，再由管理端组合调用。
+
+### 实施顺序
+
+1. **完善 Skills**：用真实业务样本稳定输入、输出、模板和异常处理。
+2. **落地单部门 Workflow**：先完成不依赖外部系统的文件型流程和人工交接。
+3. **接入只读 MCP**：优先打通 Amazon、ERP、素材与供应商数据查询。
+4. **启用岗位 Agent**：让每个 Agent 在明确权限内选择 Workflow、Skill 和工具。
+5. **建设跨部门 Workflow**：打通新品开发、上架、改款和库存风险流程。
+6. **开放受控写入**：在审计、授权、幂等和回滚机制具备后，再逐项开放发布、调价、广告、采购等操作。
+
+每个阶段都必须保持四个岗位插件可独立安装、独立升级、独立回退。
+
 ## 仓库中的其他目录
 
 仓库中现有的业务原型、Schema、示例和文档继续作为内部研发参考。它们不属于员工插件的安装内容，也不会被装入岗位 ZIP。
