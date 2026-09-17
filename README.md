@@ -1,163 +1,453 @@
-# Amazon Product OS
+# chenyu-ai
 
-这是一个可运行的 Amazon 业务工具箱：**3 个相互独立的项目级 Codex Skill + Python 共享模块**。每个 Skill 对应一个岗位任务，完成自己的交付物后停止，由负责人审核；不会自动调用下一个 Skill。
+## 晨玙科技 Amazon AI 全自动化运营系统
 
-顶层按用途划分，环境与业务代码分开：
+`chenyu-ai` 是晨玙科技面向 Amazon 跨境电商打造的 AI Operating System（AI 运营操作系统）。
+
+目标：将亚马逊运营从人工驱动模式升级为 **AI Agent 驱动模式**。
+
+系统覆盖：
+
+- 市场分析
+- 自动选品
+- 竞品研究
+- 产品开发
+- Listing 创建
+- 图片内容规划
+- 广告优化
+- 客服处理
+- 数据分析
+- 运营决策
+
+核心理念：
+
+```
+输入业务目标
+      ↓
+AI Agent 分析
+      ↓
+调用 MCP 工具
+      ↓
+执行运营任务
+      ↓
+输出可审核结果
+```
+
+AI 负责分析、生成和执行；关键商业决策保留人工审核。
+
+---
+
+# 一、整体系统架构
 
 ```text
-Amazon_ai/
-  skills/               # 3 个可见 Skill；各自只保留必要资源
-  amazon_product_os/    # 唯一一份共享 Python 算法
-  env/                  # 依赖、运行时说明、初始化脚本
-  schemas/              # 可选的标准化交接格式
-  examples/             # 可直接运行的示例输入
-  tests/                # 标准库测试
-  outputs/              # 运行结果
-  .agents/skills/       # Codex 自动发现层
+                    Amazon AI OS
+
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+     数据层            Agent层          工具层
+        │                │                │
+ Amazon数据        AI运营员工        MCP工具
+ Seller数据        Agent团队         浏览器自动化
+ 市场数据          Workflow          API接口
+
 ```
 
-```text
-独立采集器 ../amazon-new-release-collector ──> 外部SQLite（采集器拥有并维护）
-历史Excel ───────────────────────────────┐
-                                        ├─> 选品分析 Skill ─> 选品Excel ─> 等待选品负责人审核
-外部SQLite最近30天（只读）───────────────┘
-开品 Skill      ──> 产品开发决策卡           ──> 等待开发负责人审核
-Listing Skill   ──> Listing 草稿与上传包      ──> 等待运营负责人审核
+---
+
+# 二、系统模块
+
+## 1. AI市场分析 Agent
+
+### 作用
+
+负责发现 Amazon 市场机会。
+
+模拟市场研究员工作：
+
+- 分析市场趋势
+- 分析新品增长
+- 分析竞争程度
+- 分析价格区间
+- 找到潜在机会品类
+
+### 输入
+
+```
+关键词
+类目
+目标国家
+历史销售数据
+竞品数据
+市场报告
 ```
 
-三个 Skill 可以分别从用户提供的资料开始。前一步的 JSON 可以作为后一步的参考，但不是强制输入，也不会自动流转。
+### 输出
 
-示例文件只用于演示和测试，不代表实时市场、费用或合规结论。
-
-## 已实现
-
-- `.agents/skills/amazon-new-release-trends`（选品岗）：只分析历史 SellerSprite Excel 或独立采集器的 SQLite 最近30天数据，生成四表选品工作簿；不抓网页、不建库、不写数据库。
-- `.agents/skills/amazon-product-decision`（开发岗）：可从产品想法、ASIN 或候选文件独立开始，完成竞品、产品方案、1688 关键词、利润、合规和决策卡。
-- `.agents/skills/amazon-listing-launch`（运营岗）：从运营已审核的产品事实独立生成 Product Master、多站点 Listing、7 张图片 Brief、上传表和上架前检查。
-- SellerSprite `.xlsx/.csv/.tsv` 分析器：列名中英文映射、ASIN/月去重、低价与小尺寸硬筛选，以及面向短期机会的销量、增长广度、低评论成功评分。
-- 只读 SQLite 访问层：默认读取相邻的 `../amazon-new-release-collector/data/trends.db`，没有写库或建库方法。
-- `Candidate`、`Development Case`、`Product Master` JSON Schema。
-
-Codex 会从项目的 `.agents/skills` 自动发现这些 Skill；日常查看和运行入口集中在顶层 `skills/`。这是官方文档说明的仓库级发现位置：[Build skills](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)。
-
-## 快速开始
-
-首次使用在项目根目录执行，虚拟环境会统一创建到 `env/.venv`：
-
-```powershell
-.\env\setup.ps1
+```
+市场机会报告
+热门趋势列表
+竞争分析报告
+潜力产品方向
 ```
 
-```powershell
-$py = ".\env\.venv\Scripts\python.exe"
-& $py -m unittest discover -s tests -v
-& $py -m amazon_product_os --help
+---
+
+# 2. AI选品 Agent
+
+### 作用
+
+自动完成产品机会筛选。
+
+分析：
+
+- 市场容量
+- 销售趋势
+- 竞争强度
+- 评论数量
+- 产品价格
+- 利润空间
+- 风险因素
+
+### 输入
+
+```
+Amazon商品数据
+SellerSprite数据
+ASIN列表
+历史Excel
+市场数据
 ```
 
-### 1. 外部新品榜数据库
+### 输出
 
-采集程序已经完全拆分到桌面同级目录 `../amazon-new-release-collector`。安装、运行、数据源和风控停止规则见该项目的 `README.md`。本项目不会打开浏览器，也没有快照导入、数据库写入或30天清理代码。
-
-### 2. 选品分析（两种输入）
-
-选品 Skill 不访问网页，只接受：
-
-1. SellerSprite 风格的历史 Excel/CSV/TSV；或
-2. 已存在的 SQLite 新品榜数据库。
-
-数据库只读分析命令：
-
-```powershell
-& $py -m amazon_product_os trend report `
-  --marketplace DE `
-  --limit 10 `
-  --output outputs/trend_candidates.json
+```
+选品评分
+候选产品列表
+机会分析报告
+推荐开发方向
 ```
 
-历史 Excel 至少需要 `ASIN`、`商品标题` 和可用的产品分组字段。当前参考格式为 SellerSprite 的 65 列导出，程序能识别 Excel 小数百分比、价格、上架天数、包装重量和包装尺寸。历史模式面向“去年同期短期飙升机会”，默认只保留售价不高于 30、包装不超过 45×35×25 cm、重量不超过 1 kg 且尺寸重量完整的商品；利润和长期稳定性不计分。阈值可通过历史命令参数覆盖：
+示例：
 
-```powershell
-& $py -m amazon_product_os historical input.xlsx `
-  --marketplace ES `
-  --max-price 30 `
-  --max-package-weight-g 1000 `
-  --output outputs/historical_candidates.json
+```
+产品A
+├── 市场评分 85
+├── 竞争评分 78
+├── 利润评分 82
+└── 开发建议
 ```
 
-使用时只需附上主文件并说“使用 `$amazon-new-release-trends` 执行【历史 Excel 选品模式】，生成可审核的选品 Excel”，或者直接说“使用 `$amazon-new-release-trends` 执行【数据库近30天选品模式】，生成可审核的选品 Excel”。Skill 会自动推断其余参数，最终统一生成：`选品结论`、`候选评分`、`ASIN证据`、`规则与来源` 四个工作表。
+---
 
-### 3. 开品（开发岗）
+# 3. AI产品开发 Agent
 
-可以直接提供产品想法或 ASIN；命令行模式参考 `examples/development_case.json` 填入事实和假设。没有前序 Candidate 文件时，使用 `source: Manual` 记录来源：
+### 作用
 
-```powershell
-& $py skills\amazon-product-decision\scripts\run.py decision `
-  examples/development_case.json `
-  --output outputs/product_decision_card.json
+负责从产品机会到产品方案。
+
+包括：
+
+- 产品定位
+- 功能设计
+- 差异化方案
+- 供应链需求
+- 成本分析
+- 合规检查
+
+### 输入
+
+```
+选品结果
+ASIN
+竞品信息
+用户需求
+供应商资料
 ```
 
-决策规则：`GO >= 75`，`WATCH = 55–74`，`NO_GO < 55`；高合规风险、保守净利率低于 Gate 或没有核心差异化会强制 `NO_GO`。该结果是给开发负责人的建议，不会自动触发 Listing。
+### 输出
 
-也可以单独运行：
-
-```powershell
-& $py skills\amazon-product-decision\scripts\run.py profit examples\profit_input.json
-& $py skills\amazon-product-decision\scripts\run.py compliance compliance_profile.json --marketplace DE
+```
+产品开发方案
+产品规格书
+供应链需求
+利润模型
+风险报告
 ```
 
-### 4. Listing（运营岗）
+---
 
-运营先审核 Product Master 和各站点内容，再独立生成包；不要求前面运行过开品 Skill：
+# 4. AI Listing Agent
 
-```powershell
-& $py skills\amazon-listing-launch\scripts\run.py `
-  --product-master examples/product_master.json `
-  --listings examples/listings.json `
-  --output-dir outputs/launch-package
+### 作用
+
+自动生成 Amazon 上架内容。
+
+负责：
+
+- 标题
+- 五点描述
+- 产品描述
+- Search Term
+- A+内容规划
+- 多语言Listing
+
+### 输入
+
+```
+Product Master
+产品参数
+关键词
+竞品Listing
+目标市场
 ```
 
-如需保留开发记录供追溯，可选加上：
+### 输出
 
-```powershell
-  --decision outputs/product_decision_card.json
+```
+Amazon Listing文案
+关键词布局
+多语言版本
+上传文件
+优化建议
 ```
 
-输出包括：
+---
 
-```text
-amazon_upload.xlsx
-amazon_upload.csv
-listing/DE.txt, FR.txt, ...
-images/manifest.json
-compliance/requirements.json
-product_master.json
-product_decision_card.json  # 仅在提供 --decision 时生成
-pre_launch_check.json
+# 5. AI图片与视觉 Agent
+
+### 作用
+
+自动规划商品视觉内容。
+
+负责：
+
+- 主图策略
+- 副图结构
+- 信息图设计
+- 场景图规划
+- A+模块设计
+
+### 输入
+
+```
+产品资料
+竞品图片
+用户痛点
+Listing内容
 ```
 
-工作簿由 `@oai/artifact-tool` 生成。在 Codex 桌面环境中使用工作区加载器提供的 Node 运行时；普通终端必须确保 Node 可以解析该包。如果 XLSX 未生成，CSV 仍会保留，但状态会是 `NOT_READY`。
+### 输出
 
-`READY_FOR_OPERATIONS_REVIEW` 只表示自动检查通过，仍需运营负责人审核。程序不会自动采购、联系供应商、上传 Amazon、修改库存或花费广告预算。
-
-## 代码结构
-
-```text
-amazon_product_os/
-  trend_db.py            # 外部SQLite只读访问
-  trend_analyzer.py      # 新品产品类型信号
-  sellersprite.py        # 历史榜 Excel/CSV 分析
-  profit.py              # 正常/保守利润
-  compliance.py          # 合规筛查 Gate
-  decision.py            # 加权决策卡
-  listing.py             # 上架包与一致性检查
-  orchestrator.py        # 独立命令的轻量入口，不自动串联
-  cli.py                 # 命令行入口
-
-skills/
-  amazon-new-release-trends/SKILL.md
-  amazon-product-decision/scripts/run.py
-  amazon-listing-launch/scripts/run.py
-  amazon-listing-launch/scripts/build_amazon_upload.mjs
+```
+图片Brief
+设计需求
+AI绘图Prompt
+视觉测试方案
 ```
 
-基线阈值记录在 `config/defaults.json`；最小同类 ASIN 数可通过 CLI 覆盖，最低保守净利率可在 Development Case 中覆盖。合规模块只是初筛，正式投产前仍需核对当期法规、Amazon 站点要求和专业意见。
+---
+
+# 6. AI广告优化 Agent
+
+### 作用
+
+自动分析 Amazon Ads 数据。
+
+负责：
+
+- 搜索词分析
+- ACOS优化
+- CPC调整
+- 广告结构优化
+- 预算建议
+
+### 输入
+
+```
+广告报表
+关键词数据
+订单数据
+销售数据
+```
+
+### 输出
+
+```
+广告优化方案
+关键词调整
+预算建议
+否定词列表
+增长机会
+```
+
+---
+
+# 7. AI客服 Agent
+
+### 作用
+
+自动处理客户沟通。
+
+负责：
+
+- 买家消息
+- FAQ
+- 产品问题
+- 售后分析
+- 差评原因分析
+
+### 输入
+
+```
+客户消息
+Review
+订单问题
+产品资料
+```
+
+### 输出
+
+```
+客服回复
+问题分类
+产品改进建议
+差评分析
+```
+
+---
+
+# 8. MCP自动化工具层
+
+MCP（Model Context Protocol）作为 AI 与业务系统之间的连接层。
+
+负责：
+
+- 浏览器自动化
+- Amazon页面操作
+- 数据采集
+- 文件处理
+- 第三方工具调用
+
+### 输入
+
+```
+AI Agent任务
+用户指令
+业务参数
+```
+
+### 输出
+
+```
+网页结果
+结构化数据
+任务执行结果
+文件
+```
+
+---
+
+# 三、典型自动化流程
+
+## 新品开发流程
+
+```
+市场分析Agent
+        ↓
+选品Agent
+        ↓
+产品开发Agent
+        ↓
+Listing Agent
+        ↓
+图片Agent
+        ↓
+广告Agent
+        ↓
+运营优化
+```
+
+---
+
+# 四、设计原则
+
+## 1. Agent独立运行
+
+每个Agent负责一个专业岗位。
+
+```
+选品Agent ≠ 开品Agent ≠ Listing Agent
+```
+
+避免一个AI承担所有任务。
+
+---
+
+## 2. 输入输出标准化
+
+每个模块都有明确接口：
+
+```
+Input
+ ↓
+Processing
+ ↓
+Output
+```
+
+方便扩展新的AI能力。
+
+---
+
+## 3. 本地优先架构
+
+运营人员电脑运行：
+
+```
+Codex
+ ↓
+Skill
+ ↓
+Local MCP
+ ↓
+Chrome环境
+ ↓
+Amazon工具
+```
+
+不依赖单台中央电脑。
+
+---
+
+# 五、未来规划
+
+- Amazon AI员工团队
+- 自动化新品发现系统
+- 自动Listing优化系统
+- 自动广告驾驶系统
+- AI运营数据分析中心
+- 多账号运营管理系统
+
+---
+
+## Repository Structure
+
+```
+chenyu-ai/
+
+├── agents/       # AI运营Agent
+├── mcp/          # MCP工具
+├── skills/       # Codex Skill
+├── crawlers/     # 数据采集
+├── workflows/    # 自动流程
+├── prompts/      # Prompt资产
+├── docs/         # 架构文档
+└── configs/      # 配置文件
+```
+
+---
+
+晨玙科技 Amazon AI OS
+
+让AI成为跨境电商运营基础设施。
