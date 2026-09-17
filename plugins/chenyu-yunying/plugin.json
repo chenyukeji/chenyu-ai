@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "chenyu-yunying",
+  "version": "0.2.0",
+  "description": "Product development briefs to Amazon listings and image briefs for Chenyu.",
+  "author": {"name": "chenyukeji", "url": "https://github.com/chenyukeji"},
+  "homepage": "https://github.com/chenyukeji/chenyu-ai",
+  "repository": "https://github.com/chenyukeji/chenyu-ai",
+  "keywords": ["amazon", "listing", "image-brief"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "晨玙 Amazon 运营",
+    "shortDescription": "从开发文档生成自有产品 Listing 和作图要求。",
+    "longDescription": "通过运营总入口统一产品事实，安排 Listing 与逐图作图要求生成，并核对变体和规格一致性。广告能力规划中。",
+    "developerName": "晨玙科技",
+    "category": "Productivity",
+    "capabilities": ["Listing writing", "Image brief planning"],
+    "defaultPrompt": "使用运营总入口，根据开发文档生成所需的 Listing 和作图要求。"
+  }
+}

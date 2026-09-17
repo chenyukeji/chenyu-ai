@@ -1,6 +1,6 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "chenyu-amazon-development",
+  "name": "chenyu-kaifa",
   "version": "0.1.0",
   "description": "Amazon market opportunity, product design, and development decision workflows for Chenyu.",
   "author": {"name": "chenyukeji", "url": "https://github.com/chenyukeji"},

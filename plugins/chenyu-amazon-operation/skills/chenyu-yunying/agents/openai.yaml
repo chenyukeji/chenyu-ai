@@ -1,8 +1,0 @@
-interface:
-  display_name: "晨玙 Amazon 运营"
-  short_description: "分析 Listing、广告、销售和库存，形成可执行的运营方案。"
-  default_prompt: "使用 $chenyu-yunying，根据我提供的 Amazon 业务资料完成诊断，并给出按优先级排列的运营行动方案。"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-policy:
-  allow_implicit_invocation: true

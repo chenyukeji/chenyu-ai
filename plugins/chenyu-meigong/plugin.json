@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "chenyu-amazon-creative",
-  "version": "0.1.0",
+  "name": "chenyu-meigong",
+  "version": "0.2.0",
   "description": "Amazon product image generation and precise retouching workflows for Chenyu.",
   "author": {
     "name": "chenyukeji",

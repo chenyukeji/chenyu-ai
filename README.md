@@ -6,18 +6,19 @@
 
 | 插件 | 面向岗位 | 当前 Skills |
 | --- | --- | --- |
-| `chenyu-amazon-creative` | Amazon 美工 | `chenyu-zuotu`、`chenyu-jingxiu` |
-| `chenyu-amazon-operation` | Amazon 运营 | `chenyu-yunying` |
-| `chenyu-amazon-development` | Amazon 产品开发 | `chenyu-kaifa` |
-| `chenyu-amazon-procurement` | Amazon 采购 | `chenyu-caigou` |
+| `chenyu-meigong` | Amazon 美工 | `chenyu-meigong` 总入口、`chenyu-zuotu`、`chenyu-jingxiu` |
+| `chenyu-yunying` | Amazon 运营 | `chenyu-yunying` 总入口、`chenyu-listing`、`chenyu-zuotuyaoqiu` |
+| `chenyu-kaifa` | Amazon 产品开发 | `chenyu-kaifa` |
+| `chenyu-caigou` | Amazon 采购 | `chenyu-caigou` |
 
 ## 统一目录规范
 
 ```text
 plugins/
-├── chenyu-amazon-creative/
+├── chenyu-meigong/
 │   ├── plugin.json
 │   └── skills/
+│       ├── chenyu-meigong/
 │       ├── chenyu-zuotu/
 │       │   ├── SKILL.md
 │       │   ├── agents/
@@ -28,13 +29,17 @@ plugins/
 │           ├── SKILL.md
 │           ├── agents/
 │           └── assets/
-├── chenyu-amazon-operation/
+├── chenyu-yunying/
 │   ├── plugin.json
-│   └── skills/chenyu-yunying/
-├── chenyu-amazon-development/
+│   ├── references/kaifawendang.md
+│   └── skills/
+│       ├── chenyu-yunying/
+│       ├── chenyu-listing/
+│       └── chenyu-zuotuyaoqiu/
+├── chenyu-kaifa/
 │   ├── plugin.json
 │   └── skills/chenyu-kaifa/
-└── chenyu-amazon-procurement/
+└── chenyu-caigou/
     ├── plugin.json
     └── skills/chenyu-caigou/
 ```
@@ -47,6 +52,10 @@ plugins/
 - 后续需要 MCP、App 或独立 Agent 时，只在对应插件中增加，四个插件仍可分别安装和升级。
 
 ## 员工安装
+
+日常由 `chenyu-yunying` 或 `chenyu-meigong` 总入口接收需求，也可直接选择专业 Skill。运营将开发文档整理为 Listing 和作图要求，美工接收作图要求与产品素材制作或精修图片。总入口通过当前助手读取专业 Skill 协调工作，不提供后台调度或跨会话记忆。
+
+`chenyu-guanggao`（广告）仅为后续计划，当前未实现。目录和 Skill 标识统一使用拼音，Listing 保留通用名称；标准文件名不翻译。插件更名后，安装新名称的包并停用旧包，避免同名专业 Skill 重复出现。运营包包含共用 `references/`，分发时保留。
 
 管理员或维护者分别打包 `plugins/` 下的四个目录，ZIP 根层必须直接看到 `plugin.json` 和 `skills/`。员工在 ChatGPT 工作区的插件管理页面上传自己岗位对应的 ZIP，安装后新建对话即可使用。
 
@@ -77,12 +86,12 @@ Agent 与 Workflow 是本仓库的业务编排规范；Skills 与 MCP 是插件�
 
 | Agent | 定位 | 主要调度内容 | 权限原则 |
 | --- | --- | --- | --- |
-| `creative-agent` | Amazon 视觉负责人 | 作图、精修、视觉检查、素材交付 | 可生成文件，不自动发布商品图 |
-| `operation-agent` | Amazon 店铺负责人 | Listing、广告、销售、库存和日常任务 | 默认只读，修改店铺必须人工确认 |
-| `development-agent` | Amazon 产品负责人 | 市场机会、产品方案、利润模型和开发决策 | 输出建议，不自动立项或采购 |
-| `procurement-agent` | 供应链负责人 | 供应商比较、采购计划、交期和质量风险 | 不自动询价、签约、下单或付款 |
+| `meigong-agent` | Amazon 视觉负责人 | 作图、精修、视觉检查、素材交付 | 可生成文件，不自动发布商品图 |
+| `yunying-agent` | Amazon 店铺负责人 | Listing、广告、销售、库存和日常任务 | 默认只读，修改店铺必须人工确认 |
+| `kaifa-agent` | Amazon 产品负责人 | 市场机会、产品方案、利润模型和开发决策 | 输出建议，不自动立项或采购 |
+| `caigou-agent` | 供应链负责人 | 供应商比较、采购计划、交期和质量风险 | 不自动询价、签约、下单或付款 |
 
-岗位 Agent 首先只在自己的插件内部调度。等四个岗位稳定后，再评估增加独立的 `management-agent`，用于跨部门查看进度和发起流程，但不取代各岗位的专业判断。
+岗位 Agent 首先只在自己的插件内部调度。等四个岗位稳定后，再评估增加独立的 `guanli-agent`，用于跨部门查看进度和发起流程，但不取代各岗位的专业判断。
 
 ### MCP 计划
 
@@ -92,61 +101,61 @@ MCP 按数据域建设，不按单个 Prompt 建设。第一阶段全部使用�
 | --- | --- | --- | --- |
 | `amazon-mcp` | Amazon 店铺、Listing、广告、订单和库存 | 运营、开发 | 查询与报表读取 |
 | `erp-mcp` | 产品、成本、库存、采购单和物流 | 开发、采购、运营 | 查询与数据汇总 |
-| `asset-mcp` | 产品实拍、参考图、成品图和版本记录 | 美工、运营 | 素材检索与读取 |
-| `supplier-mcp` | 供应商档案、报价、MOQ、交期和质检记录 | 采购、开发 | 查询与供应商比较 |
-| `collector-mcp` | Amazon New Releases 采集结果 | 开发、运营 | 只读查询采集快照 |
+| `sucai-mcp` | 产品实拍、参考图、成品图和版本记录 | 美工、运营 | 素材检索与读取 |
+| `gongyingshang-mcp` | 供应商档案、报价、MOQ、交期和质检记录 | 采购、开发 | 查询与供应商比较 |
+| `caiji-mcp` | Amazon New Releases 采集结果 | 开发、运营 | 只读查询采集快照 |
 
-`collector-mcp` 的数据采集和数据库维护继续属于同级项目 `../amazon-new-release-collector`；本仓库未来只接入其只读查询能力，不复制采集逻辑。
+`caiji-mcp` 的数据采集和数据库维护继续属于同级项目 `../amazon-new-release-collector`；本仓库未来只接入其只读查询能力，不复制采集逻辑。
 
 ### Workflow 计划
 
 #### 美工 Workflow
 
-- `creative-brief-to-image-set`：解析作图单 → 匹配素材 → 逐图生成 → 质量检查 → 局部返修 → 交付。
-- `creative-retouch-review`：接收原图与修改点 → 累积局部精修 → 对照检查 → 返回最终完整图。
-- `creative-to-operation-handoff`：整理成品、版本、卖点和使用位置，交给运营确认上线。
+- `zuotu-zhizuo`：解析作图单 → 匹配素材 → 逐图生成 → 质量检查 → 局部返修 → 交付。
+- `jingxiu-jiancha`：接收原图与修改点 → 累积局部精修 → 对照检查 → 返回最终完整图。
+- `meigong-yunying-jiaojie`：整理成品、版本、卖点和使用位置，交给运营确认上线。
 
 #### 运营 Workflow
 
-- `operation-daily-diagnosis`：汇总销售、广告、排名、库存和 Review → 识别异常 → 生成当日任务。
-- `listing-optimization-review`：产品资料与关键词 → Listing 草稿 → 合规检查 → 人工确认 → 发布准备。
-- `advertising-optimization-review`：广告报表 → 搜索词与投放分析 → 预算/竞价建议 → 人工确认。
-- `operation-weekly-review`：周度数据汇总 → 目标差异 → 原因分析 → 下周行动计划。
+- `yunying-richang-zhenduan`：汇总销售、广告、排名、库存和 Review → 识别异常 → 生成当日任务。
+- `listing-youhua`：产品资料与关键词 → Listing 草稿 → 合规检查 → 人工确认 → 发布准备。
+- `guanggao-youhua`：广告报表 → 搜索词与投放分析 → 预算/竞价建议 → 人工确认。
+- `yunying-zhoubao`：周度数据汇总 → 目标差异 → 原因分析 → 下周行动计划。
 
 #### 开发 Workflow
 
-- `market-opportunity-to-proposal`：市场机会 → 用户需求 → 竞品差距 → 差异化产品方案。
-- `proposal-to-profitability`：产品规格 → 供应链成本 → 平台与物流费用 → 利润模型。
-- `development-gate-review`：市场、产品、利润、合规和供应风险 → 开发/验证/暂缓/放弃决策。
+- `shichang-chanpin-fangan`：市场机会 → 用户需求 → 竞品差距 → 差异化产品方案。
+- `chanpin-lirun-cesuan`：产品规格 → 供应链成本 → 平台与物流费用 → 利润模型。
+- `kaifa-pingshen`：市场、产品、利润、合规和供应风险 → 开发/验证/暂缓/放弃决策。
 
 #### 采购 Workflow
 
-- `supplier-evaluation`：产品需求 → 报价标准化 → 供应商评分 → 推荐与备选方案。
-- `replenishment-planning`：销售预测、库存和供应周期 → 采购数量 → 下单与到货窗口。
-- `purchase-order-follow-up`：采购节点 → 交期、质量和物流偏差 → 风险升级与处置建议。
+- `gongyingshang-pinggu`：产品需求 → 报价标准化 → 供应商评分 → 推荐与备选方案。
+- `buhuo-jihua`：销售预测、库存和供应周期 → 采购数量 → 下单与到货窗口。
+- `caigou-genjin`：采购节点 → 交期、质量和物流偏差 → 风险升级与处置建议。
 
 #### 跨部门 Workflow
 
-- `new-product-launch`：开发立项 → 采购打样与备货 → 美工生产素材 → 运营准备 Listing 与广告 → 人工批准上线。
-- `product-improvement-loop`：运营收集 Review 与退货问题 → 开发形成改款方案 → 采购验证成本和供应 → 美工更新视觉表达。
-- `inventory-risk-response`：运营发现库存风险 → 采购评估补货 → 开发/运营评估利润与促销 → 人工确认执行。
+- `xinpin-shangjia`：开发立项 → 采购打样与备货 → 美工生产素材 → 运营准备 Listing 与广告 → 人工批准上线。
+- `chanpin-gaijin`：运营收集 Review 与退货问题 → 开发形成改款方案 → 采购验证成本和供应 → 美工更新视觉表达。
+- `kucun-fengxian-chuli`：运营发现库存风险 → 采购评估补货 → 开发/运营评估利润与促销 → 人工确认执行。
 
 ### 规划目录规范
 
 以下是单个插件未来完成 Agent、Workflow 和 MCP 后的目标结构；未实现的目录不会提前加入仓库或员工 ZIP：
 
 ```text
-chenyu-amazon-operation/
+chenyu-yunying/
 ├── plugin.json
 ├── skills/
 │   └── chenyu-yunying/
 ├── agents/                 # 岗位级调度配置与职责说明
-│   └── operation-agent/
+│   └── yunying-agent/
 ├── workflows/              # 可复用流程定义、检查点与交接格式
-│   ├── operation-daily-diagnosis/
-│   └── operation-weekly-review/
+│   ├── yunying-richang-zhenduan/
+│   └── yunying-zhoubao/
 ├── mcp/                    # 属于本插件的数据连接实现
-│   └── amazon-operation-mcp/
+│   └── amazon-yunying-mcp/
 └── .mcp.json               # MCP 注册与连接配置（接入 MCP 后才创建）
 ```
 

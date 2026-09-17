@@ -1,0 +1,6 @@
+interface:
+  display_name: "晨玙美工"
+  short_description: "接收作图单、产品素材和修改说明，安排图片制作与局部精修并交付。"
+  default_prompt: "使用 $chenyu-meigong，根据我提供的要求和素材，安排作图或精修并交付成品。"
+policy:
+  allow_implicit_invocation: true
