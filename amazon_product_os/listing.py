@@ -171,9 +171,7 @@ def _build_xlsx(
     builder = (
         Path(workbook_builder)
         if workbook_builder
-        else Path(__file__).resolve().parents[1]
-        / "skills"
-        / "amazon-listing-launch"
+        else Path(__file__).resolve().parent
         / "scripts"
         / "build_amazon_upload.mjs"
     )

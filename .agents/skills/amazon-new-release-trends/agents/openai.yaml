@@ -1,6 +1,0 @@
-interface:
-  display_name: "Amazon 新品趋势选品（表格/数据库）"
-  short_description: "从历史表格或只读新品数据库生成可审计的选品工作簿"
-  default_prompt: "使用 $amazon-new-release-trends，根据我的 SellerSprite 历史工作簿或现有只读近 30 天趋势数据库，生成一份可审计的选品工作簿。"
-policy:
-  allow_implicit_invocation: true

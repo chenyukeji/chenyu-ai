@@ -1,6 +1,0 @@
-interface:
-  display_name: "Amazon 商品详情页与上架准备"
-  short_description: "按已审核产品事实生成商品详情页、图片方案和上传资料包"
-  default_prompt: "使用 $amazon-listing-launch，根据这些已经运营负责人审核的产品事实，生成一套经过检查的亚马逊上传资料包。"
-policy:
-  allow_implicit_invocation: true

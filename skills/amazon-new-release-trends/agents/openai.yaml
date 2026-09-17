@@ -1,6 +1,0 @@
-interface:
-  display_name: "Amazon 选品分析（Excel/数据库）"
-  short_description: "从历史Excel或只读新品榜数据库生成选品工作簿"
-  default_prompt: "Use $amazon-new-release-trends to create an auditable product-selection XLSX from my historical SellerSprite workbook or the existing read-only 30-day trend database."
-policy:
-  allow_implicit_invocation: true
