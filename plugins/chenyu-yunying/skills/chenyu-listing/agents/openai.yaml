@@ -1,6 +1,6 @@
 interface:
   display_name: "晨玙 Listing"
-  short_description: "根据开发文档和自有产品事实生成目标站点文案，区分各变体差异。"
-  default_prompt: "使用 $chenyu-listing，根据我提供的开发文档生成目标站点的 Listing。"
+  short_description: "读取开发表和竞品链接，生成欧洲五站无品牌 Listing 与四段式描述。"
+  default_prompt: "使用 $chenyu-listing，读取开发文档和竞品链接，为我指定的欧洲站点生成无品牌 Listing，描述采用概述、特征、参数、包装内容四段式。"
 policy:
   allow_implicit_invocation: true

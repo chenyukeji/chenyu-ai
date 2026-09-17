@@ -15,7 +15,7 @@ description: 晨玙运营总入口。接收产品开发 Excel、产品素材和�
 
 | 目标 | 读取并执行 |
 | --- | --- |
-| 标题、五点、描述、搜索词、变体文案 | [chenyu-listing](../chenyu-listing/SKILL.md) |
+| 开发表/竞品链接生成欧洲五站标题、五点、四段式描述、搜索词、变体文案 | [chenyu-listing](../chenyu-listing/SKILL.md)，默认不加品牌，只生成指定站点 |
 | 图片规划、作图单、交给美工的要求 | [chenyu-zuotuyaoqiu](../chenyu-zuotuyaoqiu/SKILL.md) |
 | 两者 | 先 Listing，后作图要求，复用同一份事实和素材对应 |
 | 实际制作或精修图片 | 如环境已安装美工插件，交接其总入口；否则交付作图单并说明需要美工能力 |
