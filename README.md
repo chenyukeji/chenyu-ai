@@ -4,6 +4,35 @@
 
 `chenyu-ai` 是晨玙科技面向 Amazon 跨境电商打造的 AI 自动化运营系统。
 
+## Amazon 美工插件
+
+仓库内的 `chenyu-amazon-creative` 是一个仅包含 Skills 的可安装插件：
+
+- `chenyu-zuotu`：根据作图要求、产品实拍和参考素材生成整套 Amazon 商品图片。
+- `chenyu-jingxiu`：根据完整原图、细节图和修改描述执行精准局部精修。
+
+插件源码位于 `plugins/chenyu-amazon-creative`，仓库市场清单位于 `.agents/plugins/marketplace.json`。
+
+### 在 ChatGPT 工作区安装
+
+1. 工作区管理员进入“管理 → 插件 → 添加 → 导入市场”。
+2. 来源填写 `https://github.com/chenyukeji/chenyu-ai`，路径留空，分支填写 `main`。
+3. 导入并同步后，在插件目录找到“晨玙 Amazon 美工”，点击加号安装。
+4. 安装后新建对话，直接描述作图或精修任务，也可以明确选择插件内的 Skill。
+
+### 在 Codex 本地安装
+
+在 Codex CLI 中添加 GitHub 仓库市场并安装插件：
+
+```powershell
+codex plugin marketplace add chenyukeji/chenyu-ai --ref main
+codex plugin add chenyu-amazon-creative@personal
+```
+
+本地开发时，也可以把第一条命令的仓库地址替换为本地 `chenyu-ai` 目录绝对路径。
+
+安装完成后开启新会话，使 Codex 加载插件中的 Skills。若要让所有 ChatGPT 用户直接从公共插件目录安装，还需要完成插件提交与审核流程。
+
 目标：
 
 > 用 AI Agent 模拟一个完整的亚马逊电商团队。

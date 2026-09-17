@@ -1,13 +1,8 @@
 interface:
-  display_name: "chenyu-jingxiu"
+  display_name: "晨玙精准精修"
   short_description: "根据原图、细节图和修改描述精准局部精修，仅交付一张修好的完整图片"
   default_prompt: "使用 $chenyu-jingxiu，根据我提供的完整原图、细节图及对应修改描述完成所有局部修复，只返回一张最终完整图片。"
   icon_small: "./assets/icon.svg"
   icon_large: "./assets/icon.svg"
 policy:
-  products:
-  - "chatgpt"
-  - "codex"
-  - "api"
-  - "atlas"
   allow_implicit_invocation: true

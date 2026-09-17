@@ -1,13 +1,8 @@
 interface:
-  display_name: "亚马逊作图要求执行"
+  display_name: "晨玙 Amazon 作图"
   short_description: "读取作图要求、参考素材与产品实拍图，逐张生成商品图片并核对返修。"
   default_prompt: "使用 $chenyu-zuotu，根据我提供的作图要求、参考素材和产品实拍图，生成全部独立商品图片，逐条检查要求并修正错误。"
   icon_small: "./assets/icon.svg"
   icon_large: "./assets/icon.svg"
 policy:
-  products:
-  - "chatgpt"
-  - "codex"
-  - "api"
-  - "atlas"
   allow_implicit_invocation: true

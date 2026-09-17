@@ -1,0 +1,22 @@
+{
+  "name": "chenyu-amazon-creative",
+  "version": "0.1.0",
+  "description": "Amazon product image generation and precise retouching workflows for Chenyu.",
+  "author": {
+    "name": "chenyukeji",
+    "url": "https://github.com/chenyukeji"
+  },
+  "homepage": "https://github.com/chenyukeji/chenyu-ai",
+  "repository": "https://github.com/chenyukeji/chenyu-ai",
+  "keywords": ["amazon", "creative", "image-generation", "image-retouching"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "晨玙 Amazon 美工",
+    "shortDescription": "生成整套 Amazon 商品图并执行精准局部精修。",
+    "longDescription": "根据作图要求、产品实拍和参考素材生成完整 Amazon 商品图片，并对已有图片执行最小范围的精准局部精修。",
+    "developerName": "晨玙科技",
+    "category": "Productivity",
+    "capabilities": ["Image generation", "Image editing", "Spreadsheet brief extraction"],
+    "defaultPrompt": "根据我提供的作图要求、产品实拍和参考素材，生成并检查 Amazon 商品图片。"
+  }
+}
