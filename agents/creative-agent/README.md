@@ -2,451 +2,242 @@
 
 ## 定位
 
-Creative Agent 是晨玙科技 Amazon AI OS 中的视觉负责人，负责 Amazon 商品视觉资产的规划、生产、优化和管理。
+Creative Agent 是晨玙科技 Amazon AI OS 中第一个落地的 AI 员工。
 
-它不是简单的 AI 作图工具，而是一个完整的 AI 美工部门。
+第一阶段目标不是开发完整 AI 美工系统，而是先把美工能力封装成 GPT/Codex Skill，让美工可以直接使用。
 
-核心流程：
+未来再逐步扩展为低代码 AI 美工工作台。
+
+---
+
+# 第一阶段架构
 
 ```
-产品资料
-   ↓
-视觉策略
-   ↓
-图片生产
-   ↓
-图片精修
-   ↓
-质量审核
-   ↓
-Amazon视觉资产
+美工
+ |
+ | 上传产品资料、图片、需求
+ ↓
+Amazon Creative Designer Skill
+ ↓
+GPT图片能力
+ ↓
+输出Amazon商品图片
 ```
 
 ---
 
-# Agent 输入
+# 核心 Skill
 
-Creative Agent 接收来自其他 Agent 的业务信息：
+## Amazon Creative Designer Skill
 
-## 来自开发 Agent
+这是美工 AI 员工的统一入口。
 
-```
-Product Master
-产品定位
-用户画像
-核心卖点
-产品规格
-差异化方案
-```
+整合：
 
-## 来自运营 Agent
+- 商品图片策划
+- 商品图片生成
+- 商品图片精修
+- 图片质量检查
 
-```
-Listing内容
-关键词
-竞品图片
-转化问题
-Review痛点
-```
+美工不需要理解：
 
-## 人工输入
+- Agent
+- MCP
+- Workflow
+- Prompt
 
-```
-作图需求
-参考图片
-修改要求
-品牌规范
-```
+只需要描述任务。
 
 ---
 
-# Skill 架构
+# 使用方式
 
-## 1. Visual Strategy Skill（视觉策略 Skill）
-
-负责决定：
-
-- 做什么图片
-- 每张图片表达什么卖点
-- 图片顺序如何安排
-- 如何提高点击和转化
-
-它是 AI 美工主管，而不是图片生成工具。
-
-## Input
-
-```json
-{
-  "product": "产品信息",
-  "selling_points": ["卖点"],
-  "target_customer": "目标用户",
-  "competitor_images": [],
-  "listing": {},
-  "amazon_rules": {}
-}
-```
-
-## Output
-
-```json
-{
-  "image_plan": [
-    {
-      "number": 1,
-      "type": "main",
-      "goal": "提升点击"
-    },
-    {
-      "number": 2,
-      "type": "feature",
-      "goal": "展示核心卖点"
-    }
-  ],
-  "production_requirements": []
-}
-```
-
-## MCP依赖
-
-### Amazon MCP
-
-获取：
-
-- 竞品图片
-- Listing信息
-- 市场视觉趋势
-
-### File MCP
-
-读取：
-
-- 产品资料
-- Excel作图需求
-- 图片文件
-
----
-
-# 2. Image Production Skill（图片生产 Skill）
-
-对应：
-
-`chenyu-zuotu`
-
-负责根据视觉策略生成 Amazon 商品图片。
-
-## Input
-
-```
-图片Brief
-产品原图
-生成要求
-参考图片
-视觉风格
-```
-
-## Output
-
-```
-Amazon Images
-
-main.jpg
-feature_01.jpg
-feature_02.jpg
-scene.jpg
-```
-
-## MCP依赖
-
-### Image MCP
-
-负责连接：
-
-- AI图片生成模型
-- 图片编辑模型
-
-能力：
-
-```
-generate_image()
-edit_image()
-```
-
-### File MCP
-
-负责：
-
-- 读取产品图片
-- 保存生成结果
-
----
-
-# 3. Image Optimization Skill（图片精修 Skill）
-
-对应：
-
-`chenyu-jingxiu`
-
-负责已有图片的问题修复。
-
-原则：
-
-- 不重新设计产品
-- 保留真实性
-- 最小修改
-
-## Input
-
-```
-原始图片
-修改要求
-保留规则
-```
-
-## Output
-
-```
-product_fixed.jpg
-```
-
-## MCP依赖
-
-### Image MCP
-
-负责图片编辑和局部修复。
-
-### File MCP
-
-负责图片读取和文件保存。
-
----
-
-# MCP 与 Skill 分工
-
-## Skill
-
-负责：
-
-- 业务逻辑
-- 判断方案
-- 生成任务
-- 专业流程
-
-## MCP
-
-负责：
-
-- 连接外部系统
-- 获取数据
-- 调用工具
-- 返回结果
-
-架构：
-
-```
-Creative Agent
-       |
-     Skills
-       |
-      MCP
-       |
- ----------------
- Amazon
- 图片模型
- 文件系统
-```
-
----
-
-# 美工使用方式（低代码模式）
-
-普通美工不需要理解 Agent、Skill、MCP，只需要通过任务工作台完成操作。
-
-用户入口：
-
-```
-AI商品图片工作台
-```
-
----
-
-# 功能入口1：新品图片制作
-
-用户点击：
-
-```
-创建新品图片任务
-```
-
-填写：
-
-```
-产品名称
-销售市场
-产品类别
-核心卖点
-目标用户
-```
-
-上传：
-
-```
-产品图片
-产品资料
-竞品图片
-Listing文案
-```
-
-选择：
-
-```
-图片数量
-图片风格
-视觉方向
-```
-
-点击：
-
-```
-开始生成
-```
-
-后台自动执行：
-
-```
-Visual Strategy Skill
-        ↓
-Image Production Skill
-        ↓
-Image Optimization Skill
-```
-
-输出：
-
-```
-Amazon图片包
-
-主图
-卖点图
-场景图
-尺寸图
-```
-
----
-
-# 功能入口2：图片精修
-
-用户上传：
-
-```
-原图片
-```
-
-选择问题：
-
-```
-产品边缘问题
-背景问题
-AI生成痕迹
-阴影问题
-其他修改
-```
-
-填写：
-
-```
-修改要求
-```
-
-输出：
-
-```
-修复后的商品图片
-```
-
----
-
-# 功能入口3：竞品视觉分析
+## 新品图片制作
 
 输入：
 
 ```
-竞品ASIN
-竞品图片
 产品资料
+产品图片
+竞品参考
+Listing信息
+卖点要求
+图片数量
+视觉风格
+```
+
+例如：
+
+```
+制作美国站Amazon 7张商品图
+产品：宠物饮水机
+卖点：静音、过滤、大容量
+风格：高端科技
+```
+
+处理流程：
+
+```
+产品理解
+ ↓
+视觉方案规划
+ ↓
+图片生成
+ ↓
+图片优化
 ```
 
 输出：
 
 ```
-竞品视觉分析
-
-推荐图片结构
-7张图规划
-生成建议
+main.jpg
+feature_01.jpg
+feature_02.jpg
+scene.jpg
+size.jpg
 ```
 
 ---
 
-# 产品化架构
+## 图片精修
 
-前端使用者看到：
-
-```
-AI美工工作台
-
-[新品图片制作]
-
-[图片精修]
-
-[竞品分析]
-```
-
-后台：
+输入：
 
 ```
-Web UI
-  ↓
+原始图片
+修改要求
+```
+
+例如：
+
+```
+去除产品边缘白线
+保持产品结构不变
+```
+
+输出：
+
+```
+修复后的图片
+```
+
+原则：
+
+- 保留真实性
+- 不改变产品结构
+- 最小修改
+
+---
+
+# Skill 输入输出规范
+
+## Input
+
+统一接收：
+
+```json
+{
+ "product_info": {},
+ "images": [],
+ "selling_points": [],
+ "competitor_reference": [],
+ "task": "create_or_edit"
+}
+```
+
+---
+
+## Output
+
+统一输出：
+
+```json
+{
+ "image_plan": [],
+ "generated_images": [],
+ "optimization_result": {},
+ "status": "completed"
+}
+```
+
+---
+
+# MCP规划
+
+第一阶段：不开发独立MCP。
+
+直接使用 GPT 内置能力。
+
+后续根据实际需求增加：
+
+## Image MCP
+
+负责：
+
+- 图片生成
+- 图片编辑
+- 图片处理
+
+## File MCP
+
+负责：
+
+- 读取产品文件
+- 保存图片素材
+- 管理文件
+
+## Amazon MCP（后续）
+
+负责：
+
+- 获取竞品图片
+- 获取Listing数据
+- 获取市场信息
+
+---
+
+# 后续产品化路线
+
+## 阶段1：Skill
+
+```
+GPT/Codex
+ ↓
+Amazon Creative Designer Skill
+ ↓
+美工使用
+```
+
+
+## 阶段2：Workflow
+
+```
+任务表单
+ ↓
+自动调用Skill
+ ↓
+生成图片
+```
+
+
+## 阶段3：AI美工工作台
+
+```
+Web系统
+ ↓
 Creative Agent
-  ↓
-Workflow
-  ↓
-Skills
-  ↓
+ ↓
+Skill
+ ↓
 MCP
-  ↓
-图片模型 / 文件系统 / Amazon数据
+ ↓
+图片模型
 ```
 
 ---
 
-# 第一阶段最小实现
+# 目标
 
-```
-1 Creative Agent
+先让晨玙科技美工每天真实使用 AI，提高图片生产效率。
 
-3 Skills
-
-2 MCP
-```
-
-Skills:
-
-```
-Visual Strategy
-Image Production
-Image Optimization
-```
-
-MCP:
-
-```
-Image MCP
-File MCP
-```
-
-先完成商品图片生产闭环，再扩展：
-
-- Creative QA
-- 视频生产
-- 素材管理
-- AI设计工作台
+在使用过程中沉淀流程、数据和最佳实践，再逐步系统化。
