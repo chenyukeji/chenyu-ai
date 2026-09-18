@@ -1,20 +1,20 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-kaifa",
-  "version": "0.1.0",
-  "description": "Amazon market opportunity, product design, and development decision workflows for Chenyu.",
+  "version": "0.2.1",
+  "description": "Executable Amazon product discovery, market validation, sourcing match, profitability and trial-review workflows for Chenyu.",
   "author": {"name": "chenyukeji", "url": "https://github.com/chenyukeji"},
   "homepage": "https://github.com/chenyukeji/chenyu-ai",
   "repository": "https://github.com/chenyukeji/chenyu-ai",
-  "keywords": ["amazon", "product-development", "market-research", "profitability"],
+  "keywords": ["amazon", "product-development", "market-research", "profitability", "sourcing"],
   "skills": "./skills/",
   "interface": {
     "displayName": "晨玙 Amazon 开发",
-    "shortDescription": "分析市场机会，设计产品方案并支持开发决策。",
-    "longDescription": "根据关键词、竞品、销量、Review、成本和物流资料，输出市场机会、差异化产品方案、利润模型与开发风险判断。",
+    "shortDescription": "从找品、需求验证到现货利润评审和试销交接。",
+    "longDescription": "以统一候选池连接多策略找品、欧洲站市场验证、真实供应商现货匹配、可复算利润、开发评审、标准开发 Excel 与试销卡。销售站点覆盖 DE/FR/IT/ES，新品发现参考 US/DE；不自动采购、付款、上架或投放广告。",
     "developerName": "晨玙科技",
     "category": "Productivity",
-    "capabilities": ["Market opportunity analysis", "Product planning", "Profitability assessment"],
-    "defaultPrompt": "根据我提供的市场、竞品和成本资料，评估产品机会并形成产品开发决策建议。"
+    "capabilities": ["Task planning", "Market opportunity research", "Candidate deduplication", "Sourcing match", "Profitability assessment", "Development review", "Workbook delivery"],
+    "defaultPrompt": "建立 Amazon 产品开发任务，从统一候选池、市场验证和真实报价开始，完成利润评审与开发交付。"
   }
 }

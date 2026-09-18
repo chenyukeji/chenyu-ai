@@ -1,0 +1,8 @@
+interface:
+  display_name: "晨玙 Amazon 开发评审"
+  short_description: "匹配真实现货报价，复算利润并输出开发评审、Excel 和试销卡。"
+  default_prompt: "使用 $chenyu-kaifa-pingshen，根据机会卡和真实报价完成现货匹配、利润测算与开发评审。"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+policy:
+  allow_implicit_invocation: true

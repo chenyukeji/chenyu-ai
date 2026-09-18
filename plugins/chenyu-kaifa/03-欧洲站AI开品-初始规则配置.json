@@ -1,0 +1,1013 @@
+{
+  "schema_version": "1.4.0-design",
+  "plugin_name": "chenyu-kaifa",
+  "status": "design_example_not_executable_plugin",
+  "verified_at": "2026-09-18",
+  "notes": [
+    "精铺销售站点为德国、法国、意大利、西班牙；新品发现使用美国站与德国站。",
+    "目标含税售价5到20欧；每销售单位采购加包装不超过人民币20元，组合按整套。",
+    "至少1个中国卖家在卖同类即通过该项准入，不设多卖家数量门槛。",
+    "产品方案采用现货单品、多件装和现货组合；通过现货拿样确认规格与质量。",
+    "网页采集；本配置为设计草案，不会自动采集、安装、采购或创建定时任务。",
+    "除已确认业务约束外，其余评分、阈值与采样数为待校准建议。",
+    "统一工作台保留A/B/C/D/E/F/H/I，新增J近60天FBM；H落实历史旺季提前备货。任务按策略组合执行，共享验证与去重。"
+  ],
+  "research": {
+    "marketplaces": [
+      "DE",
+      "FR",
+      "IT",
+      "ES"
+    ],
+    "category_mode": "broad_discovery_with_capability_gates",
+    "decision_unit": [
+      "marketplace",
+      "need_cluster",
+      "product_concept",
+      "price_spec_band",
+      "fulfillment_path"
+    ],
+    "currency_by_market": {
+      "US": "USD",
+      "DE": "EUR",
+      "FR": "EUR",
+      "IT": "EUR",
+      "ES": "EUR"
+    },
+    "locale_by_market": {
+      "US": "en-US",
+      "DE": "de-DE",
+      "FR": "fr-FR",
+      "IT": "it-IT",
+      "ES": "es-ES"
+    },
+    "cn_evidence": {
+      "seller_location_codes": [
+        "CN"
+      ],
+      "merge_hk_with_cn": false,
+      "unknown_location_policy": "retain_unknown",
+      "minimum_comparable_sellers_for_positive_signal": 1,
+      "same_entity_relationship_policy": "merge_only_with_evidence",
+      "buybox_seller_sales_attribution": "associated_product_demand_proxy_only",
+      "pass_is_binary_not_count_weighted": true,
+      "require_cn_seller_in_each_sales_marketplace": false,
+      "accepted_evidence_markets": [
+        "US",
+        "DE",
+        "FR",
+        "IT",
+        "ES"
+      ]
+    },
+    "new_entry": {
+      "claimed_age_days_min": 0,
+      "claimed_age_days_max": 365,
+      "first_seen_is_launch_date": false,
+      "inherited_parent_reviews_policy": "separate_cohort",
+      "allow_success_rate_without_full_cohort": false,
+      "age_cohorts_days": [
+        [
+          0,
+          14
+        ],
+        [
+          15,
+          60
+        ],
+        [
+          61,
+          180
+        ],
+        [
+          181,
+          365
+        ]
+      ],
+      "short_history_policy": "retain_and_observe_not_age_reject"
+    },
+    "exploration_budget_shares": {
+      "evidenced_markets": 0.7,
+      "adjacent_needs": 0.2,
+      "uncovered_areas": 0.1
+    },
+    "business_mode": "selective_stock_catalog",
+    "sales_scope_policy": "allowlist_from_marketplaces",
+    "new_release_discovery_marketplaces": [
+      "US",
+      "DE"
+    ],
+    "stock_discovery_marketplaces": [
+      "DE",
+      "FR",
+      "IT",
+      "ES"
+    ],
+    "output_modes": [
+      "single",
+      "multipack",
+      "complementary_bundle"
+    ],
+    "shared_validation": [
+      "one_cn_seller_evidence",
+      "local_demand",
+      "comparable_competition",
+      "fulfillment_and_delivery",
+      "reviews_and_stock_fit",
+      "seasonal_and_lead_time",
+      "economics",
+      "sample_and_trial"
+    ],
+    "discovery_presets": {
+      "recent_60d_fbm": {
+        "status": "proposed_trial_not_calibrated",
+        "priority": 1,
+        "age_days": {
+          "min": 0,
+          "max": 60,
+          "inclusive": true,
+          "basis": "source_available_date_market_local_date",
+          "missing": "pending_verification"
+        },
+        "source_fulfillment_filter": [
+          "FBM"
+        ],
+        "reference_price_eur": {
+          "min": 5,
+          "max": 20,
+          "shipping_verified_after_discovery": true
+        },
+        "sales": {
+          "period": "trailing_30_days",
+          "preferred_estimated_min": 30,
+          "observe_range": [
+            10,
+            29
+          ],
+          "parent_metric_use": "discovery_proxy_only",
+          "attribute_to_current_fbm_seller": false,
+          "period_fallback": "explicitly_revise_preset"
+        },
+        "reviews": {
+          "preferred_max": 100,
+          "role": "ranking_only",
+          "check_shared_parent_reviews": true
+        },
+        "seller_location_first_pass": "CN",
+        "allow_comparable_cn_evidence_enrichment": true,
+        "age_0_to_14_policy": "retain_observe_do_not_extrapolate_monthly",
+        "global_gate": false
+      },
+      "standard_stock": {
+        "status": "proposed_complementary_preset",
+        "priority": 2,
+        "age_limit": null,
+        "fulfillment_limit": null,
+        "entry_gate_reference": "research.cn_evidence"
+      },
+      "seasonal_historical_surge": {
+        "status": "proposed_trial_not_calibrated",
+        "marketplaces": [
+          "DE",
+          "FR",
+          "IT",
+          "ES"
+        ],
+        "source_months": "target_season_months_in_prior_year",
+        "optional_prior_years": 2,
+        "candidate_union": [
+          "monthly_sales_growth",
+          "high_peak_month_sales"
+        ],
+        "preferred_monthly_units_min": 100,
+        "preferred_growth_percent_min": 50,
+        "preferred_absolute_increment_min": 50,
+        "threshold_role": "sampling_and_priority_not_global_gate",
+        "age_limit": null,
+        "fulfillment_limit": null,
+        "review_limit": null,
+        "current_offseason_sales_min": null,
+        "historical_reference_price_eur": {
+          "min": 5,
+          "max": 20,
+          "missing": "retain_unknown"
+        },
+        "historical_price_is_current_price": false
+      }
+    },
+    "strategy_registry": {
+      "A": {
+        "name": "同类中国卖家现货",
+        "enabled": true,
+        "phase": "MVP",
+        "role": "candidate_discovery",
+        "preset_id": "standard_stock",
+        "seed_requirements": [],
+        "individually_selectable": true
+      },
+      "B": {
+        "name": "近期商品需求",
+        "enabled": true,
+        "phase": "MVP",
+        "role": "candidate_discovery",
+        "preset_id": null,
+        "seed_requirements": [],
+        "individually_selectable": true
+      },
+      "C": {
+        "name": "关键词需求",
+        "enabled": true,
+        "phase": "MVP",
+        "role": "candidate_discovery_and_validation",
+        "preset_id": null,
+        "seed_requirements": [
+          "local_keyword_or_category"
+        ],
+        "individually_selectable": true
+      },
+      "D": {
+        "name": "评论需求",
+        "enabled": true,
+        "phase": "MVP",
+        "role": "candidate_discovery_and_validation",
+        "preset_id": null,
+        "seed_requirements": [
+          "category_or_reference_product"
+        ],
+        "individually_selectable": true
+      },
+      "E": {
+        "name": "美德新品榜",
+        "enabled": true,
+        "phase": "MVP",
+        "role": "candidate_discovery",
+        "preset_id": null,
+        "seed_requirements": [],
+        "individually_selectable": true
+      },
+      "F": {
+        "name": "两个现货产品组合",
+        "enabled": true,
+        "phase": "MVP",
+        "role": "concept_generation",
+        "preset_id": null,
+        "seed_requirements": [
+          "component_pool_or_user_seed"
+        ],
+        "individually_selectable": true
+      },
+      "H": {
+        "name": "历史旺季提前备货",
+        "enabled": true,
+        "phase": "MVP",
+        "role": "candidate_discovery",
+        "preset_id": "seasonal_historical_surge",
+        "seed_requirements": [
+          "target_season"
+        ],
+        "individually_selectable": true
+      },
+      "I": {
+        "name": "卖家相邻产品线",
+        "enabled": true,
+        "phase": "MVP",
+        "role": "candidate_discovery",
+        "preset_id": null,
+        "seed_requirements": [
+          "seller_or_reference_product"
+        ],
+        "individually_selectable": true
+      },
+      "J": {
+        "name": "近60天FBM机会",
+        "enabled": true,
+        "phase": "MVP",
+        "role": "candidate_discovery",
+        "preset_id": "recent_60d_fbm",
+        "seed_requirements": [],
+        "individually_selectable": true
+      }
+    },
+    "workbench": {
+      "layout": "one_candidate_list_with_strategy_filters",
+      "task_profiles": {
+        "general": {
+          "primary": [
+            "A",
+            "B",
+            "E",
+            "J"
+          ],
+          "validation": [
+            "C",
+            "D"
+          ],
+          "seed_dependent_extensions": [
+            "I",
+            "F"
+          ]
+        },
+        "seasonal": {
+          "primary": [
+            "H"
+          ],
+          "validation": [
+            "C",
+            "A"
+          ],
+          "candidate_dependent_extensions": [
+            "D",
+            "F",
+            "J"
+          ]
+        },
+        "seller_expansion": {
+          "primary": [
+            "I",
+            "A"
+          ],
+          "validation": [
+            "C",
+            "D"
+          ],
+          "candidate_dependent_extensions": [
+            "F"
+          ]
+        },
+        "bundle": {
+          "primary": [
+            "F",
+            "D"
+          ],
+          "validation": [
+            "A",
+            "B",
+            "C"
+          ]
+        }
+      },
+      "missing_seed": "reuse_or_budgeted_seed_discovery_or_request",
+      "budget_scope": "whole_plan",
+      "multi_strategy_hits": "deduplicate_entities_and_evidence_preserve_reasons",
+      "cross_strategy_filter_inheritance": false
+    }
+  },
+  "business_constraints": {
+    "available_launch_budget": null,
+    "budget_currency": "CNY",
+    "target_price_by_market": {
+      "DE": {
+        "currency": "EUR",
+        "min": 5,
+        "max": 20,
+        "tax_basis": "vat_inclusive",
+        "scope": "sales_unit"
+      },
+      "FR": {
+        "currency": "EUR",
+        "min": 5,
+        "max": 20,
+        "tax_basis": "vat_inclusive",
+        "scope": "sales_unit"
+      },
+      "IT": {
+        "currency": "EUR",
+        "min": 5,
+        "max": 20,
+        "tax_basis": "vat_inclusive",
+        "scope": "sales_unit"
+      },
+      "ES": {
+        "currency": "EUR",
+        "min": 5,
+        "max": 20,
+        "tax_basis": "vat_inclusive",
+        "scope": "sales_unit"
+      }
+    },
+    "maximum_moq": null,
+    "maximum_cash_cycle_days": null,
+    "target_contribution_margin_net_revenue": null,
+    "supplier_capabilities": [],
+    "confirmed_category_permissions": [],
+    "confirmed_compliance_capabilities": [],
+    "unknown_policy": "research_and_cost_ceiling_only",
+    "procurement_packaging_cap": {
+      "currency": "CNY",
+      "max": 20,
+      "scope": "sales_unit_including_complete_bundle",
+      "includes": [
+        "all_component_procurement",
+        "final_packaging_materials",
+        "labels",
+        "kitting_packaging_labor"
+      ],
+      "excludes": [
+        "inbound_freight",
+        "customs_duty",
+        "fba",
+        "advertising"
+      ],
+      "overlapping_quote_lines": "deduplicate_inclusions"
+    },
+    "customization_allowed": false,
+    "sample_mode": "ready_stock_inspection",
+    "allowed_concept_types": [
+      "stock_single",
+      "stock_multipack",
+      "stock_complementary_bundle"
+    ]
+  },
+  "sources": {
+    "sellersprite_web": {
+      "enabled": true,
+      "priority": 1,
+      "session_mode": "dedicated_user_authenticated_browser",
+      "capabilities_required": true,
+      "extraction_order": [
+        "validated_page_responses",
+        "semantic_dom",
+        "permitted_download",
+        "auxiliary_ocr"
+      ],
+      "internal_endpoint_policy": "only_observed_authorized_page_traffic",
+      "selectors": null,
+      "response_matchers": null,
+      "page_limit_from_probe": null,
+      "account_quota_from_probe": null,
+      "public_filter_capabilities": {
+        "source_url": "https://www.sellersprite.com/v3/",
+        "checked_at": "2026-09-18",
+        "status": "public_controls_verified_account_behavior_unverified",
+        "visible_controls": [
+          "date_available_within_60_days",
+          "fulfillment_AMZ_FBA_FBM",
+          "price",
+          "monthly_sales",
+          "rating_count",
+          "seller_location",
+          "historical_month_selection",
+          "monthly_sales_mom_growth",
+          "growth_sort"
+        ],
+        "on_applied_filter_mismatch": "filter_mismatch",
+        "response_field_map": null,
+        "historical_examples_publicly_visible": [
+          "2025-11",
+          "2025-12",
+          "2024-11",
+          "2024-12"
+        ]
+      }
+    },
+    "amazon_web": {
+      "enabled": true,
+      "priority": 1,
+      "allowed_market_hosts": [
+        "www.amazon.com",
+        "www.amazon.de",
+        "www.amazon.fr",
+        "www.amazon.it",
+        "www.amazon.es"
+      ],
+      "location_policy": "explicit_research_location_recorded_per_market",
+      "location_profile": null,
+      "separate_sponsored_and_organic": true,
+      "verify_selected_variant": true,
+      "purchase_badges_are_exact_sales": false,
+      "new_releases": {
+        "enabled": true,
+        "markets": [
+          "US",
+          "DE"
+        ],
+        "board_type": "new_releases",
+        "entry_urls": [
+          "https://www.amazon.com/gp/new-releases/",
+          "https://www.amazon.de/gp/new-releases/"
+        ],
+        "entry_access_status": "unverified_in_user_session",
+        "scope": "visible_relevant_leaf_categories",
+        "same_rank_across_markets_is_comparable": false,
+        "rank_is_exact_sales": false,
+        "preorder_policy": "separate_from_in_stock",
+        "absent_when_crawl_failed": false,
+        "require_both_boards": false
+      }
+    },
+    "file_import": {
+      "enabled": true,
+      "role": "recovery_and_optional_input",
+      "preserve_file_provenance": true
+    },
+    "sellersprite_official_api": {
+      "enabled": false,
+      "role": "optional_future_adapter"
+    },
+    "amazon_sp_api": {
+      "enabled": false,
+      "role": "optional_authorized_enrichment"
+    }
+  },
+  "crawler": {
+    "max_active_navigation_jobs_per_account": 1,
+    "initial_navigation_gap_seconds_min": 3,
+    "initial_navigation_gap_seconds_max": 8,
+    "gap_is_provider_approved_rate": false,
+    "page_timeout_seconds": 45,
+    "transient_retry_limit": 2,
+    "consecutive_errors_before_circuit_break": 3,
+    "session_expired_policy": "waiting_login",
+    "captcha_policy": "waiting_user",
+    "access_denied_policy": "stop_source_module",
+    "rate_limit_policy": "respect_retry_after_and_backoff",
+    "selector_drift_policy": "isolate_and_stop_page_kind",
+    "checkpoint": "after_each_committed_page",
+    "same_page_fingerprint_policy": "detect_stale_page_and_stop",
+    "capture_credentials_in_logs": false
+  },
+  "initial_run_budget": {
+    "max_navigation_events": 300,
+    "max_product_detail_entities": 120,
+    "max_review_pages": 80,
+    "max_wall_clock_minutes": 120,
+    "model_cost_limit": null,
+    "model_cost_currency": "CNY",
+    "paid_model_calls_when_limit_unknown": "disabled_until_configured",
+    "on_exhausted": "pause_and_export_partial"
+  },
+  "data_quality": {
+    "missing_is_zero": false,
+    "preserve_raw_values": true,
+    "record_fact_class": true,
+    "record_scope_and_period": true,
+    "retain_source_observations_on_conflict": true,
+    "parent_child_sales_policy": "deduplicate_by_valid_relationship_and_period",
+    "mix_parent_and_child_sales": false,
+    "sum_synonym_keyword_volumes": false,
+    "global_review_deduplication": true,
+    "unsupported_source_capability": "not_supported",
+    "sample_size_is_whole_market": false,
+    "unknown_sampling_coverage": null
+  },
+  "scoring": {
+    "version": "selective-stock-v1.2-unvalidated",
+    "block_weights": {
+      "D_demand": 30,
+      "E_entry": 15,
+      "R_stock_fit": 15,
+      "U_economics": 30,
+      "F_execution": 10
+    },
+    "submetric_weights": {
+      "D_demand": {
+        "current_demand": 45,
+        "local_intent": 35,
+        "trend_evidence": 20
+      },
+      "E_entry": {
+        "price_pressure": 35,
+        "head_control": 30,
+        "recent_entrants": 35
+      },
+      "R_stock_fit": {
+        "use_case_fit": 40,
+        "spec_compatibility": 30,
+        "buyer_value": 30
+      },
+      "U_economics": {
+        "absolute_contribution": 40,
+        "stress_contribution": 30,
+        "acquisition_headroom": 20,
+        "cost_headroom": 10
+      },
+      "F_execution": {
+        "stock_replenishment": 35,
+        "moq_and_cash": 35,
+        "inspection_kitting_complexity": 30
+      }
+    },
+    "quality_weights": {
+      "critical_coverage": 40,
+      "freshness": 25,
+      "identity_and_semantics": 20,
+      "verifiability": 15
+    },
+    "normalization_scope": [
+      "marketplace",
+      "need_or_category_peer_group",
+      "price_band",
+      "reference_snapshot_version"
+    ],
+    "missing_metric_policy": "score_interval_no_weight_redistribution",
+    "score_is_success_probability": false,
+    "auto_purchase": false,
+    "cn_seller_count_scored": false,
+    "single_requires_innovation_or_bundle": false,
+    "price_bands_eur": [
+      {
+        "min": 5,
+        "max_exclusive": 10
+      },
+      {
+        "min": 10,
+        "max_exclusive": 15
+      },
+      {
+        "min": 15,
+        "max_inclusive": 20
+      }
+    ],
+    "stage_policy": {
+      "discovery": "identity_demand_evidence_and_separate_cn_gate",
+      "sourcing": "stock_spec_quote_task_price_scenario",
+      "trial_review": "valid_quote_package_applicability_cash_and_loss_budget",
+      "global_score_gate": false,
+      "missing_quote_or_history": "retain_with_next_evidence_task",
+      "quality_use": "within_stage_priority_and_missing_evidence_explanation"
+    }
+  },
+  "economics": {
+    "calculation_type": "decimal",
+    "round_at": "output_or_provider_fee_rounding_rule",
+    "margin_denominator": "net_revenue_excluding_sales_vat",
+    "vat_rate_by_product_and_jurisdiction": null,
+    "fee_rules_reference": null,
+    "fx_rate_reference": null,
+    "fulfillment_path": null,
+    "import_country": null,
+    "storage_countries": [],
+    "unknown_purchase_cost_policy": "compute_procurement_packaging_ceiling_capped_at_20_cny",
+    "recoverable_tax_policy": "separate_profit_from_cash_flow",
+    "advertising_cost_formula": "advertising_order_share * cpc / advertising_cvr",
+    "return_cost_policy": "net_incremental_loss_no_double_count",
+    "scenarios": [
+      "conservative",
+      "base",
+      "optimistic"
+    ],
+    "stress_multipliers": {
+      "selling_price": 0.9,
+      "cpc": 1.25,
+      "advertising_cvr": 0.75,
+      "procurement_cost": 1.1,
+      "inbound_cost": 1.1,
+      "return_loss_reserve": 2.0
+    },
+    "stress_is_probability_forecast": false,
+    "require_quote_and_packaging_confirmation_before_purchase": true,
+    "cost_ceiling_formula": "min(20, (net_revenue - non_procurement_packaging_costs - target_contribution) * cny_per_eur)",
+    "low_price_fba_eligibility": "verify_market_category_package_price_and_effective_date",
+    "proposed_contribution_profile": {
+      "id": "simulation-floor-v1",
+      "status": "proposed_not_user_confirmed",
+      "applies_to": "scenario_comparison",
+      "absolute_floor_eur": [
+        {
+          "min_price": 5,
+          "max_price_exclusive": 10,
+          "floor": 1
+        },
+        {
+          "min_price": 10,
+          "max_price_exclusive": 15,
+          "floor": 1.5
+        },
+        {
+          "min_price": 15,
+          "max_price_inclusive": 20,
+          "floor": 2
+        }
+      ],
+      "net_revenue_margin_floor": 0.15,
+      "combine": "max_absolute_and_margin",
+      "stress_result": "report_separately",
+      "trial_use": "explicit_profile_selection_recorded"
+    },
+    "preparation_costs": {
+      "items": [
+        "samples",
+        "listing_assets",
+        "initial_research"
+      ],
+      "shared_allocation": "sum_to_one",
+      "break_even_units": "ceil(preparation_cost / positive_after_ad_unit_contribution)",
+      "overlap_with_order_costs": "deduplicate"
+    }
+  },
+  "gates": {
+    "states": [
+      "pass",
+      "fail",
+      "unknown",
+      "not_applicable"
+    ],
+    "items": [
+      "one_similar_cn_seller",
+      "ready_stock_available",
+      "procurement_packaging_cap",
+      "target_price_range",
+      "seller_category_permission",
+      "product_safety_path",
+      "bundle_policy_if_applicable",
+      "ip_issue_resolution",
+      "supplier_feasibility",
+      "moq_budget_fit",
+      "packaging_logistics",
+      "economic_floor"
+    ],
+    "unknown_discovery_policy": "retain_for_validation",
+    "unknown_purchase_policy": "block_purchase_recommendation",
+    "failed_gate_policy": "reject_or_redesign_with_recorded_reason"
+  },
+  "refresh_policy_days": {
+    "price_offer_availability": 1,
+    "sales_keyword_summary": 7,
+    "listing_structure_images": 30,
+    "new_releases_watchlist": 1
+  },
+  "refresh_notes": [
+    "源刷新时间优先于采集频率。",
+    "费用和合规在关键决策前重新核查。",
+    "月度历史按来源更新事件刷新。",
+    "新品榜日快照仅为未来产品默认观察建议，本次未创建自动化。"
+  ],
+  "security": {
+    "credential_store": "local_os_protected",
+    "include_credentials_in_plugin_or_artifacts": false,
+    "review_author_identity_in_analysis": false,
+    "page_content_can_issue_instructions": false,
+    "tool_urls_must_match_allowlist": true,
+    "evidence_retention_days": null,
+    "retention_policy": "configure_per_source_rights_and_business_need"
+  },
+  "handoff": {
+    "target_plugin": "chenyu-yunying",
+    "inspected_version": "0.8.3",
+    "artifacts": [
+      "opportunities.json",
+      "development-brief.json",
+      "competitor-research.json",
+      "development-workbook.xlsx",
+      "bundle-bom.json",
+      "new-release-evidence.json",
+      "sourcing-match.json",
+      "trial-plan.json"
+    ],
+    "reuse_existing_competitor_research": true,
+    "competitor_facts_become_own_facts": false,
+    "unconfirmed_product_claims": "retain_as_unknown_or_hypothesis"
+  },
+  "bundles": {
+    "enabled": true,
+    "default_distinct_components": 2,
+    "max_candidate_partners_per_anchor_initial": 5,
+    "require_each_component_demand_evidence": true,
+    "component_demand_threshold": "peer_group_or_operator_defined",
+    "minimum_component_units": null,
+    "require_shared_use_case": true,
+    "require_compatibility": true,
+    "bundle_demand_source": "separate_evidence_or_scenario",
+    "sum_component_sales": false,
+    "candidate_pair_identity": "sorted_component_ids_and_quantities_with_concept_version",
+    "compare_with": [
+      "single_A",
+      "single_B",
+      "bundle_AB"
+    ],
+    "calculate_shipping_on": "measured_final_package",
+    "check_target_market_bundle_policy": true,
+    "inventory_mode": "shared_component_reservations",
+    "procurement_packaging_cap_reference": "business_constraints.procurement_packaging_cap",
+    "shared_purchase_evidence_grades": {
+      "A": "verified_comparable_bundle_demand_in_target_market",
+      "B": "explicit_customer_need_for_joint_use_and_compatibility",
+      "C": "individual_demand_plus_joint_use_hypothesis"
+    },
+    "recovery_value_policy": "requires_location_cost_and_process_evidence"
+  },
+  "sourcing": {
+    "initial_quote_input_modes": [
+      "structured_entry",
+      "file_import",
+      "user_provided_supplier_material"
+    ],
+    "quote_required_fields": [
+      "supplier_item_ref",
+      "variant_ref",
+      "planned_quantity",
+      "quantity_tier",
+      "unit_price",
+      "currency",
+      "quoted_at",
+      "valid_until_or_reconfirmation",
+      "packaging_inclusions"
+    ],
+    "match_fields": [
+      "core_use",
+      "dimensions",
+      "material_claim",
+      "pack_count",
+      "included_components"
+    ],
+    "image_similarity_role": "retrieval_hint",
+    "price_basis": "matching_variant_and_planned_quantity_tier",
+    "expired_quote": "historical_only_until_reconfirmed",
+    "additional_cost_lines": [
+      "domestic_transport",
+      "inspection"
+    ],
+    "included_line_items": "record_and_deduplicate"
+  },
+  "trial_workflow": {
+    "plan_required_fields": [
+      "concept_revision",
+      "marketplace",
+      "inventory_pool_id",
+      "price",
+      "cash_requirement",
+      "ad_budget",
+      "loss_budget",
+      "observation_requirements",
+      "attribution_window",
+      "review_date",
+      "exit_plan"
+    ],
+    "unknown_cash_or_loss_budget": "requirements_only_quantity_unresolved",
+    "measurement_start": "in_stock_and_sellable",
+    "insufficient_traffic": "traffic_diagnosis",
+    "immature_attribution_or_returns": "mark_pending_and_review",
+    "execution_mode": "recommendations_and_records",
+    "initial_actual_data_inputs": [
+      "user_imports",
+      "manual_records"
+    ],
+    "inventory_across_markets": "shared_pool_with_reservations"
+  },
+  "portfolio": {
+    "unit": "trial_batch",
+    "group_by": [
+      "need_cluster",
+      "supplier",
+      "shared_component"
+    ],
+    "cash_limit_cny": null,
+    "loss_limit_cny": null,
+    "max_trials_per_need_cluster": null,
+    "shared_cost_and_inventory": "count_once_and_allocate"
+  },
+  "mvp_acceptance": {
+    "scope": "bounded_categories_and_sample_budget",
+    "cases": [
+      "stock_single",
+      "two_component_bundle",
+      "evidence_based_rejection"
+    ],
+    "completion": "traceable_inputs_valid_quote_economics_and_trial_next_step"
+  },
+  "fulfillment_gap": {
+    "status": "research_design_not_live_verified",
+    "sample": {
+      "local_keywords": 3,
+      "relevant_groups_per_keyword": 20,
+      "deduplicate_across_queries": true,
+      "age_filter": null,
+      "fulfillment_filter": null,
+      "only_deep_research_candidates": true,
+      "budget_reference": "initial_run_budget"
+    },
+    "scopes": [
+      "current_offer",
+      "same_asin_visible_offers",
+      "same_need_comparable_products"
+    ],
+    "fba_presence_states": [
+      "observed",
+      "not_observed_in_sample",
+      "unknown"
+    ],
+    "not_observed_requirements": [
+      "at_least_one_valid_relevant_group",
+      "planned_sample_completed",
+      "relevance_validated",
+      "observed_offer_fulfillment_known",
+      "visible_offer_coverage_disclosed"
+    ],
+    "delivery_advantage_states": [
+      "potential",
+      "limited",
+      "unknown"
+    ],
+    "include_amazon_retail_and_fast_fbm_competition": true,
+    "prime_implies_fba": false,
+    "no_fba_implies_opportunity": false,
+    "listing_sales_are_current_fbm_seller_sales": false,
+    "unknown_offer_fulfillment_as_zero": false,
+    "claim_marketwide_absence": false,
+    "compare_price_basis": "item_plus_mandatory_shipping_with_coupon_conditions_separate",
+    "required_context": [
+      "market",
+      "keywords",
+      "location_profile",
+      "observed_at",
+      "coverage",
+      "snapshot_ids"
+    ],
+    "recheck_events": [
+      "before_purchase_decision",
+      "before_outbound_shipment"
+    ],
+    "lead_time_components": [
+      "sample",
+      "procurement",
+      "transport",
+      "warehouse_receiving"
+    ],
+    "competitor_inbound_inventory": "unknown_unless_evidenced"
+  },
+  "seasonal_research": {
+    "as_of_date": "task_context",
+    "target_season": "from_user_or_explained_plan",
+    "example_only": {
+      "as_of_date": "2026-09-18",
+      "target_months": [
+        "2026-11",
+        "2026-12"
+      ],
+      "primary_history": [
+        "2025-11",
+        "2025-12"
+      ],
+      "optional_comparison": [
+        "2024-11",
+        "2024-12"
+      ]
+    },
+    "history_probe": {
+      "verify_applied_month": true,
+      "verify_sort_metric": true,
+      "unavailable": "history_unavailable",
+      "mismatch": "period_mismatch"
+    },
+    "history_depth": "full_prior_year_then_available_earlier_seasons_and_current_history",
+    "baseline_months_example": [
+      8,
+      9,
+      10
+    ],
+    "baseline_validation": "exclude_already_seasonal_or_distorted_months_with_evidence",
+    "comparison_period": "same_complete_month_or_verified_same_cutoff",
+    "growth_zero_denominator": "undefined_keep_absolute_increment",
+    "low_base_growth": "flag_not_strong_signal_alone",
+    "season_types": [
+      "holiday",
+      "weather_season",
+      "promotion_event",
+      "mixed",
+      "unknown"
+    ],
+    "recurrence_states": [
+      "single_season_hypothesis",
+      "supported_recurrence",
+      "mixed_evidence",
+      "unknown"
+    ],
+    "single_historical_season": "retain_and_validate",
+    "current_offseason_low_sales": "not_automatic_rejection",
+    "historical_sales_are_own_forecast": false,
+    "date_precision": "preserve_source_granularity",
+    "yearly_share_requires_complete_year": true,
+    "historical_revisions": "preserve_observed_at_and_data_period",
+    "schedule": {
+      "target_sellable_date": null,
+      "lead_time_steps": null,
+      "buffer_days": null,
+      "method": "critical_path_default_serial",
+      "day_unit": "explicit_calendar_or_business_days_per_step",
+      "unknown_inputs": "schedule_unknown",
+      "statuses": [
+        "on_time",
+        "late",
+        "unknown"
+      ],
+      "replenishment_after_window": "do_not_recommend",
+      "movable_events": "verify_target_year_and_market_calendar"
+    },
+    "economics": {
+      "use_current_quotes_and_applicable_fees": true,
+      "unit_and_batch_results": true,
+      "leftover_scenarios": [
+        "markdown",
+        "disposal",
+        "verified_next_season_carry"
+      ],
+      "unverified_recovery": "unknown_plus_zero_recovery_stress_case",
+      "count_procurement_once": true,
+      "unknown_budget": "quantity_unresolved"
+    },
+    "conditional_outputs": [
+      "seasonal-evidence.json",
+      "seasonal-plan.json"
+    ]
+  }
+}
