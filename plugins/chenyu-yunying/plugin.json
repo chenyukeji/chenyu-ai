@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-yunying",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Product development briefs to Amazon listings and image briefs for Chenyu.",
   "author": {"name": "chenyukeji", "url": "https://github.com/chenyukeji"},
   "homepage": "https://github.com/chenyukeji/chenyu-ai",

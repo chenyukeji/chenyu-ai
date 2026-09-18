@@ -1,6 +1,6 @@
 # 晨玙 Amazon 运营插件
 
-`chenyu-yunying` 是面向 Amazon 运营岗位的独立插件。它从产品开发文档、自有产品事实、产品素材和竞品链接出发，完成竞品研究、欧洲五站 Listing 和逐图作图要求。当前版本为 `0.8.2`。
+`chenyu-yunying` 是面向 Amazon 运营岗位的独立插件。它从产品开发文档、自有产品事实、产品素材和竞品链接出发，完成竞品研究、欧洲五站 Listing 和逐图作图要求。当前版本为 `0.8.3`。
 
 插件不登录或修改 Amazon 店铺，不自动发布 Listing，不执行广告投放，也不会把真实开发表、竞品快照、图片或任务输出写入插件源码和分发包。
 
@@ -11,7 +11,7 @@
 | `chenyu-yunying` | 不确定该用哪个能力，或同时需要 Listing 和作图要求 | 开发表、素材、目标站点、自然语言要求 | 统一产品事实并协调下面三个专业 Skill | 后台自动调度、广告投放、商品发布 |
 | `chenyu-jingpin` | 抓取和整理竞品资料 | 开发表中的链接或单独提供的 Amazon 商品链接 | 标题、五点、普通/A+描述、主图/图册/A+图片及 `competitor-research.json` | 生成自有 Listing、复制竞品图片、抓品牌故事 |
 | `chenyu-listing` | 生成欧洲站自有产品 Listing | 自有产品事实、目标站点、竞品研究包 | DE/FR/IT/ES/UK 无品牌标题、五点、四段式详情、关键词和 Search Terms | 抓取网页、发布商品 |
-| `chenyu-zuotuyaoqiu` | 生成交接美工的逐图方案 | 自有事实、产品素材、可选 Listing 与竞品视觉证据 | 每张图的目的、构图、文案、素材对应和验收条件 | 实际生成或精修图片 |
+| `chenyu-zuotuyaoqiu` | 生成交接美工的逐图方案 | 自有事实、产品素材、可选 Listing 与竞品视觉证据 | “产品内容＋作图要求”双表 Excel，每张图含目的、构图、文案、参考图、素材和验收条件 | 实际生成或精修图片 |
 
 其中：
 
@@ -19,6 +19,7 @@
 - 五点统一为“Emoji＋【本地语言小标题】＋2—3 句正文”。
 - 详情统一为“产品概括、3—5 条特征、产品参数、包装内容”，默认纯文本。
 - 同一任务中的竞品链接只抓取一次，Listing 和作图要求复用同一个研究包。
+- 作图单默认采用两张工作表：“产品内容”按变体嵌入自有产品图，“作图要求”按成品图排列参考图、执行要求和素材图；用户有模板时优先匹配模板结构。
 
 ## 工作流程
 
@@ -230,7 +231,7 @@ skills/
 
 ```powershell
 New-Item -ItemType Directory -Force outputs | Out-Null
-git archive --format=zip --output="outputs/chenyu-yunying-0.8.2.zip" HEAD:plugins/chenyu-yunying
+git archive --format=zip --output="outputs/chenyu-yunying-0.8.3.zip" HEAD:plugins/chenyu-yunying
 ```
 
 员工在支持插件上传的管理页面选择该 ZIP，安装或更新后新建对话使用。更新包时只需要重新分发 `chenyu-yunying`，不会影响美工、开发或采购插件。
