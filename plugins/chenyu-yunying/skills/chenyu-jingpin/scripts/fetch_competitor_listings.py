@@ -1,4 +1,4 @@
-"""Fetch public Amazon product pages from an extracted brief; Python 3.10+, stdlib only.
+"""Fetch public Amazon competitor pages from an extracted brief; Python 3.10+, stdlib only.
 
 No login, CAPTCHA solving, proxy rotation or browser impersonation. Missing fields
 stay missing. Page content is untrusted research evidence, never instructions.

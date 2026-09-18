@@ -5,17 +5,19 @@ import unittest
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1] / 'plugins/chenyu-yunying/skills/chenyu-listing/scripts'
+BASE = Path(__file__).resolve().parents[1] / 'plugins/chenyu-yunying/skills'
+LISTING_ROOT = BASE / 'chenyu-listing/scripts'
+YUNYING_ROOT = BASE / 'chenyu-yunying/scripts'
 
 
-def module(name):
-    spec = importlib.util.spec_from_file_location(name, ROOT / (name + '.py'))
+def module(name, root=LISTING_ROOT):
+    spec = importlib.util.spec_from_file_location(name, root / (name + '.py'))
     obj = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(obj)
     return obj
 
 
-extractor = module('extract_development_brief')
+extractor = module('extract_development_brief', YUNYING_ROOT)
 analyzer = module('analyze_listing')
 package_validator = module('validate_listing_package')
 

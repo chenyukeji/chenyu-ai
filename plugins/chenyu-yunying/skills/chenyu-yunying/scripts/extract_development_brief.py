@@ -1,4 +1,4 @@
-"""Read XLSX source evidence without evaluating formulas or fetching URLs (stdlib)."""
+"""Read shared XLSX evidence without evaluating formulas or fetching URLs (stdlib)."""
 import argparse
 import json
 import posixpath

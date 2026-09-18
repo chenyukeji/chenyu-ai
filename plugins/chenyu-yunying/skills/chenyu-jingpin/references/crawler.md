@@ -1,4 +1,4 @@
-# 竞品 Listing 爬虫
+# 竞品 Listing 与图片爬虫
 
 Python 3.10+ 标准库，无需安装第三方包。脚本路径相对当前 Skill 目录。
 
@@ -20,7 +20,7 @@ python scripts/fetch_competitor_listings.py "任务目录/brief/manifest.json" -
 
 输出目录必须为空；不覆盖旧任务。每个已响应的商品保存 UTF-8 HTML 快照、SHA-256 和 JSON 证据；图片保存到 `<站点-ASIN>/images/`。快照和图片只用于内部研究，不作为自有商品素材发布。失败的 HTTP 请求未保存响应正文。每条处理后写入检查点，全部结束附 summary。
 
-`competitors.json` 顶层 competitors 可直接复制到 analyze_listing.py 输入中，同时补充 keywords、listings、brands 和经过验证的 limits。每条包含：
+`competitors.json` 是原始抓取层；`chenyu-jingpin` 将其 competitors 原样保留到 `competitor-research.json`，再补充关键词和视觉证据。Listing 下游可将 competitors 与自己的 keywords、listings、brands 和经过验证的 limits 组合交给 analyze_listing.py。每条包含：
 
 - id、marketplace、asin、product_group（默认站点-ASIN）、url、final_url、sources、retrieved_at。
 - title、bullets、description，页面明确显示的 selected_variant。description 优先使用普通商品描述；普通描述为空时自动使用已读取的 A+ 文本。

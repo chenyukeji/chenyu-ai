@@ -8,6 +8,7 @@ This repository packages role-based Amazon workflows as portable plugins for com
 - Precise local image retouching belongs to `plugins/chenyu-meigong/skills/chenyu-jingxiu`.
 - Mixed creative requests enter `plugins/chenyu-meigong/skills/chenyu-meigong`.
 - Operations requests enter `plugins/chenyu-yunying/skills/chenyu-yunying`.
+- Competitor Listing and image research belongs to `plugins/chenyu-yunying/skills/chenyu-jingpin`.
 - Listing writing belongs to `plugins/chenyu-yunying/skills/chenyu-listing`.
 - Image brief planning belongs to `plugins/chenyu-yunying/skills/chenyu-zuotuyaoqiu`.
 - Advertising skill chenyu-guanggao is planned, not implemented.

@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request
 
-SCRIPT = Path(__file__).resolve().parents[1] / 'plugins/chenyu-yunying/skills/chenyu-listing/scripts/fetch_competitor_listings.py'
+SCRIPT = Path(__file__).resolve().parents[1] / 'plugins/chenyu-yunying/skills/chenyu-jingpin/scripts/fetch_competitor_listings.py'
 spec = importlib.util.spec_from_file_location('crawler', SCRIPT)
 crawler = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(crawler)

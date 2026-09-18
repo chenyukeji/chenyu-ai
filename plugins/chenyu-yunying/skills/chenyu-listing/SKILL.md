@@ -1,6 +1,6 @@
 ---
 name: chenyu-listing
-description: 从开发 Excel、自有产品事实和竞品链接生成德国、法国、意大利、西班牙及英国站 Amazon Listing。读取竞品、分析关键词，生成无品牌标题、五点、四段式描述和搜索词，核对变体与多站点事实。不发布商品。
+description: 从开发 Excel、自有产品事实和统一竞品研究包生成德国、法国、意大利、西班牙及英国站 Amazon Listing。分析关键词，生成无品牌标题、五点、四段式描述和搜索词，核对变体与多站点事实。不负责竞品抓取或商品发布。
 ---
 
 # 晨玙欧洲站 Listing
@@ -24,10 +24,10 @@ description: 从开发 Excel、自有产品事实和竞品链接生成德国、�
 ## 开发表与竞品工作流
 
 1. 接收开发表并确认目标站点。未指定站点时集中确认，不从竞品链接国家推断。
-2. 对 XLSX 运行 `python scripts/extract_development_brief.py "开发表.xlsx" --out "任务目录/brief"`，检查 manifest.json 的全部工作表、超链接、图片锚点、附件和 warnings。脚本不执行公式或联网；其他格式使用当前环境的表格能力。
+2. 对 XLSX 运行 `python ../chenyu-yunying/scripts/extract_development_brief.py "开发表.xlsx" --out "任务目录/brief"`，检查 manifest.json 的全部工作表、超链接、图片锚点、附件和 warnings。运营入口已生成 manifest 时直接复用；脚本不执行公式或联网，其他格式使用当前环境的表格能力。
 3. 建立自有产品事实及变体记录：名称、材质、尺寸和测量部位、颜色/图案、结构、包装内容，每项保留工作表/单元格或用户确认来源及 confirmed/unconfirmed/conflict 状态。图片归属须实际查看后判断；不让竞品资料填补事实缺口。
-4. 提取、分类并按站点-ASIN 去重竞品链接。读取 [竞品研究](references/competitor-research.md) 和 [爬虫接口](references/crawler.md)，运行 `fetch_competitor_listings.py` 抓取标题、五点、普通/A+描述及当前商品图册。竞品图片用于理解表现重点，不写入自有事实。
-5. 按目标站点和语言分析竞品原词、同义组、字段覆盖与独立商品组频次。抓取失败和字段缺失保留状态，不用搜索摘要补全。
+4. 读取同一任务的 `competitor-research.json`。若用户提供竞品链接但尚无研究包，先读取并执行 [竞品研究 Skill](../chenyu-jingpin/SKILL.md)，然后复用其结果；本 Skill 不自行抓取网页或图片。
+5. 从研究包按目标站点和语言分析竞品原词、同义组、字段覆盖与独立商品组频次。抓取失败和字段缺失保留状态，不用搜索摘要补全。竞品图片只帮助理解信息重点，不写入自有事实。
 6. 为每个站点/变体建立“自有事实 → 购买理由 → 关键词 → Listing 字段”映射。购买理由必须能回到自有事实；竞品高频但自有产品不具备的内容排除。
 7. 读取 [写作与审核](references/writing-and-review.md) 及 [五站本地化](references/europe-localization.md)，直接用目标语言生成自有产品标题、五点、纯文本四段式描述和 Search Terms，不机械逐句翻译。
 8. 按 [分析脚本接口](references/analysis-contract.md) 形成 listing-package.json，运行 `validate_listing_package.py` 检查站点/变体覆盖和自有事实引用，再运行 `analyze_listing.py` 复核词频、长度、覆盖及重复片段。

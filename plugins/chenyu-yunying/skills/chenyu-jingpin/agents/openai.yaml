@@ -1,0 +1,6 @@
+interface:
+  display_name: "晨玙竞品研究"
+  short_description: "抓取并整理 Amazon 竞品 Listing、产品图册和 A+ 证据。"
+  default_prompt: "使用 $chenyu-jingpin，读取开发文档中的竞品链接并生成可供 Listing 与作图要求复用的竞品研究包。"
+policy:
+  allow_implicit_invocation: true

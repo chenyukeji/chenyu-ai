@@ -3,7 +3,7 @@
 相关脚本使用 Python 3.10+ 标准库，无第三方依赖。路径相对当前 Skill 目录；实际执行时解析绝对路径，输入输出使用独立任务目录。不得把真实开发表、竞品快照、图片或生成结果写入插件及 Git。
 
 ```bash
-python scripts/extract_development_brief.py "input.xlsx" --out "task/brief"
+python ../chenyu-yunying/scripts/extract_development_brief.py "input.xlsx" --out "task/brief"
 python scripts/validate_listing_package.py "task/listing-package.json" --out "task/package-review.json"
 python scripts/analyze_listing.py "task/listing-package.json" --out "task/content-review.json"
 ```

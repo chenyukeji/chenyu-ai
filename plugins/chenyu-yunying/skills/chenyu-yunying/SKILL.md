@@ -15,13 +15,18 @@ description: 晨玙运营总入口。接收产品开发 Excel、产品素材和�
 
 | 目标 | 读取并执行 |
 | --- | --- |
-| 开发表/竞品链接生成欧洲五站标题、五点、四段式描述、搜索词、变体文案 | [chenyu-listing](../chenyu-listing/SKILL.md)，默认不加品牌，只生成指定站点 |
+| 抓取、整理竞品 Listing、产品图册和 A+ 证据 | [chenyu-jingpin](../chenyu-jingpin/SKILL.md)，只交付研究包，不生成自有文案 |
+| 根据自有事实和竞品研究生成欧洲五站标题、五点、四段式描述、搜索词、变体文案 | [chenyu-listing](../chenyu-listing/SKILL.md)，默认不加品牌，只生成指定站点 |
 | 图片规划、作图单、交给美工的要求 | [chenyu-zuotuyaoqiu](../chenyu-zuotuyaoqiu/SKILL.md) |
-| 两者 | 先 Listing，后作图要求，复用同一份事实和素材对应 |
+| 自有 Listing 和作图要求 | 先统一产品事实；有竞品链接时只执行一次竞品研究；再完成 Listing 和作图要求，共用研究包 |
 | 实际制作或精修图片 | 如环境已安装美工插件，交接其总入口；否则交付作图单并说明需要美工能力 |
 | 广告投放或优化 | 明确 chenyu-guanggao 尚未实现，不声称已执行投放 |
 
 这里的分配由当前助手读取专业 Skill 完成，不要求独立子 Agent 或后台调度。专业 Skill 可单独使用。
+
+## 共享研究链
+
+开发表只解析一次，形成 manifest 和自有产品事实/变体记录。竞品链接只由 `chenyu-jingpin` 抓取一次，形成 `competitor-research.json` 和图片目录；把同一研究包的绝对路径交给 `chenyu-listing` 与 `chenyu-zuotuyaoqiu`。下游不得各自重新抓取、修改竞品原始证据或把竞品字段写成自有事实。
 
 ## 一致性与交付
 

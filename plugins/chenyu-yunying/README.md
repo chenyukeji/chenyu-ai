@@ -5,7 +5,8 @@
 ## 包含能力
 
 - `chenyu-yunying`：运营任务总入口，识别目标并协调专业 Skill。
-- `chenyu-listing`：读取开发 Excel 和竞品链接，为 DE/FR/IT/ES/UK 指定站点生成无品牌标题、五点、四段式描述、搜索词和变体文案。
+- `chenyu-jingpin`：集中抓取和整理竞品标题、五点、普通/A+描述、产品图册及视觉证据，供下游复用。
+- `chenyu-listing`：根据自有产品事实和竞品研究包，为 DE/FR/IT/ES/UK 指定站点生成无品牌标题、五点、四段式描述、搜索词和变体文案。
 - `chenyu-zuotuyaoqiu`：生成可直接交给美工执行的逐图作图单。
 
 ## 常见输入
@@ -17,7 +18,7 @@
 
 ## 交付与边界
 
-Listing 描述统一为“概述、3—5条特征、产品参数、包装内容”，默认纯文本。竞品 Listing 和图片只作为研究输入，不能替代最终成果；插件必须继续建立自有事实映射，为每个目标站点和变体生成自己的完整 Listing，并通过包完整性、关键词和文案检查。附带 Python 3.10+ 标准库脚本用于提取 XLSX 证据、抓取竞品、校验最终 Listing 包及检查关键词/文案；没有后台任务或自动发布服务。读取失败和未确认事实会在审核说明中披露。
+开发表由运营入口解析一次，竞品链接由 `chenyu-jingpin` 抓取一次；同一 `competitor-research.json` 同时交给 Listing 和作图要求，避免重复请求和证据不一致。Listing 描述统一为“概述、3—5条特征、产品参数、包装内容”，默认纯文本。竞品 Listing 和图片只作为研究输入，不能替代最终成果或自有素材。附带 Python 3.10+ 标准库脚本用于提取 XLSX 证据、抓取竞品、校验最终 Listing 包及检查关键词/文案；没有后台任务或自动发布服务。
 
 示例请求：“根据这份开发表里的竞品链接，生成德国和法国站 Listing，不加品牌。”
 
@@ -34,6 +35,7 @@ chenyu-yunying/
 │   └── kaifawendang.md
 └── skills/
     ├── chenyu-yunying/
+    ├── chenyu-jingpin/
     ├── chenyu-listing/
     └── chenyu-zuotuyaoqiu/
 ```

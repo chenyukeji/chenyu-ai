@@ -7,7 +7,7 @@
 | 插件 | 面向岗位 | 当前 Skills |
 | --- | --- | --- |
 | `chenyu-meigong` | Amazon 美工 | `chenyu-meigong` 总入口、`chenyu-zuotu`、`chenyu-jingxiu` |
-| `chenyu-yunying` | Amazon 运营 | `chenyu-yunying` 总入口、`chenyu-listing`、`chenyu-zuotuyaoqiu` |
+| `chenyu-yunying` | Amazon 运营 | `chenyu-yunying` 总入口、`chenyu-jingpin`、`chenyu-listing`、`chenyu-zuotuyaoqiu` |
 | `chenyu-kaifa` | Amazon 产品开发 | `chenyu-kaifa` |
 | `chenyu-caigou` | Amazon 采购 | `chenyu-caigou` |
 
@@ -34,6 +34,7 @@ plugins/
 │   ├── references/kaifawendang.md
 │   └── skills/
 │       ├── chenyu-yunying/
+│       ├── chenyu-jingpin/
 │       ├── chenyu-listing/
 │       └── chenyu-zuotuyaoqiu/
 ├── chenyu-kaifa/
