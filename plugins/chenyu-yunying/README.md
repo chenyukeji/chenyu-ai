@@ -1,6 +1,6 @@
 # 晨玙 Amazon 运营插件
 
-`chenyu-yunying` 是面向 Amazon 运营岗位的独立插件。它从产品开发文档、自有产品事实、产品素材和竞品链接出发，完成竞品研究、欧洲站 Listing 和逐图作图要求。当前版本为 `0.9.2`。
+`chenyu-yunying` 是面向 Amazon 运营岗位的独立插件。它从产品开发文档、自有产品事实、产品素材和竞品链接出发，完成竞品研究、欧洲站 Listing 和逐图作图要求。当前版本为 `0.9.3`。
 
 插件不登录或修改 Amazon 店铺，不自动发布 Listing，不执行广告投放，也不会把真实开发表、竞品快照、图片或任务输出写入插件源码和分发包。
 
@@ -484,7 +484,7 @@ skills/
 
 ```powershell
 New-Item -ItemType Directory -Force outputs | Out-Null
-git archive --format=zip --output="outputs/chenyu-yunying-0.9.2.zip" HEAD:plugins/chenyu-yunying
+git archive --format=zip --output="outputs/chenyu-yunying-0.9.3.zip" HEAD:plugins/chenyu-yunying
 ```
 
 员工在支持插件上传的管理页面选择该 ZIP，安装或更新后新建对话使用。更新包时只需要重新分发 `chenyu-yunying`，不会影响美工、开发或采购插件。
