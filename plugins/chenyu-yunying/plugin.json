@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-yunying",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Product development briefs to Amazon listings and image briefs for Chenyu.",
   "author": {"name": "chenyukeji", "url": "https://github.com/chenyukeji"},
   "homepage": "https://github.com/chenyukeji/chenyu-ai",
@@ -11,7 +11,7 @@
   "interface": {
     "displayName": "晨玙 Amazon 运营",
     "shortDescription": "从开发文档生成自有产品 Listing 和作图要求。",
-    "longDescription": "读取开发 Excel 与竞品链接，生成德国、法国、意大利、西班牙和英国无品牌 Listing、四段式描述及作图要求，提供链接提取和关键词检查脚本。广告能力规划中。",
+    "longDescription": "读取开发 Excel，按链接抓取竞品 Listing，生成德国、法国、意大利、西班牙和英国无品牌 Listing、四段式描述及作图要求，提供来源证据和关键词检查脚本。广告能力规划中。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": ["Listing writing", "Image brief planning"],
