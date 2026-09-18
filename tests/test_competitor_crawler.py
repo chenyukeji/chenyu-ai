@@ -20,6 +20,20 @@ PAGE = '''<html><head><title>Product</title></head><body>
 <div id="aplus"><p>Extra information</p></div>
 <form><input id="productTitle" value=""></form></body></html>'''
 
+IMAGE_PAGE = '''<html><body><input id="ASIN" value="B012345678">
+<span id="productTitle">Title</span>
+<div id="feature-bullets"><ul><li>Feature</li></ul></div>
+<div id="productDescription">Description</div>
+<img id="landingImage" data-old-hires="https://m.media-amazon.com/images/I/main.jpg">
+<div id="aplus"><img data-src="https://m.media-amazon.com/images/I/aplus.png">
+  <div style="background-image:url('https://m.media-amazon.com/images/I/background.jpg')"></div>
+</div>
+<div id="aplusBrandStory_feature_div">
+  <img src="https://images-na.ssl-images-amazon.com/images/G/01/common/grey-pixel.gif">
+  <a href="/dp/B087654321"><img data-src="https://m.media-amazon.com/images/I/other.jpg"></a>
+</div>
+</body></html>'''
+
 
 class CrawlerTests(unittest.TestCase):
     def test_parse_fields_and_variants(self):
@@ -65,6 +79,52 @@ class CrawlerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             crawler.ProductRedirects().redirect_request(Request('https://amazon.de/dp/B012345678'),
                                                        None, 302, '', {}, 'https://amazon.fr/dp/B012345678')
+        self.assertEqual(crawler.image_url('https://m.media-amazon.com/images/I/a.jpg'),
+                         'https://m.media-amazon.com/images/I/a.jpg')
+        for url in ['http://m.media-amazon.com/a.jpg',
+                    'https://m.media-amazon.com.evil.test/a.jpg',
+                    'https://user@m.media-amazon.com/a.jpg']:
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                crawler.image_url(url)
+
+    def test_downloads_gallery_and_aplus_images(self):
+        links = [{'url': 'https://amazon.de/dp/B012345678'}]
+        def fetch(url, market, timeout):
+            return IMAGE_PAGE, url, 200
+        image_data = b'\x89PNG\r\n\x1a\n' + b'\x00' * 8 + (1200).to_bytes(4, 'big') + (800).to_bytes(4, 'big')
+        def fetch_image(url, timeout):
+            # Identical bytes verify file-hash dedup while retaining both roles.
+            return image_data, url, 200, 'image/png'
+        with tempfile.TemporaryDirectory() as tmp:
+            result = crawler.collect({'links': links}, tmp, delay=0, fetch=fetch,
+                                     fetch_image=fetch_image)
+            competitor = result['competitors'][0]
+            self.assertEqual(competitor['image_summary'], {
+                'status': 'complete', 'discovered': 3, 'downloaded': 1,
+                'duplicates': 2, 'failed': 0, 'discovery_truncated': False})
+            self.assertEqual(competitor['images'][0]['roles'], ['main'])
+            self.assertEqual(competitor['images'][0]['width'], 1200)
+            self.assertEqual(competitor['images'][0]['height'], 800)
+            self.assertEqual(competitor['images'][1]['roles'], ['aplus'])
+            self.assertEqual(competitor['images'][1]['status'], 'duplicate')
+            self.assertEqual(competitor['images'][2]['sources'], ['inline-background-image'])
+            self.assertTrue((Path(tmp) / competitor['images'][0]['local_path']).exists())
+
+    def test_image_failure_is_partial_not_silent(self):
+        def fetch(url, market, timeout):
+            return IMAGE_PAGE, url, 200
+        def fetch_image(url, timeout):
+            if url.endswith('aplus.png'):
+                raise HTTPError(url, 503, 'Unavailable', {}, None)
+            return b'GIF89a' + b'\x01\x00\x01\x00', url, 200, 'image/gif'
+        with tempfile.TemporaryDirectory() as tmp:
+            result = crawler.collect({'links': [{'url': 'https://amazon.de/dp/B012345678'}]},
+                                     tmp, delay=0, fetch=fetch, fetch_image=fetch_image)
+            summary = result['competitors'][0]['image_summary']
+            self.assertEqual(summary['status'], 'partial')
+            self.assertEqual(summary['failed'], 1)
+            failed = [i for i in result['competitors'][0]['images'] if i['status'] == 'failed']
+            self.assertEqual(failed[0]['failure_reason'], 'http_503')
 
     def test_dedup_snapshots_and_analyzer_contract(self):
         links = [{'url': 'https://amazon.fr/dp/B012345678?th=1', 'cell': 'A1'},
