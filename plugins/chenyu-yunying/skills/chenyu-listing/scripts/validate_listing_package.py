@@ -2,6 +2,7 @@
 import argparse
 import json
 import re
+import unicodedata
 from pathlib import Path
 
 MARKETS = {
@@ -22,11 +23,24 @@ SEARCH_TERMS_PUNCTUATION = re.compile(r'[,.;:!?|/\\，。；：！？]')
 TITLE_TARGET = (150, 190)
 
 
+def words(text):
+    return re.findall(r'[^\W_]+', unicodedata.normalize('NFC', str(text)).casefold(), re.UNICODE)
+
+
+def contains(text, phrase):
+    haystack, needle = words(text), words(phrase)
+    return bool(needle) and any(
+        haystack[index:index + len(needle)] == needle
+        for index in range(len(haystack) - len(needle) + 1)
+    )
+
+
 def validate(data):
     errors, warnings = [], []
     targets = data.get('targets', [])
     variants = data.get('variants', [])
     facts = data.get('facts', [])
+    keywords = data.get('keywords', [])
     mappings = data.get('mappings', [])
     listings = data.get('listings', [])
     if not targets:
@@ -42,6 +56,19 @@ def validate(data):
         errors.append('variants must contain non-empty ids')
     if len(variant_ids) != len(set(variant_ids)):
         errors.append('variant ids must be unique')
+
+    keyword_by_key = {}
+    for keyword in keywords:
+        market = keyword.get('marketplace')
+        phrase = str(keyword.get('phrase', '')).strip()
+        key = (market, unicodedata.normalize('NFC', phrase).casefold())
+        if market not in MARKETS or not phrase:
+            errors.append('keywords must contain a supported marketplace and non-empty phrase')
+            continue
+        if key in keyword_by_key:
+            errors.append(f'duplicate keyword for {market}: {phrase}')
+            continue
+        keyword_by_key[key] = keyword
 
     fact_by_id = {}
     for fact in facts:
@@ -125,6 +152,38 @@ def validate(data):
                     errors.append(
                         f'{market}/{variant_id} bullet {index} body must contain 2-3 sentences'
                     )
+        title_keywords = listing.get('title_keywords', [])
+        normalized_title_keywords = [
+            unicodedata.normalize('NFC', str(item).strip()).casefold()
+            for item in title_keywords
+        ]
+        if (len(title_keywords) != 3 or any(not item for item in normalized_title_keywords)
+                or len(set(normalized_title_keywords)) != 3):
+            errors.append(f'{market}/{variant_id} title_keywords must contain three distinct phrases')
+        else:
+            bullet_text = '\n'.join(map(str, bullets))
+            for phrase, normalized in zip(title_keywords, normalized_title_keywords):
+                keyword = keyword_by_key.get((market, normalized))
+                if not keyword:
+                    errors.append(
+                        f'{market}/{variant_id} title keyword is absent from marketplace keywords: {phrase}'
+                    )
+                    continue
+                forms = [keyword.get('phrase', ''), *keyword.get('aliases', [])]
+                forms = [str(form).strip() for form in forms if str(form).strip()]
+                if not any(contains(title, form) for form in forms):
+                    errors.append(
+                        f'{market}/{variant_id} title does not cover keyword or alias: {phrase}'
+                    )
+                if not any(contains(bullet_text, form) for form in forms):
+                    errors.append(
+                        f'{market}/{variant_id} bullets do not cover title keyword or alias: {phrase}'
+                    )
+        title_scene = str(listing.get('title_scene', '')).strip()
+        if not title_scene:
+            errors.append(f'{market}/{variant_id} title_scene is empty')
+        elif not contains(title, title_scene):
+            errors.append(f'{market}/{variant_id} title does not contain title_scene: {title_scene}')
         description = str(listing.get('description', ''))
         positions = [description.find(heading) for heading in headings]
         if any(position < 0 for position in positions) or positions != sorted(positions):
@@ -153,7 +212,7 @@ def validate(data):
                 errors.append(f'{market}/{variant_id} search_terms must be one line')
             if SEARCH_TERMS_PUNCTUATION.search(search_terms):
                 errors.append(f'{market}/{variant_id} search_terms must not contain punctuation')
-            terms = re.findall(r'[^\W_]+', search_terms.casefold(), re.UNICODE)
+            terms = words(search_terms)
             duplicates = sorted({term for term in terms if terms.count(term) > 1})
             if duplicates:
                 errors.append(
@@ -185,6 +244,15 @@ def validate(data):
             for fact_id in claim_ids:
                 if fact_id not in mapped:
                     errors.append(f'{market}/{variant_id} uses fact {fact_id} absent from its mapping')
+            mapped_keywords = {
+                unicodedata.normalize('NFC', str(value)).casefold()
+                for value in mapping_by_key[key].get('keywords', [])
+            }
+            for phrase in normalized_title_keywords:
+                if phrase and phrase not in mapped_keywords:
+                    errors.append(
+                        f'{market}/{variant_id} title keyword is absent from its mapping: {phrase}'
+                    )
 
     missing = sorted(expected - set(listing_by_key))
     for market, variant_id in missing:

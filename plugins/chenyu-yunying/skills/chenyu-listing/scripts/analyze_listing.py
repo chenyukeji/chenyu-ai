@@ -79,8 +79,25 @@ def analyze(data):
                 found = sorted({tuple(ts[i:i+8]) for i in range(len(ts)-7)} & source_grams)
                 if found:
                     overlaps.append({'competitor': c['id'], 'field': f, 'phrases': [' '.join(x) for x in found]})
-        coverage = [{'phrase': k['phrase'], 'exact_locations': [f for f, v in fs.items() if contains(v, k['phrase'])]}
-                    for k in keywords if k['marketplace'] == listing['marketplace']]
+        selected = {unicodedata.normalize('NFC', str(value)).casefold()
+                    for value in listing.get('title_keywords', [])}
+        coverage = []
+        for keyword in keywords:
+            if keyword['marketplace'] != listing['marketplace']:
+                continue
+            forms = [keyword['phrase'], *keyword.get('aliases', [])]
+            matches = {field: [form for form in forms if contains(value, form)]
+                       for field, value in fs.items()}
+            coverage.append({
+                'phrase': keyword['phrase'],
+                'selected_for_title': unicodedata.normalize(
+                    'NFC', str(keyword['phrase'])
+                ).casefold() in selected,
+                'exact_locations': [field for field, value in fs.items()
+                                    if contains(value, keyword['phrase'])],
+                'semantic_locations': [field for field, values in matches.items() if values],
+                'matched_forms': {field: values for field, values in matches.items() if values},
+            })
         reviews.append({'marketplace': listing['marketplace'], 'variant_id': listing.get('variant_id'),
                         'lengths': lengths, 'unverified_limits': [k for k in lengths if k not in limits],
                         'issues': issues, 'overlap_review': overlaps, 'coverage': coverage,
