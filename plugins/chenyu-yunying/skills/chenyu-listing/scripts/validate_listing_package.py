@@ -13,6 +13,13 @@ MARKETS = {
 }
 ASIN = re.compile(r'\bB0[A-Z0-9]{8}\b', re.I)
 PLACEHOLDER = re.compile(r'\[(?:brand|marque|marca|marke|marchio|品牌|待确认|todo)\]', re.I)
+BULLET_FORMAT = re.compile(
+    r'^\s*[\U0001F300-\U0001FAFF\u2600-\u27BF]'
+    r'[\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]*\s*'
+    r'【([^】\r\n]{1,40})】\s*(\S[\s\S]*)$'
+)
+SEARCH_TERMS_PUNCTUATION = re.compile(r'[,.;:!?|/\\，。；：！？]')
+TITLE_TARGET = (150, 190)
 
 
 def validate(data):
@@ -90,11 +97,34 @@ def validate(data):
         language, headings = MARKETS[market]
         if listing.get('language') != language:
             errors.append(f'{market}/{variant_id} language must be {language}')
-        if not str(listing.get('title', '')).strip():
+        title = str(listing.get('title', '')).strip()
+        if not title:
             errors.append(f'{market}/{variant_id} title is empty')
+        elif '\n' in title or '\r' in title:
+            errors.append(f'{market}/{variant_id} title must be one line')
+        elif not TITLE_TARGET[0] <= len(title) <= TITLE_TARGET[1]:
+            warnings.append(
+                f'{market}/{variant_id} title length {len(title)} is outside '
+                f'the {TITLE_TARGET[0]}-{TITLE_TARGET[1]} editorial target; '
+                'do not add unsupported facts or override verified category limits'
+            )
         bullets = listing.get('bullets', [])
         if len(bullets) != 5 or any(not str(item).strip() for item in bullets):
             errors.append(f'{market}/{variant_id} must contain five non-empty bullets')
+        else:
+            for index, item in enumerate(bullets, 1):
+                match = BULLET_FORMAT.fullmatch(str(item).strip())
+                if not match:
+                    errors.append(
+                        f'{market}/{variant_id} bullet {index} must use '
+                        'Emoji + 【localized heading】 + body'
+                    )
+                    continue
+                sentence_count = len(re.findall(r'[.!?。！？]+', match.group(2)))
+                if not 2 <= sentence_count <= 3:
+                    errors.append(
+                        f'{market}/{variant_id} bullet {index} body must contain 2-3 sentences'
+                    )
         description = str(listing.get('description', ''))
         positions = [description.find(heading) for heading in headings]
         if any(position < 0 for position in positions) or positions != sorted(positions):
@@ -104,7 +134,9 @@ def validate(data):
             features = description[positions[0] + len(headings[0]):positions[1]]
             details = description[positions[1] + len(headings[1]):positions[2]].strip(' :\n\t')
             package = description[positions[2] + len(headings[2]):].strip(' :\n\t')
-            feature_count = len(re.findall(r'(?m)^\s*[1-5][.)]\s*\S', features))
+            feature_count = len(re.findall(
+                r'(?m)^\s*[1-5][.)]\s*[^:\n：]{1,60}[:：]\s*\S', features
+            ))
             if not overview:
                 errors.append(f'{market}/{variant_id} description overview is empty')
             if not 3 <= feature_count <= 5:
@@ -113,8 +145,20 @@ def validate(data):
                 errors.append(f'{market}/{variant_id} product details block is empty')
             if not package:
                 errors.append(f'{market}/{variant_id} package contents block is empty')
-        if not str(listing.get('search_terms', '')).strip():
+        search_terms = str(listing.get('search_terms', '')).strip()
+        if not search_terms:
             errors.append(f'{market}/{variant_id} search_terms is empty')
+        else:
+            if '\n' in search_terms or '\r' in search_terms:
+                errors.append(f'{market}/{variant_id} search_terms must be one line')
+            if SEARCH_TERMS_PUNCTUATION.search(search_terms):
+                errors.append(f'{market}/{variant_id} search_terms must not contain punctuation')
+            terms = re.findall(r'[^\W_]+', search_terms.casefold(), re.UNICODE)
+            duplicates = sorted({term for term in terms if terms.count(term) > 1})
+            if duplicates:
+                errors.append(
+                    f'{market}/{variant_id} search_terms repeats tokens: {", ".join(duplicates)}'
+                )
         visible = '\n'.join([str(listing.get('title', '')), *map(str, bullets), description,
                              str(listing.get('search_terms', ''))])
         if ASIN.search(visible):

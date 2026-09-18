@@ -29,7 +29,7 @@ python scripts/analyze_listing.py "task/listing-package.json" --out "task/conten
     {"marketplace":"DE","variant_id":"V1","fact_ids":["F1"],"buying_reasons":["Leicht zu platzieren"],"keywords":["Baumschmuck"],"listing_fields":["title","bullet_1"]}
   ],
   "listings": [
-    {"marketplace":"DE","language":"de-DE","variant_id":"V1","title":"Baumschmuck aus Papier","bullets":["...","...","...","...","..."],"description":"概述。\n\nEigenschaften:\n1. ...\n2. ...\n3. ...\n\nProduktdetails:\nMaterial: Papier\n\nLieferumfang:\n1 × Baumschmuck","search_terms":"baumschmuck papier","claim_fact_ids":["F1"]}
+    {"marketplace":"DE","language":"de-DE","variant_id":"V1","title":"Baumschmuck aus Papier für festliche Dekoration","bullets":["📦【Lieferumfang】Der Baumschmuck besteht aus Papier. Der Lieferumfang bezieht sich auf die gewählte Variante.","🧩【Material】Das Papier ermöglicht eine leichte Dekoration. Die bestätigten Materialangaben bleiben in allen Feldern einheitlich.","✨【Dekoration】Der Baumschmuck lässt sich als festliches Dekoelement einsetzen. Seine Gestaltung ergänzt verschiedene Arrangements.","🎉【Anlässe】Die Dekoration eignet sich für bestätigte festliche Szenen. Sie kann mit vorhandener Tisch- oder Raumdeko kombiniert werden.","💡【Hinweis】Verwenden Sie nur die im Paket enthaltenen Teile. Bewahren Sie die Dekoration passend zum bestätigten Material auf."],"description":"概述。\n\nEigenschaften:\n1. Material:说明。\n2. Gestaltung:说明。\n3. Anlass:说明。\n\nProduktdetails:\nMaterial: Papier\n\nLieferumfang:\n1 × Baumschmuck","search_terms":"baumschmuck papier festliche dekoration","claim_fact_ids":["F1"]}
   ],
   "brands": [],
   "limits": {}
@@ -42,4 +42,4 @@ facts 只能记录自有产品证据，source_type 固定 own_product；竞品�
 
 limits 默认空：仅在核实规则后填入站点下的 title_chars / search_terms_bytes，并在任务记录保留官方来源、类目和查询日期。脚本报告未核实项，不内置通用限制。
 
-package-review.json 检查目标站点/变体齐全、五点、四段式描述、Search Terms、事实来源和映射，ready_for_delivery=false 时不得交付。content-review.json 包含原词/语义组覆盖数、各字段样本分母、证据位置、精确覆盖、长度和重复片段。两个检查都不负责语义审核、自动翻译、事实推断或发布；品牌候选及8词重合须由模型复核。输出文件已存在时拒绝覆盖。
+package-review.json 检查目标站点/变体齐全、单行标题、五点数量及默认“Emoji＋【小标题】＋2—3句”格式、四段式描述、Search Terms、事实来源和映射；标题 150—190 字符仅作为编辑警告，不冒充平台限制。ready_for_delivery=false 时不得交付。content-review.json 包含原词/语义组覆盖数、各字段样本分母、证据位置、精确覆盖、长度和重复片段。两个检查都不负责语义审核、自动翻译、事实推断或发布；标题字段语义顺序、五点职责、品牌候选及8词重合须由模型复核。输出文件已存在时拒绝覆盖。

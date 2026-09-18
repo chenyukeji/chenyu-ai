@@ -36,7 +36,13 @@ class ListingTests(unittest.TestCase):
                           'listing_fields': ['title', 'bullet_1']}],
             'listings': [{'marketplace': 'DE', 'language': 'de-DE', 'variant_id': 'V1',
                           'title': 'Dekoration aus Papier',
-                          'bullets': ['Punkt eins', 'Punkt zwei', 'Punkt drei', 'Punkt vier', 'Punkt fünf'],
+                          'bullets': [
+                              '📦【Lieferumfang】Die Dekoration besteht aus Papier. Die Angaben gelten für die gewählte Variante.',
+                              '🧩【Material】Das Papier macht die Dekoration leicht. Die Materialangabe bleibt in allen Feldern einheitlich.',
+                              '✨【Gestaltung】Die Form setzt einen dekorativen Akzent. Sie lässt sich einfach in ein Arrangement einfügen.',
+                              '🎉【Anlässe】Die Dekoration eignet sich für bestätigte Feiern. Sie ergänzt Tisch- und Raumdekorationen.',
+                              '💡【Hinweis】Verwenden Sie nur die enthaltenen Teile. Bewahren Sie den Artikel passend zum Material auf.',
+                          ],
                           'description': ('Eine Dekoration aus Papier.\n\nEigenschaften:\n'
                                           '1. Leicht: Einfach zu platzieren.\n'
                                           '2. Form: Dekorative Gestaltung.\n'
@@ -99,6 +105,17 @@ class ListingTests(unittest.TestCase):
         result = package_validator.validate(self.listing_package())
         self.assertTrue(result['ready_for_delivery'])
         self.assertEqual(result['coverage']['expected_listings'], 1)
+        self.assertTrue(any('editorial target' in warning for warning in result['warnings']))
+
+    def test_listing_package_rejects_unified_format_violations(self):
+        data = copy.deepcopy(self.listing_package())
+        data['listings'][0]['bullets'][0] = 'Lieferumfang: Nur ein kurzer Satz.'
+        data['listings'][0]['search_terms'] = 'dekoration, papier papier'
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('bullet 1 must use' in error for error in result['errors']))
+        self.assertTrue(any('must not contain punctuation' in error for error in result['errors']))
+        self.assertTrue(any('repeats tokens: papier' in error for error in result['errors']))
 
     def test_own_listing_package_rejects_missing_or_competitor_facts(self):
         data = copy.deepcopy(self.listing_package())
