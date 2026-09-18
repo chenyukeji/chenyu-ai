@@ -1,4 +1,5 @@
 import importlib.util
+import copy
 import tempfile
 import unittest
 import zipfile
@@ -16,9 +17,33 @@ def module(name):
 
 extractor = module('extract_development_brief')
 analyzer = module('analyze_listing')
+package_validator = module('validate_listing_package')
 
 
 class ListingTests(unittest.TestCase):
+    @staticmethod
+    def listing_package():
+        return {
+            'targets': ['DE'],
+            'variants': [{'id': 'V1'}],
+            'facts': [{'id': 'F1', 'source_type': 'own_product', 'status': 'confirmed',
+                       'field': 'material', 'value': 'Papier', 'variant_ids': ['V1'],
+                       'source': {'sheet': 'Product', 'cell': 'B2'}}],
+            'mappings': [{'marketplace': 'DE', 'variant_id': 'V1', 'fact_ids': ['F1'],
+                          'buying_reasons': ['Leicht'], 'keywords': ['Dekoration'],
+                          'listing_fields': ['title', 'bullet_1']}],
+            'listings': [{'marketplace': 'DE', 'language': 'de-DE', 'variant_id': 'V1',
+                          'title': 'Dekoration aus Papier',
+                          'bullets': ['Punkt eins', 'Punkt zwei', 'Punkt drei', 'Punkt vier', 'Punkt fünf'],
+                          'description': ('Eine Dekoration aus Papier.\n\nEigenschaften:\n'
+                                          '1. Leicht: Einfach zu platzieren.\n'
+                                          '2. Form: Dekorative Gestaltung.\n'
+                                          '3. Anlass: Für Feiern geeignet.\n\n'
+                                          'Produktdetails:\nMaterial: Papier\nFarbe: Weiß\nGröße: 10 cm\n\n'
+                                          'Lieferumfang:\n1 × Dekoration'),
+                          'search_terms': 'dekoration feier papier', 'claim_fact_ids': ['F1']}],
+        }
+
     def test_xlsx_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
             source, out = Path(tmp) / 'sample.xlsx', Path(tmp) / 'out'
@@ -67,6 +92,25 @@ class ListingTests(unittest.TestCase):
         self.assertFalse(analyzer.contains('stone', 'one'))
         self.assertTrue(analyzer.contains('Étoile', 'étoile'))
         self.assertFalse(analyzer.contains('étoile', 'etoile'))
+
+    def test_own_listing_package_ready(self):
+        result = package_validator.validate(self.listing_package())
+        self.assertTrue(result['ready_for_delivery'])
+        self.assertEqual(result['coverage']['expected_listings'], 1)
+
+    def test_own_listing_package_rejects_missing_or_competitor_facts(self):
+        data = copy.deepcopy(self.listing_package())
+        data['facts'][0]['source_type'] = 'competitor'
+        data['facts'][0]['status'] = 'unconfirmed'
+        data['listings'][0]['bullets'] = ['Only one']
+        data['listings'][0]['description'] = 'Eigenschaften:\n1. A: B\nProduktdetails:\nLieferumfang:'
+        data['listings'][0]['title'] += ' B012345678'
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('not sourced from own_product' in error for error in result['errors']))
+        self.assertTrue(any('five non-empty bullets' in error for error in result['errors']))
+        self.assertTrue(any('uses non-confirmed fact' in error for error in result['errors']))
+        self.assertTrue(any('contains an ASIN' in error for error in result['errors']))
 
 
 if __name__ == '__main__':
