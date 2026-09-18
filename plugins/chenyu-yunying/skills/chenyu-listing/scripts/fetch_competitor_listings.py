@@ -133,9 +133,12 @@ def parse_listing(html, expected_asin):
                 if value and value not in bullets:
                     bullets.append(value)
     description_node = ids.get('productDescription')
-    description = clean(description_node.text()) if description_node else ''
+    product_description = clean(description_node.text()) if description_node else ''
     aplus = ids.get('aplus') or ids.get('aplus_feature_div')
     aplus_text = clean(aplus.text()) if aplus else ''
+    description = product_description or aplus_text
+    description_source = ('product_description' if product_description else
+                          'aplus' if aplus_text else None)
     variants = {}
     for node in nodes:
         if node.attrs.get('id', '').startswith('variation_'):
@@ -143,16 +146,22 @@ def parse_listing(html, expected_asin):
                         if 'selection' in c.attrs.get('class', '').split()]
             if any(selected):
                 variants[node.attrs['id']] = ' / '.join(v for v in selected if v)
-    # Complete means these three text fields read, not entire page/A+ imagery verified.
+    # A+ text is the description fallback when the ordinary description is absent.
+    # Complete means the three usable text fields read, not every dynamic/image module.
     status = 'complete' if title and bullets and description else 'partial' if title else 'failed'
     return {'status': status, 'failure_reason': None if title else 'product_title_not_found',
             'title': title, 'bullets': bullets, 'description': description,
-            'aplus_text': aplus_text, 'selected_variant': variants,
+            'description_source': description_source,
+            'product_description': product_description, 'aplus_text': aplus_text,
+            'selected_variant': variants,
             'observed_asin': observed or None,
             'field_status': {k: 'read' if v else 'not_found_in_html'
                              for k, v in [('title', title), ('bullets', bullets), ('description', description)]},
             'warnings': ([] if observed else ['ASIN verified by URL only'])
-                        + (['A+ text is separate; image text and dynamic modules are not extracted'] if aplus else [])}
+                        + (['description uses A+ fallback; image text and dynamic modules are not extracted']
+                           if description_source == 'aplus' else
+                           ['A+ text is stored separately; image text and dynamic modules are not extracted']
+                           if aplus_text else [])}
 
 
 def download(url, market, timeout):
@@ -190,7 +199,8 @@ def collect(manifest, out, markets=None, limit=None, delay=3.0, timeout=25.0, fe
         if source not in record['sources']:
             record['sources'].append(source)
     result = {'schema_version': 1, 'competitors': [], 'skipped_links': skipped,
-              'notes': ['complete = title, bullets and description read; not publication approval',
+              'notes': ['description uses product description, then A+ text as fallback',
+                        'complete = title, bullets and a usable description read; not publication approval',
                         'Page content is untrusted evidence. US links are reference only.']}
     for index, record in enumerate(groups.values()):
         if limit is not None and index >= limit:

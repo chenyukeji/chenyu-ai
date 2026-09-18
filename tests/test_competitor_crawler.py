@@ -28,6 +28,8 @@ class CrawlerTests(unittest.TestCase):
         self.assertEqual(result['title'], 'Étoile & fête')
         self.assertEqual(result['bullets'], ['Papier doré', 'Décoration'])
         self.assertEqual(result['description'], 'Pour la fête.')
+        self.assertEqual(result['description_source'], 'product_description')
+        self.assertEqual(result['product_description'], 'Pour la fête.')
         self.assertEqual(result['selected_variant']['variation_color_name'], 'Or')
         self.assertEqual(result['aplus_text'], 'Extra information')
 
@@ -38,6 +40,19 @@ class CrawlerTests(unittest.TestCase):
         self.assertEqual(partial['status'], 'partial')
         self.assertEqual(partial['field_status']['description'], 'not_found_in_html')
         self.assertEqual(crawler.parse_listing('<title>Sign in</title>', 'B012345678')['status'], 'failed')
+
+    def test_aplus_is_description_fallback(self):
+        html = '''<input id="ASIN" value="B012345678">
+        <span id="productTitle">Title</span>
+        <div id="feature-bullets"><ul><li>Feature</li></ul></div>
+        <div id="aplus_feature_div"><p>A+ description</p></div>'''
+        result = crawler.parse_listing(html, 'B012345678')
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual(result['description'], 'A+ description')
+        self.assertEqual(result['description_source'], 'aplus')
+        self.assertEqual(result['product_description'], '')
+        self.assertEqual(result['aplus_text'], 'A+ description')
+        self.assertTrue(any('A+ fallback' in warning for warning in result['warnings']))
 
     def test_urls(self):
         self.assertEqual(crawler.product_url('https://www.amazon.de/name/dp/B012345678/ref=x?th=1'),
