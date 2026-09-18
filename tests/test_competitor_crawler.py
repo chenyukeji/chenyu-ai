@@ -108,6 +108,8 @@ class CrawlerTests(unittest.TestCase):
             self.assertEqual(competitor['images'][1]['roles'], ['aplus'])
             self.assertEqual(competitor['images'][1]['status'], 'duplicate')
             self.assertEqual(competitor['images'][2]['sources'], ['inline-background-image'])
+            self.assertFalse(any('brand_story' in item['roles'] for item in competitor['images']))
+            self.assertFalse(any(item['url'].endswith('/other.jpg') for item in competitor['images']))
             self.assertTrue((Path(tmp) / competitor['images'][0]['local_path']).exists())
 
     def test_image_failure_is_partial_not_silent(self):

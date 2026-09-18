@@ -187,8 +187,7 @@ def extract_image_candidates(html, nodes, ids, expected_asin):
     # recommendations elsewhere on the page.
     roots = []
     for key, role in (('productDescription', 'description'), ('aplus', 'aplus'),
-                      ('aplus_feature_div', 'aplus'), ('aplusBrandStory', 'brand_story'),
-                      ('aplusBrandStory_feature_div', 'brand_story'),
+                      ('aplus_feature_div', 'aplus'),
                       ('aplusSustainabilityStory', 'sustainability')):
         root = ids.get(key)
         if root and all(root is not existing[0] for existing in roots):
@@ -204,7 +203,7 @@ def extract_image_candidates(html, nodes, ids, expected_asin):
                         linked_asin = match.group(1).upper()
                         break
                 ancestor = ancestor.parent
-            # Brand-story cross-sell cards are other products, not this ASIN's assets.
+            # Comparison/cross-sell cards can appear inside A+; exclude other ASINs.
             if linked_asin and linked_asin != expected_asin:
                 continue
             if node.tag == 'img':
