@@ -171,7 +171,7 @@ def handle(payload: dict) -> dict:
 
 def main() -> None:
     try:
-        payload = json.load(sys.stdin)
+        payload = json.loads(sys.stdin.buffer.read().decode("utf-8-sig"))
         result = handle(payload)
     except (json.JSONDecodeError, ContractError, OSError, KeyError, TypeError) as exc:
         result = {"ok": False, "code": "invalid_input", "message": str(exc)}

@@ -10,15 +10,18 @@
 
 已落地并通过真实验证：
 
-- `chenyu-kaifa 0.2.1`：Task Brief、统一业务规则、策略路由和阶段计划。
-- `chenyu-jihui 0.1.1`：多策略候选合并、父子 ASIN 去重、跨站身份边界、Evidence 和 Opportunity Card。
-- `chenyu-kaifa-pingshen 0.1.1`：supplier SKU 匹配、组合硬门槛、利润/Break-even 计算、评审、试销卡和 10-Sheet Excel。
-- 开发插件测试 13/13；仓库全量测试 30/30。
-- 三个 Skill 均已通过 portable lint、package validate，并在 AgentDock 安装激活。
-- 已用激活版本回放一条结构化端到端链路：Task Brief → A/E/J 合并候选 → Opportunity Card → Supply Match → Economics → TRIAL_RECOMMENDED → Trial Card → Excel。
+- `chenyu-kaifa 0.3.1`：Task Brief、统一业务规则、策略路由和阶段计划。
+- `chenyu-jihui 0.2.1`：A/E/J JSON/CSV 发现导入、筛选回读状态、60 天 FBM 语义、统一候选池去重、结构化市场 Evidence 与 Opportunity Card。
+- `chenyu-kaifa-pingshen 0.3.2`：供应商报价导入与数量档/有效期校验、单品/多件装/组合、验样清单、三价格三情景利润、Break-even、试销资金、评审、Product Master、部门交接、10-Sheet Excel、试销数据导入与复盘。
+- 开发插件自动化测试 33/33；仓库全量测试 50/50。
+- 三个 Skill 均已通过 portable lint（0 error / 0 warning）和 package validate，并在 AgentDock 安装激活。
+- Windows/AgentDock stdin 统一按 UTF-8 解码；开发 Excel 对 UTF-16 surrogate/非法 XML 字符安全清洗并采用临时文件原子写入，中文和 emoji 已用激活版本回放验证。
+- 已用激活版本真实回放：J 文件导入 → Candidate → DE 市场 Evidence → Opportunity Card → 供应商报价文件 → exact SKU 匹配 → Economics → 9 个价格/情景组合 → 试销资金 → TRIAL_RECOMMENDED → Product Master/采购/运营/美工交接 → 试销 CSV → replenishment_review。
+- 单品通过、组合通过、硬成本淘汰、中国卖家准入失败、缺数据、去重、报价失效/数量档错误等均有自动化验收。
 
-尚未完成：A/E/J 等网页真实采集适配器、完整三价格/三情景批量模型、供应商报价文件解析、Product Master/部门待办自动生成、真实试销数据导入与复盘。因此对应任务不得标 DONE。
+当前宿主没有浏览器/Playwright MCP，因此 A/E/J 的“网页自动导航与采集”没有冒充完成。现在可直接使用 JSON/CSV/结构化网页快照；未来浏览器适配器只需按 source-adapters contract 输出相同字段，不需要重写候选池和验证逻辑。
 
+仍属后续增强：B/C/D/F/H/I 其余策略的专用采集适配器、浏览器实时采集、报价版本差异报告、任务断点恢复、完整开发预测 vs 实际偏差归因与自动校准数据集。
 ---
 
 ## 1. 最终能力地图
@@ -265,9 +268,9 @@ mismatch_notes
 | C-02 | P0 | DONE | 候选标准化函数 | C-01 | 不同来源统一成 Candidate |
 | C-03 | P0 | DONE | ASIN/产品实体去重 | C-02 | 同款多来源只保留一条研究主体 |
 | C-04 | P0 | DONE | 来源合并与理由记录 | C-03 | 可看到“新品榜 + 关键词 + 店铺”等多来源 |
-| C-05 | P0 | TODO | A：中国卖家同类发现 | C-01 | 至少一个可比中国卖家只通过该准入项 |
-| C-06 | P0 | TODO | E：US/DE 新品榜发现 | C-01 | US/DE 用于发现，欧洲目标站另行验证 |
-| C-07 | P0 | TODO | J：近60天 FBM 发现 | C-01 | 年龄、FBM、销量/Review 信息保留证据时间语义 |
+| C-05 | P0 | DOING | A：中国卖家同类发现 | C-01 | 至少一个可比中国卖家只通过该准入项 |
+| C-06 | P0 | DOING | E：US/DE 新品榜发现 | C-01 | US/DE 用于发现，欧洲目标站另行验证 |
+| C-07 | P0 | DOING | J：近60天 FBM 发现 | C-01 | 年龄、FBM、销量/Review 信息保留证据时间语义 |
 | C-08 | P1 | TODO | B：近期商品需求 | C-01 | 候选可进入统一池 |
 | C-09 | P1 | TODO | C：关键词需求 | C-01 | 关键词来源不生成重复候选 |
 | C-10 | P1 | TODO | D：Review 痛点反推产品 | C-01 | 痛点能关联到 need_cluster |
@@ -283,10 +286,10 @@ mismatch_notes
 | ID | Pri | Status | 任务 | 依赖 | 验收标准 |
 |---|---|---|---|---|---|
 | D-01 | P0 | DONE | 目标站需求验证模板 | C | DE/FR/IT/ES 分站记录证据 |
-| D-02 | P0 | DOING | 价格带与可比竞品样本 | D-01 | 目标售价和真实竞争价格不混淆 |
-| D-03 | P0 | DOING | 规格/材质/件数对比 | D-01 | 可直接服务后续现货匹配 |
-| D-04 | P0 | DOING | Review 痛点归类 | D-01 | 痛点有频次/来源/证据，不只写总结 |
-| D-05 | P0 | DOING | 配送/FBA/FBM 情况 | D-01 | 履约路径进入利润模型 |
+| D-02 | P0 | DONE | 价格带与可比竞品样本 | D-01 | 目标售价和真实竞争价格不混淆 |
+| D-03 | P0 | DONE | 规格/材质/件数对比 | D-01 | 可直接服务后续现货匹配 |
+| D-04 | P0 | DONE | Review 痛点归类 | D-01 | 痛点有频次/来源/证据，不只写总结 |
+| D-05 | P0 | DONE | 配送/FBA/FBM 情况 | D-01 | 履约路径进入利润模型 |
 | D-06 | P0 | DONE | 机会卡生成 | D-02~05 | 一张卡含事实、估算、缺口和下一步 |
 | D-07 | P0 | DONE | 待验证项机制 | D-06 | 缺少关键证据不被自动包装成肯定结论 |
 | D-08 | P1 | TODO | 机会评分可配置 | D-06 | 权重/阈值可修改且不会覆盖硬门槛 |
@@ -295,13 +298,13 @@ mismatch_notes
 
 | ID | Pri | Status | 任务 | 依赖 | 验收标准 |
 |---|---|---|---|---|---|
-| E-01 | P0 | DOING | 导入供应商报价/现货表 | Supply contract | 能映射 supplier SKU |
+| E-01 | P0 | DONE | 导入供应商报价/现货表 | Supply contract | 能映射 supplier SKU |
 | E-02 | P0 | DONE | 真实款式/尺寸/材质匹配 | E-01,D-03 | 有 exact/compatible/alternative/unknown |
-| E-03 | P0 | DOING | 单品方案 | E-02 | 成本和规格可进入利润计算 |
-| E-04 | P0 | TODO | 多件装方案 | E-02 | pack_count、包装、整套成本正确 |
+| E-03 | P0 | DONE | 单品方案 | E-02 | 成本和规格可进入利润计算 |
+| E-04 | P0 | DONE | 多件装方案 | E-02 | pack_count、包装、整套成本正确 |
 | E-05 | P0 | DONE | 两款现货组合 | E-02 | 必须有明确共同购买理由 |
 | E-06 | P0 | DONE | 组合硬约束 | E-05 | 组合采购+包装按整套检查 ¥20 规则 |
-| E-07 | P0 | TODO | 验样清单 | E-03~05 | 规格、外观、功能、包装、质量逐项确认 |
+| E-07 | P0 | DONE | 验样清单 | E-03~05 | 规格、外观、功能、包装、质量逐项确认 |
 | E-08 | P1 | TODO | 报价版本对比 | E-01 | 能识别价格/交期/MOQ变化 |
 
 ### Epic F — 利润、资金与开发评审
@@ -309,11 +312,11 @@ mismatch_notes
 | ID | Pri | Status | 任务 | 依赖 | 验收标准 |
 |---|---|---|---|---|---|
 | F-01 | P0 | DONE | 利润计算器 | E | 输入输出可序列化，可复算 |
-| F-02 | P0 | DOING | DE/FR/IT/ES 分站计算 | F-01 | VAT/费用口径不跨站混用 |
-| F-03 | P0 | TODO | €5/目标价/€20 或指定价格情景 | F-01 | 至少 3 个售价情景可比较 |
-| F-04 | P0 | TODO | 保守/基准/乐观情景 | F-01 | 广告、退货、成本等假设可追溯 |
+| F-02 | P0 | DONE | DE/FR/IT/ES 分站计算 | F-01 | VAT/费用口径不跨站混用 |
+| F-03 | P0 | DONE | €5/目标价/€20 或指定价格情景 | F-01 | 至少 3 个售价情景可比较 |
+| F-04 | P0 | DONE | 保守/基准/乐观情景 | F-01 | 广告、退货、成本等假设可追溯 |
 | F-05 | P0 | DONE | Break-even ACoS | F-01 | 公式有测试 |
-| F-06 | P0 | DOING | 试销资金需求 | F-01 | 数量×采购/包装/物流/费用口径清楚 |
+| F-06 | P0 | DONE | 试销资金需求 | F-01 | 数量×采购/包装/物流/费用口径清楚 |
 | F-07 | P0 | DONE | 开发状态机 | D,E,F | 阶段不可跳过关键证据 |
 | F-08 | P0 | DONE | 决策理由码 | F-07 | 每个决策可解释且能反查证据 |
 | F-09 | P1 | TODO | 敏感性分析 | F-01 | 成本/汇率/广告变化能重算 |
@@ -371,10 +374,10 @@ EXITED
 |---|---|---|---|---|---|
 | G-01 | P0 | DONE | 标准开发 Excel Schema | B~F | 字段固定、可版本化 |
 | G-02 | P0 | DONE | Excel 导出器 | G-01 | 同一输入重复生成结果稳定 |
-| G-03 | P0 | DOING | Product Master | E,F | 只写已确认事实，未确认字段明确标记 |
-| G-04 | P0 | TODO | 采购待办 | E | SKU、报价、样品、MOQ、交期明确 |
-| G-05 | P0 | TODO | 运营待办 | D,F | 站点、定位、价格、试销假设明确 |
-| G-06 | P0 | TODO | 美工待办 | D,E | 产品事实、尺寸、材质、场景与参考资料明确 |
+| G-03 | P0 | DONE | Product Master | E,F | 只写已确认事实，未确认字段明确标记 |
+| G-04 | P0 | DONE | 采购待办 | E | SKU、报价、样品、MOQ、交期明确 |
+| G-05 | P0 | DONE | 运营待办 | D,F | 站点、定位、价格、试销假设明确 |
+| G-06 | P0 | DONE | 美工待办 | D,E | 产品事实、尺寸、材质、场景与参考资料明确 |
 | G-07 | P0 | DONE | 试销卡 | F | 目标、数量、价格、广告、成功/退出条件明确 |
 | G-08 | P1 | TODO | Markdown/JSON 同步导出 | G-02 | 便于 AI 后续继续处理 |
 
@@ -404,10 +407,10 @@ observed_period
 
 | ID | Pri | Status | 任务 | 依赖 | 验收标准 |
 |---|---|---|---|---|---|
-| H-01 | P1 | TODO | 试销结果导入 | G-07 | 能读取真实销售/广告/退货/库存 |
-| H-02 | P1 | TODO | 预期 vs 实际对比 | H-01 | 对开发时假设逐项复盘 |
-| H-03 | P1 | TODO | 偏差理由 | H-02 | 价格、流量、转化、广告、成本、质量分开 |
-| H-04 | P1 | TODO | 复盘决策 | H-02 | 输出继续测试/补货/调整/退出 |
+| H-01 | P1 | DONE | 试销结果导入 | G-07 | 能读取真实销售/广告/退货/库存 |
+| H-02 | P1 | DOING | 预期 vs 实际对比 | H-01 | 对开发时假设逐项复盘 |
+| H-03 | P1 | DOING | 偏差理由 | H-02 | 价格、流量、转化、广告、成本、质量分开 |
+| H-04 | P1 | DONE | 复盘决策 | H-02 | 输出继续测试/补货/调整/退出 |
 | H-05 | P1 | TODO | 规则校准数据 | H-02 | 真实试跑结果可用于后续调整评分/门槛 |
 
 ---
@@ -540,8 +543,8 @@ P1/P2 不得阻塞这条主链路上线验收。
 | Q-06 | P0 | DONE | Skill lint | portable=true |
 | Q-07 | P0 | DONE | plugin/skill validate | 包合法 |
 | Q-08 | P0 | DONE | 本地安装激活验证 | AgentDock 能索引并读取 3 个 Skill |
-| Q-09 | P0 | DOING | 端到端回放 | 三个强制案例通过 |
-| Q-10 | P1 | TODO | 页面/采集适配失败回退 | 可使用文件导入继续，不把采集失败变业务失败 |
+| Q-09 | P0 | DONE | 端到端回放 | 三个强制案例通过 |
+| Q-10 | P1 | DONE | 页面/采集适配失败回退 | 可使用文件导入继续，不把采集失败变业务失败 |
 
 ---
 

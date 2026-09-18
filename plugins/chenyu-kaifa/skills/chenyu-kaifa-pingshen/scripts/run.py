@@ -8,6 +8,13 @@ import zipfile
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from sourcing_import import QuoteImportError, import_supplier_quotes
+from delivery_trial import DeliveryError, build_delivery_sections, build_sample_checklist, calculate_scenario_matrix, calculate_trial_funding, import_trial_observations, review_trial
+
 RULES_PATH = Path(__file__).resolve().parents[1] / "references" / "runtime-rules.json"
 
 
@@ -110,6 +117,25 @@ def match_supply(candidate_requirements: dict, supplier_item: dict, cap_cny=None
     }
 
 
+
+def build_multipack(supplier_sku, unit_quote_cny, pack_count, packaging_cny, cap_cny=None) -> dict:
+    count = _num(pack_count, "pack_count", required=True)
+    if count < 2 or int(count) != count:
+        raise ContractError("pack_count must be an integer >= 2")
+    unit_quote = _num(unit_quote_cny, "unit_quote_cny")
+    packaging = _num(packaging_cny, "packaging_cny")
+    purchase_total = None if unit_quote is None else unit_quote * count
+    gate = cost_gate(purchase_total, packaging, cap_cny)
+    return {
+        "output_mode": "multipack",
+        "supplier_sku": supplier_sku,
+        "pack_count": int(count),
+        "unit_quote_cny": unit_quote,
+        "purchase_total_cny": None if purchase_total is None else round(purchase_total, 6),
+        "packaging_cny": packaging,
+        "cost_gate": gate,
+    }
+
 def build_bundle(components: list[dict], packaging_cny, shared_purchase_reason: str, cap_cny=None) -> dict:
     if not isinstance(components, list) or len(components) < 2:
         raise ContractError("a complementary bundle needs at least two components")
@@ -167,6 +193,9 @@ def calculate_economics(inputs: dict) -> dict:
     if not isinstance(inputs, dict):
         raise ContractError("economics inputs must be an object")
     rules = load_rules()
+    marketplace = inputs.get("marketplace")
+    if marketplace is not None and str(marketplace).upper() not in set(rules["sales_marketplaces"]):
+        raise ContractError(f"unsupported economics marketplace: {marketplace}")
     values = {field: _num(inputs.get(field), field) for field in CORE_ECON_FIELDS}
     missing = [field for field, value in values.items() if value is None]
 
@@ -402,6 +431,26 @@ def _excel_col(index: int) -> str:
     return result
 
 
+def _xml_safe_text(value) -> str:
+    if isinstance(value, (dict, list)):
+        value = json.dumps(value, ensure_ascii=False, sort_keys=True)
+    text = str(value)
+    # JSON/tool transports can occasionally deliver UTF-16 surrogate pairs as
+    # separate code units. Normalize valid pairs and replace unpaired surrogates.
+    text = text.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "replace")
+    # XML 1.0 permits tabs/newlines/CR plus the normal Unicode scalar ranges.
+    text = "".join(
+        ch if (
+            ch in "\t\n\r"
+            or 0x20 <= ord(ch) <= 0xD7FF
+            or 0xE000 <= ord(ch) <= 0xFFFD
+            or 0x10000 <= ord(ch) <= 0x10FFFF
+        ) else "\uFFFD"
+        for ch in text
+    )
+    return escape(text)
+
+
 def _cell_xml(ref: str, value) -> str:
     if value is None:
         return ""
@@ -409,9 +458,7 @@ def _cell_xml(ref: str, value) -> str:
         return f'<c r="{ref}" t="b"><v>{1 if value else 0}</v></c>'
     if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value)):
         return f'<c r="{ref}"><v>{value}</v></c>'
-    if isinstance(value, (dict, list)):
-        value = json.dumps(value, ensure_ascii=False, sort_keys=True)
-    text = escape(str(value))
+    text = _xml_safe_text(value)
     return f'<c r="{ref}" t="inlineStr"><is><t>{text}</t></is></c>'
 
 
@@ -470,55 +517,67 @@ def export_workbook(output_path: str | Path, sections: dict) -> dict:
     if sheet_names != list(SECTION_KEYS):
         raise ContractError("runtime workbook_sheets do not match exporter contract")
 
+    temp_output = output.with_name(output.name + ".tmp")
+    if temp_output.exists():
+        temp_output.unlink()
+
     workbook_sheets = []
     rels = []
     overrides = []
-    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as z:
-        for idx, sheet_name in enumerate(sheet_names, start=1):
-            workbook_sheets.append(f'<sheet name="{escape(sheet_name)}" sheetId="{idx}" r:id="rId{idx}"/>')
-            rels.append(
-                f'<Relationship Id="rId{idx}" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
-                f'Target="worksheets/sheet{idx}.xml"/>'
-            )
-            overrides.append(
-                f'<Override PartName="/xl/worksheets/sheet{idx}.xml" '
-                'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-            )
-            rows = _rows_for(sections.get(SECTION_KEYS[sheet_name]))
-            z.writestr(f"xl/worksheets/sheet{idx}.xml", _worksheet_xml(rows))
+    try:
+        with zipfile.ZipFile(temp_output, "w", compression=zipfile.ZIP_DEFLATED) as z:
+            for idx, sheet_name in enumerate(sheet_names, start=1):
+                workbook_sheets.append(
+                    f'<sheet name="{escape(sheet_name)}" sheetId="{idx}" r:id="rId{idx}"/>'
+                )
+                rels.append(
+                    f'<Relationship Id="rId{idx}" '
+                    'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+                    f'Target="worksheets/sheet{idx}.xml"/>'
+                )
+                overrides.append(
+                    f'<Override PartName="/xl/worksheets/sheet{idx}.xml" '
+                    'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                )
+                rows = _rows_for(sections.get(SECTION_KEYS[sheet_name]))
+                z.writestr(f"xl/worksheets/sheet{idx}.xml", _worksheet_xml(rows))
 
-        z.writestr(
-            "[Content_Types].xml",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-            '<Default Extension="xml" ContentType="application/xml"/>'
-            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-            + "".join(overrides)
-            + "</Types>",
-        )
-        z.writestr(
-            "_rels/.rels",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
-            '</Relationships>',
-        )
-        z.writestr(
-            "xl/workbook.xml",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
-            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            f'<sheets>{"".join(workbook_sheets)}</sheets></workbook>',
-        )
-        z.writestr(
-            "xl/_rels/workbook.xml.rels",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            + "".join(rels)
-            + "</Relationships>",
-        )
+            z.writestr(
+                "[Content_Types].xml",
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                '<Default Extension="xml" ContentType="application/xml"/>'
+                '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+                + "".join(overrides)
+                + "</Types>",
+            )
+            z.writestr(
+                "_rels/.rels",
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+                '</Relationships>',
+            )
+            z.writestr(
+                "xl/workbook.xml",
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                f'<sheets>{"".join(workbook_sheets)}</sheets></workbook>',
+            )
+            z.writestr(
+                "xl/_rels/workbook.xml.rels",
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                + "".join(rels)
+                + "</Relationships>",
+            )
+        temp_output.replace(output)
+    except Exception:
+        if temp_output.exists():
+            temp_output.unlink()
+        raise
 
     return {"path": str(output.resolve()), "sheets": sheet_names, "sheet_count": len(sheet_names)}
 
@@ -535,13 +594,34 @@ def handle(payload: dict) -> dict:
             "config_revision": rules["config_revision"],
             "actions": [
                 "status",
+                "import_supplier_quotes",
                 "match_supply",
+                "build_multipack",
                 "build_bundle",
                 "calculate_economics",
+                "calculate_scenario_matrix",
                 "review",
                 "create_trial_card",
+                "build_delivery_sections",
+                "build_sample_checklist",
+                "calculate_trial_funding",
+                "import_trial_data",
+                "review_trial",
                 "export_workbook",
             ],
+        }
+    if action == "import_supplier_quotes":
+        path = payload.get("path")
+        if not path:
+            raise ContractError("path is required")
+        return {
+            "ok": True,
+            "quotes": import_supplier_quotes(
+                path,
+                payload.get("field_map"),
+                payload.get("planned_quantity"),
+                payload.get("as_of_date"),
+            ),
         }
     if action == "match_supply":
         return {
@@ -549,6 +629,17 @@ def handle(payload: dict) -> dict:
             "supply_match": match_supply(
                 payload.get("candidate_requirements") or {},
                 payload.get("supplier_item") or {},
+                payload.get("cap_cny"),
+            ),
+        }
+    if action == "build_multipack":
+        return {
+            "ok": True,
+            "multipack": build_multipack(
+                payload.get("supplier_sku"),
+                payload.get("unit_quote_cny"),
+                payload.get("pack_count"),
+                payload.get("packaging_cny"),
                 payload.get("cap_cny"),
             ),
         }
@@ -564,6 +655,16 @@ def handle(payload: dict) -> dict:
         }
     if action == "calculate_economics":
         return {"ok": True, "economics": calculate_economics(payload.get("inputs") or {})}
+    if action == "calculate_scenario_matrix":
+        return {
+            "ok": True,
+            "scenario_matrix": calculate_scenario_matrix(
+                calculate_economics,
+                payload.get("base_inputs") or {},
+                payload.get("prices"),
+                payload.get("profile"),
+            ),
+        }
     if action == "review":
         return {
             "ok": True,
@@ -584,6 +685,61 @@ def handle(payload: dict) -> dict:
                 payload.get("plan"),
             ),
         }
+    if action == "build_sample_checklist":
+        return {
+            "ok": True,
+            "sample_checklist": build_sample_checklist(
+                payload.get("candidate_requirements") or {},
+                payload.get("supply_match") or {},
+                payload.get("output_mode") or "single",
+                payload.get("bundle"),
+                payload.get("extra_checks"),
+            ),
+        }
+    if action == "calculate_trial_funding":
+        return {
+            "ok": True,
+            "trial_funding": calculate_trial_funding(
+                payload.get("economics") or {},
+                payload.get("planned_units"),
+                payload.get("ad_budget_eur", 0),
+                payload.get("fixed_cost_cny", 0),
+                payload.get("other_initial_cash_cny", 0),
+            ),
+        }
+    if action == "build_delivery_sections":
+        return {
+            "ok": True,
+            "delivery": build_delivery_sections(
+                payload.get("task") or {},
+                payload.get("candidate") or {},
+                payload.get("opportunity_card") or {},
+                payload.get("supply_match") or {},
+                payload.get("economics") or {},
+                payload.get("decision") or {},
+                payload.get("trial_card"),
+                payload.get("confirmed_facts"),
+            ),
+        }
+    if action == "import_trial_data":
+        path = payload.get("path")
+        if not path:
+            raise ContractError("path is required")
+        return {
+            "ok": True,
+            "trial_data": import_trial_observations(path, payload.get("field_map")),
+        }
+    if action == "review_trial":
+        observations = payload.get("observations")
+        if observations is None and payload.get("trial_data"):
+            observations = payload["trial_data"].get("observations")
+        return {
+            "ok": True,
+            "trial_review": review_trial(
+                payload.get("trial_plan") or {},
+                observations or [],
+            ),
+        }
     if action == "export_workbook":
         path = payload.get("output_path")
         if not path:
@@ -594,8 +750,8 @@ def handle(payload: dict) -> dict:
 
 def main() -> None:
     try:
-        result = handle(json.load(sys.stdin))
-    except (json.JSONDecodeError, ContractError, OSError, KeyError, TypeError, zipfile.BadZipFile) as exc:
+        result = handle(json.loads(sys.stdin.buffer.read().decode("utf-8-sig")))
+    except (json.JSONDecodeError, ContractError, QuoteImportError, DeliveryError, OSError, KeyError, TypeError, ValueError, zipfile.BadZipFile) as exc:
         result = {"ok": False, "code": "invalid_input", "message": str(exc)}
     json.dump(result, sys.stdout, ensure_ascii=True, indent=2)
     sys.stdout.write("\n")

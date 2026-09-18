@@ -1,6 +1,6 @@
 interface:
   display_name: "晨玙 Amazon 机会研究"
-  short_description: "多策略找品、候选去重并验证欧洲站需求与竞品证据。"
+  short_description: "导入多策略发现数据、统一去重并验证欧洲站市场证据。"
   default_prompt: "使用 $chenyu-jihui，把发现结果合并为统一候选池并生成可追溯的产品机会卡。"
   icon_small: "./assets/icon.svg"
   icon_large: "./assets/icon.svg"

@@ -11,8 +11,8 @@
 | Skill | 职责 |
 |---|---|
 | `chenyu-kaifa` | Task Brief、策略路由、阶段计划和综合交付总入口 |
-| `chenyu-jihui` | 多策略候选合并、ASIN/父体去重、Evidence 与 Opportunity Card |
-| `chenyu-kaifa-pingshen` | 真实 supplier SKU 匹配、组合成本、利润、评审、试销卡和开发 Excel |
+| `chenyu-jihui` | A/E/J JSON/CSV 发现导入、多策略候选合并、ASIN/父体去重、市场 Evidence 与 Opportunity Card |
+| `chenyu-kaifa-pingshen` | 供应商报价导入、supplier SKU 匹配、组合/验样、三价格三情景利润、资金、评审、Excel、交接和试销复盘 |
 
 三个 Skill 都带有可从包根目录运行的标准库脚本，stdin 输入 JSON，stdout 输出 JSON；不依赖数据库。
 
@@ -39,17 +39,27 @@
 `chenyu-jihui/scripts/run.py`
 
 - status
+- import_discovery_file
 - merge_candidates
+- build_market_evidence
 - build_opportunity_card
 
 `chenyu-kaifa-pingshen/scripts/run.py`
 
 - status
+- import_supplier_quotes
 - match_supply
+- build_multipack
 - build_bundle
+- build_sample_checklist
 - calculate_economics
+- calculate_scenario_matrix
+- calculate_trial_funding
 - review
 - create_trial_card
+- build_delivery_sections
+- import_trial_data
+- review_trial
 - export_workbook
 
 ## Excel

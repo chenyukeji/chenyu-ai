@@ -6,6 +6,13 @@ import json
 import sys
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from discovery_adapters import AdapterError, import_discovery_file
+from market_validation import MarketEvidenceError, build_market_evidence
+
 RULES_PATH = Path(__file__).resolve().parents[1] / "references" / "runtime-rules.json"
 
 
@@ -113,6 +120,7 @@ def merge_candidates(rows: list[dict]) -> list[dict]:
                 "marketplace_listings": [],
                 "source_strategies": [],
                 "source_refs": [],
+                "strategy_matches": [],
                 "first_seen_at": row.get("first_seen_at") or row.get("observed_at"),
                 "dedupe_confidence": confidence,
                 "merge_reason": [f"identity:{key[0]}"],
@@ -134,6 +142,20 @@ def merge_candidates(rows: list[dict]) -> list[dict]:
         for ref in _source_refs(row):
             if ref not in record["source_refs"]:
                 record["source_refs"].append(ref)
+
+        strategy_status = row.get("strategy_match_status")
+        if strategies or strategy_status:
+            source_ref = (row.get("source_ref") or (_source_refs(row)[0] if _source_refs(row) else None))
+            match_record = {
+                "strategy_ids": strategies,
+                "status": strategy_status or "not_assessed",
+                "reason_codes": list(row.get("strategy_reason_codes") or []),
+                "pending_fields": list(row.get("strategy_pending_fields") or []),
+                "filter_verification": row.get("filter_verification"),
+                "source_ref": source_ref,
+            }
+            if match_record not in record["strategy_matches"]:
+                record["strategy_matches"].append(match_record)
 
         listing = _listing_projection(row)
         if listing:
@@ -248,10 +270,42 @@ def handle(payload: dict) -> dict:
             "ok": True,
             "skill": "chenyu-jihui",
             "config_revision": rules["config_revision"],
-            "actions": ["status", "merge_candidates", "build_opportunity_card"],
+            "actions": ["status", "import_discovery_file", "merge_candidates", "build_market_evidence", "build_opportunity_card"],
         }
+    if action == "import_discovery_file":
+        path = payload.get("path")
+        if not path:
+            raise ContractError("path is required")
+        strategy_id = payload.get("strategy_id")
+        if not strategy_id:
+            raise ContractError("strategy_id is required")
+        result = import_discovery_file(
+            path,
+            strategy_id,
+            payload.get("field_map"),
+            payload.get("as_of_date"),
+            payload.get("source_type") or "file_import",
+            payload.get("requested_filters"),
+            payload.get("applied_filters"),
+            payload.get("filter_verification"),
+        )
+        candidates = merge_candidates(result["accepted"] + result["pending"])
+        return {"ok": True, "import": result, "candidates": candidates}
     if action == "merge_candidates":
         return {"ok": True, "candidates": merge_candidates(payload.get("candidates") or [])}
+    if action == "build_market_evidence":
+        result = build_market_evidence(
+            payload.get("candidate_id"),
+            payload.get("marketplace"),
+            payload.get("observed_at"),
+            payload.get("search_hits"),
+            payload.get("product_details"),
+            payload.get("review_annotations"),
+            payload.get("source_ref"),
+            payload.get("query"),
+            payload.get("coverage_complete", False),
+        )
+        return {"ok": True, "market_evidence": result}
     if action == "build_opportunity_card":
         return {
             "ok": True,
@@ -266,8 +320,8 @@ def handle(payload: dict) -> dict:
 
 def main() -> None:
     try:
-        result = handle(json.load(sys.stdin))
-    except (json.JSONDecodeError, ContractError, OSError, KeyError, TypeError) as exc:
+        result = handle(json.loads(sys.stdin.buffer.read().decode("utf-8-sig")))
+    except (json.JSONDecodeError, ContractError, AdapterError, MarketEvidenceError, OSError, KeyError, TypeError) as exc:
         result = {"ok": False, "code": "invalid_input", "message": str(exc)}
     json.dump(result, sys.stdout, ensure_ascii=True, indent=2)
     sys.stdout.write("\n")

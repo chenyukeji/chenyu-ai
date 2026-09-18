@@ -1,7 +1,7 @@
 ---
 name: chenyu-kaifa
 description: 晨玙 Amazon 产品开发总入口。用于接收开发目标、站点、类目/需求、预算、售价和时间要求，建立 Task Brief，选择多策略找品计划，并协调 chenyu-jihui 的机会研究与 chenyu-kaifa-pingshen 的现货/利润/评审/交付。适用于从“找产品”一直到开发 Excel、试销卡和复盘入口的综合任务；不直接采购、付款、上架或投放广告。
-version: 0.2.1
+version: 0.3.1
 ---
 
 # 晨玙 Amazon 产品开发
@@ -31,7 +31,7 @@ printf '<json>' | python scripts/run.py
 | 任务 | 执行 |
 |---|---|
 | 多策略找品、候选去重、市场与竞品验证、机会卡 | 读取并执行 [chenyu-jihui](../chenyu-jihui/SKILL.md) |
-| 真实报价/现货、单品/多件装/组合、利润、评审、Excel、试销卡 | 读取并执行 [chenyu-kaifa-pingshen](../chenyu-kaifa-pingshen/SKILL.md) |
+| 真实报价/现货、单品/多件装/组合、利润情景、验样、评审、Excel、试销卡与试销复盘 | 读取并执行 [chenyu-kaifa-pingshen](../chenyu-kaifa-pingshen/SKILL.md) |
 | 综合开发任务 | 先 Task Brief，再机会研究，再开发评审；复用同一 Candidate/Evidence，不重新研究 |
 
 这里的路由由当前助手读取专业 Skill 并执行，不依赖独立后台 Agent。
@@ -58,6 +58,7 @@ printf '<json>' | python scripts/run.py
 5. 可复算 Economics；缺费用时不得伪造最终利润。
 6. 继续研究/询价验样/建议试销/暂缓/淘汰之一及 reason codes。
 7. 需要交接时生成标准开发 Excel、Product Master、部门待办和试销卡。
+8. 用户提供真实试销销售/广告/退货/库存数据时，可导入并按显式 trial thresholds 复盘；没有真实经营数据时只交付试销计划。
 
 不能把设计文档、空模板、未运行脚本或不存在的文件路径当完成。
 
