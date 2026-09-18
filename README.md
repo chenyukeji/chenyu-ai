@@ -105,7 +105,6 @@ MCP 按数据域建设，不按单个 Prompt 建设。第一阶段全部使用�
 | `gongyingshang-mcp` | 供应商档案、报价、MOQ、交期和质检记录 | 采购、开发 | 查询与供应商比较 |
 | `caiji-mcp` | Amazon New Releases 采集结果 | 开发、运营 | 只读查询采集快照 |
 
-`caiji-mcp` 的数据采集和数据库维护继续属于同级项目 `../amazon-new-release-collector`；本仓库未来只接入其只读查询能力，不复制采集逻辑。
 
 ### Workflow 计划
 

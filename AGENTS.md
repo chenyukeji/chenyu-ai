@@ -19,5 +19,4 @@ This repository packages role-based Amazon workflows as portable plugins for com
 - Each directory directly under `plugins/` is an independent employee-facing plugin.
 - Each plugin root contains `plugin.json` and `skills/`.
 - Add MCP servers, apps, or standalone agents only to the plugin that owns them and only when there is a real implementation.
-- Do not package repository prototypes, examples, caches, or unrelated departments into an employee ZIP.
 
