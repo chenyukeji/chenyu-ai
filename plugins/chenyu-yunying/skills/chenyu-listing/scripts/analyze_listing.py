@@ -1,5 +1,6 @@
 """Deterministic evidence checks, not semantic review or publication approval."""
 import argparse
+import html
 import json
 import re
 import unicodedata
@@ -15,10 +16,16 @@ def contains(text, phrase):
     return bool(needle) and any(hay[i:i+len(needle)] == needle for i in range(len(hay)-len(needle)+1))
 
 
+def visible_text(value):
+    text = re.sub(r'(?i)<\s*br\s*/?\s*>', ' ', str(value))
+    text = re.sub(r'(?i)</\s*p\s*>', ' ', text)
+    return html.unescape(re.sub(r'<[^>]*>', ' ', text))
+
+
 def fields(record):
     return {'title': record.get('title', ''),
             **{'bullet_' + str(i+1): v for i, v in enumerate(record.get('bullets', []))},
-            'description': record.get('description', '')}
+            'description': visible_text(record.get('description', ''))}
 
 
 def analyze(data):

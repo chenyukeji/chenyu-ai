@@ -1,5 +1,6 @@
 """Validate that a listing task ends with complete own-product listings."""
 import argparse
+import html
 import json
 import re
 import unicodedata
@@ -20,7 +21,15 @@ BULLET_FORMAT = re.compile(
     r'【([^】\r\n]{1,40})】\s*(\S[\s\S]*)$'
 )
 SEARCH_TERMS_PUNCTUATION = re.compile(r'[,.;:!?|/\\，。；：！？]')
+BAD_PUNCTUATION_SPACING = re.compile(r'[,;](?=\S)|:(?=[A-Za-zÀ-ÖØ-öø-ÿ])')
 TITLE_TARGET = (150, 190)
+BULLET_BODY_TARGET = (180, 420)
+ALLOWED_DESCRIPTION_TAGS = {'p', 'br', 'b'}
+DESCRIPTION_TAG = re.compile(r'<\s*/?\s*([a-zA-Z0-9]+)(?:\s[^>]*)?>')
+NOTICE_HEADINGS = {
+    'DE': 'Hinweise', 'FR': 'Remarques', 'IT': 'Avvertenze',
+    'ES': 'Avisos', 'UK': 'Notes',
+}
 
 
 def words(text):
@@ -33,6 +42,25 @@ def contains(text, phrase):
         haystack[index:index + len(needle)] == needle
         for index in range(len(haystack) - len(needle) + 1)
     )
+
+
+def phrase_preceded_by_token(text, phrase, token, lookback=2):
+    haystack, needle = words(text), words(phrase)
+    if not needle:
+        return False
+    for index in range(len(haystack) - len(needle) + 1):
+        if haystack[index:index + len(needle)] == needle:
+            if token in haystack[max(0, index - lookback):index]:
+                return True
+    return False
+
+
+def visible_html(text):
+    value = str(text)
+    value = re.sub(r'(?i)<\s*br\s*/?\s*>', '\n', value)
+    value = re.sub(r'(?i)</\s*p\s*>', '\n', value)
+    value = re.sub(r'<[^>]*>', '', value)
+    return html.unescape(value)
 
 
 def validate(data):
@@ -129,6 +157,8 @@ def validate(data):
             errors.append(f'{market}/{variant_id} title is empty')
         elif '\n' in title or '\r' in title:
             errors.append(f'{market}/{variant_id} title must be one line')
+        elif BAD_PUNCTUATION_SPACING.search(title) or '  ' in title:
+            errors.append(f'{market}/{variant_id} title uses non-standard punctuation spacing')
         elif not TITLE_TARGET[0] <= len(title) <= TITLE_TARGET[1]:
             warnings.append(
                 f'{market}/{variant_id} title length {len(title)} is outside '
@@ -147,10 +177,21 @@ def validate(data):
                         'Emoji + 【localized heading】 + body'
                     )
                     continue
-                sentence_count = len(re.findall(r'[.!?。！？]+', match.group(2)))
-                if not 2 <= sentence_count <= 3:
+                body = re.sub(r'\s+', ' ', match.group(2)).strip()
+                sentence_count = len(re.findall(r'[.!?。！？]+', body))
+                if not 2 <= sentence_count <= 4:
                     errors.append(
-                        f'{market}/{variant_id} bullet {index} body must contain 2-3 sentences'
+                        f'{market}/{variant_id} bullet {index} body must contain 2-4 sentences'
+                    )
+                if len(body) < BULLET_BODY_TARGET[0]:
+                    errors.append(
+                        f'{market}/{variant_id} bullet {index} body must contain at least '
+                        f'{BULLET_BODY_TARGET[0]} visible characters of substantive copy'
+                    )
+                if len(body) > BULLET_BODY_TARGET[1]:
+                    warnings.append(
+                        f'{market}/{variant_id} bullet {index} body length {len(body)} exceeds '
+                        f'the {BULLET_BODY_TARGET[1]}-character scan-friendly editorial target'
                     )
         title_keywords = listing.get('title_keywords', [])
         normalized_title_keywords = [
@@ -160,9 +201,12 @@ def validate(data):
         if (len(title_keywords) != 3 or any(not item for item in normalized_title_keywords)
                 or len(set(normalized_title_keywords)) != 3):
             errors.append(f'{market}/{variant_id} title_keywords must contain three distinct phrases')
+            first_keyword_forms = []
         else:
             bullet_text = '\n'.join(map(str, bullets))
-            for phrase, normalized in zip(title_keywords, normalized_title_keywords):
+            first_keyword_forms = []
+            for keyword_index, (phrase, normalized) in enumerate(
+                    zip(title_keywords, normalized_title_keywords)):
                 keyword = keyword_by_key.get((market, normalized))
                 if not keyword:
                     errors.append(
@@ -171,28 +215,101 @@ def validate(data):
                     continue
                 forms = [keyword.get('phrase', ''), *keyword.get('aliases', [])]
                 forms = [str(form).strip() for form in forms if str(form).strip()]
+                if keyword_index == 0:
+                    first_keyword_forms = forms
                 if not any(contains(title, form) for form in forms):
                     errors.append(
                         f'{market}/{variant_id} title does not cover keyword or alias: {phrase}'
                     )
-                if not any(contains(bullet_text, form) for form in forms):
+                if keyword.get('is_core') is not True:
                     errors.append(
-                        f'{market}/{variant_id} bullets do not cover title keyword or alias: {phrase}'
+                        f'{market}/{variant_id} title keyword is not marked as core: {phrase}'
                     )
+        title_quantity = listing.get('title_quantity')
+        title_quantity_term = str(listing.get('title_quantity_term', '')).strip()
+        if (isinstance(title_quantity, bool) or not isinstance(title_quantity, int)
+                or title_quantity < 1):
+            errors.append(f'{market}/{variant_id} title_quantity must be a positive integer')
+        elif title_quantity == 1:
+            if title_quantity_term:
+                errors.append(
+                    f'{market}/{variant_id} title_quantity_term must be empty when title_quantity is 1'
+                )
+            if first_keyword_forms and any(
+                    phrase_preceded_by_token(title, form, '1')
+                    for form in first_keyword_forms):
+                errors.append(
+                    f'{market}/{variant_id} title must omit quantity 1 before the first core keyword'
+                )
+        else:
+            if not title_quantity_term:
+                errors.append(
+                    f'{market}/{variant_id} title_quantity_term is required when title_quantity exceeds 1'
+                )
+            elif str(title_quantity) not in title_quantity_term:
+                errors.append(
+                    f'{market}/{variant_id} title_quantity_term must contain title_quantity '
+                    f'{title_quantity}'
+                )
+            elif first_keyword_forms and not any(
+                    contains(title, f'{title_quantity_term} {form}')
+                    for form in first_keyword_forms):
+                errors.append(
+                    f'{market}/{variant_id} title quantity must immediately precede '
+                    'the first core keyword or alias'
+                )
+        color_mode = listing.get('color_mode')
+        if color_mode not in ('single', 'multi', 'not_applicable'):
+            errors.append(
+                f'{market}/{variant_id} color_mode must be single, multi, or not_applicable'
+            )
+        title_color_terms = listing.get('title_color_terms', [])
+        if not isinstance(title_color_terms, list):
+            errors.append(f'{market}/{variant_id} title_color_terms must be a list')
+            title_color_terms = []
+        if color_mode in ('multi', 'not_applicable') and title_color_terms:
+            errors.append(
+                f'{market}/{variant_id} must not use title_color_terms when color_mode is {color_mode}'
+            )
+        if color_mode == 'single' and len(title_color_terms) > 1:
+            errors.append(f'{market}/{variant_id} single-color title may use at most one color term')
+        for color_term in title_color_terms:
+            if not contains(title, color_term):
+                errors.append(
+                    f'{market}/{variant_id} title does not contain declared color term: {color_term}'
+                )
+            if any(contains(color_term, keyword) or contains(keyword, color_term)
+                   for keyword in title_keywords):
+                errors.append(
+                    f'{market}/{variant_id} color term must not replace a title keyword: {color_term}'
+                )
         title_scene = str(listing.get('title_scene', '')).strip()
         if not title_scene:
             errors.append(f'{market}/{variant_id} title_scene is empty')
         elif not contains(title, title_scene):
             errors.append(f'{market}/{variant_id} title does not contain title_scene: {title_scene}')
         description = str(listing.get('description', ''))
-        positions = [description.find(heading) for heading in headings]
+        tags = [tag.casefold() for tag in DESCRIPTION_TAG.findall(description)]
+        if not tags:
+            errors.append(f'{market}/{variant_id} description must use basic HTML')
+        unsupported = sorted(set(tags) - ALLOWED_DESCRIPTION_TAGS)
+        if unsupported:
+            errors.append(
+                f'{market}/{variant_id} description uses unsupported HTML tags: '
+                + ', '.join(unsupported)
+            )
+        description_text = visible_html(description)
+        heading_matches = [re.search(r'(?mi)^\s*' + re.escape(heading) + r'\s*:',
+                                     description_text)
+                           for heading in headings]
+        positions = [match.start() if match else -1 for match in heading_matches]
         if any(position < 0 for position in positions) or positions != sorted(positions):
             errors.append(f'{market}/{variant_id} description headings are missing or out of order')
         else:
-            overview = description[:positions[0]].strip()
-            features = description[positions[0] + len(headings[0]):positions[1]]
-            details = description[positions[1] + len(headings[1]):positions[2]].strip(' :\n\t')
-            package = description[positions[2] + len(headings[2]):].strip(' :\n\t')
+            overview = description_text[:positions[0]].strip()
+            features = description_text[positions[0] + len(headings[0]):positions[1]]
+            details = description_text[positions[1] + len(headings[1]):positions[2]].strip(' :\n\t')
+            package = description_text[positions[2] + len(headings[2]):].strip(' :\n\t')
             feature_count = len(re.findall(
                 r'(?m)^\s*[1-5][.)]\s*[^:\n：]{1,60}[:：]\s*\S', features
             ))
@@ -204,6 +321,37 @@ def validate(data):
                 errors.append(f'{market}/{variant_id} product details block is empty')
             if not package:
                 errors.append(f'{market}/{variant_id} package contents block is empty')
+            notice_match = re.search(
+                r'(?mi)^\s*' + re.escape(NOTICE_HEADINGS[market]) + r'\s*:',
+                description_text,
+            )
+            if notice_match and notice_match.start() <= positions[2]:
+                errors.append(f'{market}/{variant_id} description notices must follow package contents')
+            if listing.get('notice_fact_ids') and not notice_match:
+                errors.append(
+                    f'{market}/{variant_id} description must include localized notices '
+                    'when notice_fact_ids are provided'
+                )
+
+        adopted_secondary = []
+        for keyword in keywords:
+            if keyword.get('marketplace') != market:
+                continue
+            phrase = str(keyword.get('phrase', '')).strip()
+            normalized = unicodedata.normalize('NFC', phrase).casefold()
+            if (not phrase or normalized in normalized_title_keywords
+                    or keyword.get('decision') == 'exclude'):
+                continue
+            forms = [phrase, *keyword.get('aliases', [])]
+            adopted_secondary.append([str(form).strip() for form in forms if str(form).strip()])
+        if adopted_secondary:
+            for index, item in enumerate(bullets, 1):
+                if not any(any(contains(item, form) for form in forms)
+                           for forms in adopted_secondary):
+                    warnings.append(
+                        f'{market}/{variant_id} bullet {index} does not naturally cover '
+                        'an available non-title keyword; review rather than force insertion'
+                    )
         search_terms = str(listing.get('search_terms', '')).strip()
         if not search_terms:
             errors.append(f'{market}/{variant_id} search_terms is empty')
@@ -218,7 +366,7 @@ def validate(data):
                 errors.append(
                     f'{market}/{variant_id} search_terms repeats tokens: {", ".join(duplicates)}'
                 )
-        visible = '\n'.join([str(listing.get('title', '')), *map(str, bullets), description,
+        visible = '\n'.join([str(listing.get('title', '')), *map(str, bullets), description_text,
                              str(listing.get('search_terms', ''))])
         if ASIN.search(visible):
             errors.append(f'{market}/{variant_id} contains an ASIN')
@@ -237,6 +385,18 @@ def validate(data):
             applies = fact.get('variant_ids', [])
             if applies and variant_id not in applies:
                 errors.append(f'{market}/{variant_id} uses fact {fact_id} from another variant')
+        for fact_id in listing.get('notice_fact_ids', []):
+            fact = fact_by_id.get(fact_id)
+            if not fact:
+                errors.append(f'{market}/{variant_id} notice references unknown fact {fact_id}')
+                continue
+            if fact.get('status') != 'confirmed':
+                errors.append(f'{market}/{variant_id} notice uses non-confirmed fact {fact_id}')
+            if fact_id not in claim_ids:
+                errors.append(f'{market}/{variant_id} notice fact {fact_id} is absent from claim_fact_ids')
+            applies = fact.get('variant_ids', [])
+            if applies and variant_id not in applies:
+                errors.append(f'{market}/{variant_id} notice uses fact {fact_id} from another variant')
         if key not in mapping_by_key:
             errors.append(f'{market}/{variant_id} has no fact-buying-reason-keyword mapping')
         else:

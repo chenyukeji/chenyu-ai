@@ -32,9 +32,9 @@ class ListingTests(unittest.TestCase):
                        'field': 'material', 'value': 'Papier', 'variant_ids': ['V1'],
                        'source': {'sheet': 'Product', 'cell': 'B2'}}],
             'keywords': [
-                {'marketplace': 'DE', 'phrase': 'Dekoration', 'aliases': ['Deko']},
-                {'marketplace': 'DE', 'phrase': 'Papierdekoration', 'aliases': ['Dekoration aus Papier']},
-                {'marketplace': 'DE', 'phrase': 'Festschmuck', 'aliases': ['Feierdeko']},
+                {'marketplace': 'DE', 'phrase': 'Dekoration', 'aliases': ['Deko'], 'is_core': True},
+                {'marketplace': 'DE', 'phrase': 'Papierdekoration', 'aliases': ['Dekoration aus Papier'], 'is_core': True},
+                {'marketplace': 'DE', 'phrase': 'Festschmuck', 'aliases': ['Feierdeko'], 'is_core': True},
             ],
             'mappings': [{'marketplace': 'DE', 'variant_id': 'V1', 'fact_ids': ['F1'],
                           'buying_reasons': ['Leicht'],
@@ -42,21 +42,25 @@ class ListingTests(unittest.TestCase):
                           'listing_fields': ['title', 'bullet_1', 'bullet_2', 'bullet_3']}],
             'listings': [{'marketplace': 'DE', 'language': 'de-DE', 'variant_id': 'V1',
                           'title_keywords': ['Dekoration', 'Papierdekoration', 'Festschmuck'],
-                          'title_scene': 'für Feiern',
+                          'title_scene': 'für Feiern', 'title_quantity': 1,
+                          'title_quantity_term': '', 'color_mode': 'not_applicable',
+                          'title_color_terms': [],
                           'title': 'Dekoration, Papierdekoration und Festschmuck für Feiern',
                           'bullets': [
-                              '📦【Lieferumfang】Die Dekoration besteht aus Papier. Die Angaben gelten für die gewählte Variante.',
-                              '🧩【Material】Die Papierdekoration ist leicht. Die Materialangabe bleibt in allen Feldern einheitlich.',
-                              '✨【Gestaltung】Die Feierdeko setzt einen dekorativen Akzent. Sie lässt sich einfach in ein Arrangement einfügen.',
-                              '🎉【Anlässe】Die Dekoration eignet sich für bestätigte Feiern. Sie ergänzt Tisch- und Raumdekorationen.',
-                              '💡【Hinweis】Verwenden Sie nur die enthaltenen Teile. Bewahren Sie den Artikel passend zum Material auf.',
+                              '📦【Klarer Lieferumfang】Der Lieferumfang ist auf die gewählte Variante abgestimmt und nennt die enthaltenen Dekorationsteile eindeutig. So lässt sich die geplante Anordnung vor dem Dekorieren besser einschätzen, während zusätzlich abgebildete Szenenartikel nicht mit dem Inhalt verwechselt werden.',
+                              '🧩【Bestätigtes Papiermaterial】Die Dekoration besteht aus Papier und lässt sich dadurch gut in vorhandene saisonale Arrangements integrieren. Materialangaben bleiben in Titel, Beschreibung und Produktdetails einheitlich, ohne daraus unbestätigte Eigenschaften wie Wasserfestigkeit oder besondere Haltbarkeit abzuleiten.',
+                              '✨【Flexibel kombinierbar】Die einzelnen Elemente können als ruhiger Akzent verwendet oder mit bereits vorhandener Tisch- und Raumdekoration kombiniert werden. Dadurch entsteht eine zusammenhängende Gestaltung, ohne dass zusätzliche, nicht enthaltene Accessoires als Bestandteil des Sets dargestellt werden.',
+                              '🎉【Für festliche Arrangements】Die Gestaltung eignet sich für bestätigte Feiern und saisonale Innenraumdekorationen. Sie kann je nach Platzangebot auf geeigneten Flächen arrangiert werden und ergänzt unterschiedliche festliche Stilrichtungen, ohne einen bestimmten Aufbau vorzuschreiben.',
+                              '💡【Sachgerechter Umgang】Verwenden Sie ausschließlich die im Lieferumfang genannten Teile und behandeln Sie die Papieroberfläche entsprechend dem bestätigten Material. Lagern Sie die Dekoration trocken und geschützt, damit Form und Erscheinungsbild zwischen den Einsätzen erhalten bleiben.',
                           ],
-                          'description': ('Eine Dekoration aus Papier.\n\nEigenschaften:\n'
-                                          '1. Leicht: Einfach zu platzieren.\n'
-                                          '2. Form: Dekorative Gestaltung.\n'
-                                          '3. Anlass: Für Feiern geeignet.\n\n'
-                                          'Produktdetails:\nMaterial: Papier\nFarbe: Weiß\nGröße: 10 cm\n\n'
-                                          'Lieferumfang:\n1 × Dekoration'),
+                          'description': ('<p>Eine Dekoration aus Papier für festliche Arrangements. '
+                                          'Sie lässt sich einzeln oder zusammen mit vorhandenen Dekorationen einsetzen.</p>'
+                                          '<p><b>Eigenschaften:</b><br>'
+                                          '1. Leicht: Einfach zu platzieren.<br>'
+                                          '2. Form: Dekorative Gestaltung.<br>'
+                                          '3. Anlass: Für Feiern geeignet.</p>'
+                                          '<p><b>Produktdetails:</b><br>Material: Papier<br>Farbe: Weiß<br>Größe: 10 cm</p>'
+                                          '<p><b>Lieferumfang:</b><br>1 × Dekoration</p>'),
                           'search_terms': 'dekoration feier papier', 'claim_fact_ids': ['F1']}],
         }
 
@@ -119,8 +123,7 @@ class ListingTests(unittest.TestCase):
         festschmuck = next(item for item in review['coverage']
                            if item['phrase'] == 'Festschmuck')
         self.assertTrue(festschmuck['selected_for_title'])
-        self.assertIn('bullet_3', festschmuck['semantic_locations'])
-        self.assertEqual(festschmuck['matched_forms']['bullet_3'], ['Feierdeko'])
+        self.assertIn('title', festschmuck['exact_locations'])
 
     def test_listing_package_rejects_unified_format_violations(self):
         data = copy.deepcopy(self.listing_package())
@@ -132,18 +135,80 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('must not contain punctuation' in error for error in result['errors']))
         self.assertTrue(any('repeats tokens: papier' in error for error in result['errors']))
 
-    def test_listing_package_requires_three_title_keywords_in_bullets_and_scene(self):
+    def test_listing_package_rejects_thin_bullet_copy(self):
         data = copy.deepcopy(self.listing_package())
-        data['listings'][0]['bullets'][2] = (
-            '✨【Gestaltung】Die Form setzt einen dekorativen Akzent. '
-            'Sie lässt sich einfach in ein Arrangement einfügen.'
+        data['listings'][0]['bullets'][0] = (
+            '📦【Klarer Lieferumfang】Die ausgewählte Variante enthält die angegebenen '
+            'Dekorationsteile. Dadurch lässt sich der Inhalt vor dem Dekorieren überblicken.'
         )
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('at least 180 visible characters' in error
+                            for error in result['errors']))
+
+    def test_listing_package_requires_three_core_title_keywords_and_scene(self):
+        data = copy.deepcopy(self.listing_package())
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        data['keywords'][2]['is_core'] = False
         data['listings'][0]['title_scene'] = 'für Hochzeiten'
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])
-        self.assertTrue(any('bullets do not cover title keyword or alias: Festschmuck' in error
+        self.assertTrue(any('title keyword is not marked as core: Festschmuck' in error
                             for error in result['errors']))
         self.assertTrue(any('title does not contain title_scene: für Hochzeiten' in error
+                            for error in result['errors']))
+
+    def test_listing_package_requires_html_and_rejects_multicolor_title_terms(self):
+        data = copy.deepcopy(self.listing_package())
+        listing = data['listings'][0]
+        listing['color_mode'] = 'multi'
+        listing['title_color_terms'] = ['Rot']
+        listing['title'] += ' Rot'
+        listing['description'] = (
+            'Eine Beschreibung. Eigenschaften: 1. Material: Papier. '
+            '2. Form: Dekoration. 3. Anlass: Feiern. '
+            'Produktdetails: Material: Papier. Lieferumfang: 1 Dekoration.'
+        )
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('must not use title_color_terms when color_mode is multi' in error
+                            for error in result['errors']))
+        self.assertTrue(any('description must use basic HTML' in error
+                            for error in result['errors']))
+
+    def test_listing_package_rejects_bad_title_spacing_and_checks_optional_notices(self):
+        data = copy.deepcopy(self.listing_package())
+        listing = data['listings'][0]
+        listing['title'] = 'Dekoration,Papierdekoration und Festschmuck für Feiern'
+        listing['notice_fact_ids'] = ['F1']
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('title uses non-standard punctuation spacing' in error
+                            for error in result['errors']))
+        self.assertTrue(any('must include localized notices' in error
+                            for error in result['errors']))
+
+    def test_title_quantity_is_omitted_for_one_and_precedes_first_keyword_for_multipacks(self):
+        data = copy.deepcopy(self.listing_package())
+        listing = data['listings'][0]
+        listing['title_quantity'] = 12
+        listing['title_quantity_term'] = '12 Stück'
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('title quantity must immediately precede' in error
+                            for error in result['errors']))
+
+        listing['title'] = '12 Stück Dekoration, Papierdekoration und Festschmuck für Feiern'
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+
+        listing['title_quantity'] = 1
+        listing['title_quantity_term'] = '1 Stück'
+        listing['title'] = '1 Dekoration, Papierdekoration und Festschmuck für Feiern'
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('title_quantity_term must be empty' in error
+                            for error in result['errors']))
+        self.assertTrue(any('title must omit quantity 1' in error
                             for error in result['errors']))
 
     def test_own_listing_package_rejects_missing_or_competitor_facts(self):
