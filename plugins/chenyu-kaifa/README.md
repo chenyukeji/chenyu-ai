@@ -1,92 +1,47 @@
-# 晨玙 Amazon 产品开发插件
+# 晨玙 Amazon 开发插件
 
-面向产品开发岗位，围绕：
+插件名称为 `chenyu-kaifa`，当前只包含一个选品 Skill：`chenyu-xuanpin`。
 
-```text
-找产品 → 验证需求 → 匹配现货 → 算利润 → 验样试销 → 交接复盘
+输入自然语言选品要求后，插件自动识别找品策略。用户没有说明策略时默认使用 E，从 Amazon 美国站和德国站新品榜获取 ASIN，再通过卖家精灵按 ASIN 补充数据，分析评分并生成按得分降序的 `开品结果.xlsx`。
+
+卖家精灵补数现在独立运行：实时榜单、历史 JSON 和续跑任务中的 ASIN，只要缺少上架日期、Review、售价、BSR、所在品类、预估月销量或图片，都会自动查询并回填。可用 `enrich_sellersprite` 对已有运行目录强制补数。
+
+## 示例
+
+```json
+{
+  "skill_action": "run_discovery_flow",
+  "request": "针对玩具类目的派对用品找新品"
+}
 ```
 
-## 当前可执行 Skill
+派对用品已内置以下新品榜节点：
 
-| Skill | 职责 |
-|---|---|
-| `chenyu-kaifa` | Task Brief、策略路由、阶段计划和综合交付总入口 |
-| `chenyu-jihui` | A/E/J JSON/CSV 发现导入、多策略候选合并、ASIN/父体去重、市场 Evidence 与 Opportunity Card |
-| `chenyu-kaifa-pingshen` | 供应商报价导入、supplier SKU 匹配、组合/验样、三价格三情景利润、资金、评审、Excel、交接和试销复盘 |
+- US：Toys & Games > Party Supplies
+- DE：Spielzeug > Partyzubehör
 
-三个 Skill 都带有可从包根目录运行的标准库脚本，stdin 输入 JSON，stdout 输出 JSON；不依赖数据库。
+## 输出
 
-## 统一规则
+- 原始请求和策略识别结果。
+- Amazon US/DE ASIN清单。
+- 卖家精灵按 ASIN 补充的数据。
+- 去重候选池。
+- 100分制评分明细。
+- 按得分降序的开品 Excel。
 
-- 销售站点：DE / FR / IT / ES。
-- 新品发现：US / DE。
-- 目标含税售价：€5–20。
-- 每个销售单位采购 + 包装 ≤ ¥20，组合按整套。
-- 至少一个同类中国卖家只代表该准入项通过。
-- 现货单品、多件装、互补现货组合优先。
-- 非硬性评分、销量阈值和采样数量等待真实试跑校准。
+Excel 列结构参考业务现有开品表，包含站点、上架日期、Review、售价、BSR、品类、月销量、中文优缺点、生命周期、ASIN、链接、图片、结论和理由。内部得分只用于降序排序，表格结论显示“强开、开、条件开、偏弱、观察、不建议”。图片直接嵌入 Excel；“缺点”是产品本身的不足或评论痛点；“生命周期”是全年或具体可售月份。
 
-运行规则位于各 Skill 的 `references/runtime-rules.json`；仓库测试要求三份规则内容完全一致，保证子 Skill 可独立安装又不发生口径漂移。
+## 浏览器
 
-## 可执行动作
+采集使用插件内部 Python/Playwright，不使用 Browser/Playwright MCP。依赖安装：
 
-`chenyu-kaifa/scripts/run.py`
-
-- status
-- create_task
-- plan
-
-`chenyu-jihui/scripts/run.py`
-
-- status
-- import_discovery_file
-- merge_candidates
-- build_market_evidence
-- build_opportunity_card
-
-`chenyu-kaifa-pingshen/scripts/run.py`
-
-- status
-- import_supplier_quotes
-- match_supply
-- build_multipack
-- build_bundle
-- build_sample_checklist
-- calculate_economics
-- calculate_scenario_matrix
-- calculate_trial_funding
-- review
-- create_trial_card
-- build_delivery_sections
-- import_trial_data
-- review_trial
-- export_workbook
-
-## Excel
-
-开发 Excel 固定包含：
-
-```text
-00_Task
-01_Candidates
-02_Evidence
-03_Opportunity_Cards
-04_Supply_Match
-05_Economics
-06_Decision
-07_Product_Master
-08_Handoff
-09_Trial_Card
+```powershell
+python -m pip install -r requirements-browser.txt
+python -m playwright install chromium
 ```
 
-Excel 是交付快照，利润计算真值来自可重复运行的 economics 工具。
+卖家精灵账号可保存在仓库根目录 `.chenyu-secrets/sellersprite.json`。该目录已被 Git 忽略，输出不会回显密码。
 
-## 设计文档
+## 当前边界
 
-根目录的 `01-欧洲站AI开品-业务与策略设计.md`、`02-欧洲站AI开品-工程实现与验收.md` 和 `03-欧洲站AI开品-初始规则配置.json` 保留为设计与追溯材料。真正运行时以 Skill 内的 runtime rules 和脚本为准。
-
-详细研发状态见 [TASK-BOARD.md](TASK-BOARD.md)。
-
-## 边界
-
-默认只做研究、计算和文件交付。未经明确授权，不联系供应商、不采购、不付款、不修改 Amazon 店铺、不发布 Listing、不执行广告。实时市场结论必须来自实际采集或用户导入资料，不能把设计示例当当前数据。
+当前只做选品与分析，不处理供应商报价、利润、采购、试销、Listing 或广告。

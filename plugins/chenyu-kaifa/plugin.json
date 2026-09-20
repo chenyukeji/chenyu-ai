@@ -1,20 +1,20 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-kaifa",
-  "version": "0.3.2",
-  "description": "Executable Amazon product discovery, market validation, sourcing match, profitability and trial-review workflows for Chenyu.",
+  "version": "1.0.0",
+  "description": "Natural-language Amazon product discovery, transparent scoring and ranked Excel output for Chenyu.",
   "author": {"name": "chenyukeji", "url": "https://github.com/chenyukeji"},
   "homepage": "https://github.com/chenyukeji/chenyu-ai",
   "repository": "https://github.com/chenyukeji/chenyu-ai",
-  "keywords": ["amazon", "product-development", "market-research", "profitability", "sourcing"],
+  "keywords": ["amazon", "product-discovery", "new-releases", "sellersprite", "excel"],
   "skills": "./skills/",
   "interface": {
     "displayName": "晨玙 Amazon 开发",
-    "shortDescription": "从找品、需求验证到现货利润评审和试销交接。",
-    "longDescription": "以统一候选池连接 A/E/J 文件或结构化采集结果、欧洲站市场验证、供应商报价与现货匹配、三价格三情景利润、验样与资金、开发评审、标准开发 Excel、部门交接和试销数据复盘。销售站点覆盖 DE/FR/IT/ES，新品发现参考 US/DE；不自动采购、付款、上架、补货或投放广告。",
+    "shortDescription": "自动找品、补数并生成中文开品结论表。",
+    "longDescription": "根据自然语言自动识别找品策略；未说明时默认抓取 Amazon 美国站和德国站新品榜 ASIN，并用卖家精灵补充数据，生成透明评分和按得分降序的开品 Excel。",
     "developerName": "晨玙科技",
     "category": "Productivity",
-    "capabilities": ["Task planning", "Discovery file import", "Market opportunity research", "Candidate deduplication", "Supplier quote import", "Sourcing match", "Scenario profitability", "Development review", "Workbook delivery", "Trial review"],
-    "defaultPrompt": "建立 Amazon 产品开发任务，从统一候选池、市场验证和真实报价开始，完成利润评审与开发交付。"
+    "capabilities": ["Natural-language strategy routing", "Internal Playwright collection", "Amazon ASIN discovery", "SellerSprite enrichment", "Candidate scoring", "Ranked Excel output"],
+    "defaultPrompt": "根据我的要求找产品，用卖家精灵补数，并生成按内部得分降序、包含中文结论和理由的 Excel。"
   }
 }

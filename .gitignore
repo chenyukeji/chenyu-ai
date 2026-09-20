@@ -3,6 +3,8 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .venv/
+.chenyu-browser-profiles/
+.chenyu-secrets/
 env/.venv/
 node_modules/
 env/node_modules/

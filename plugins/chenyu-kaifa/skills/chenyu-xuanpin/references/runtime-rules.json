@@ -1,0 +1,53 @@
+{
+  "schema_version": "2.0.0",
+  "config_revision": "2026-09-20-discovery-v2",
+  "plugin_name": "chenyu-kaifa",
+  "status": "runtime",
+  "discovery_marketplaces": ["US", "DE"],
+  "default_strategy_id": "E",
+  "strategy_registry": {
+    "A": {"name": "同类中国卖家现货", "role": "candidate_discovery", "phase": "import_ready"},
+    "B": {"name": "近期商品需求", "role": "candidate_discovery", "phase": "planned"},
+    "C": {"name": "关键词需求", "role": "candidate_discovery", "phase": "planned"},
+    "D": {"name": "评论痛点", "role": "candidate_discovery", "phase": "planned"},
+    "E": {"name": "美德新品榜", "role": "candidate_discovery", "phase": "available"},
+    "F": {"name": "现货组合与单品比较", "role": "candidate_discovery", "phase": "planned"},
+    "H": {"name": "历史旺季提前备货", "role": "candidate_discovery", "phase": "planned"},
+    "I": {"name": "店铺相邻产品扩品", "role": "candidate_discovery", "phase": "planned"},
+    "J": {"name": "近60天FBM机会", "role": "candidate_discovery", "phase": "import_ready"}
+  },
+  "scoring": {
+    "method": "new_product_discovery_score_v1",
+    "status": "heuristic_not_calibrated_not_a_hard_gate",
+    "weights": {
+      "new_release_rank": 30,
+      "estimated_monthly_sales": 25,
+      "listing_recency": 15,
+      "review_competition": 10,
+      "price_band_fit": 10,
+      "data_completeness": 10
+    }
+  },
+  "column_semantics": {
+    "缺点": "产品本身的不足或评论痛点，不用于记录缺失字段",
+    "生命周期": "产品全年或具体可售月份，不表示上架后的成长阶段",
+    "图片": "下载后嵌入 Excel 文件，不输出图片链接或 IMAGE 网络公式"
+  },
+  "output_columns": [
+    "站点",
+    "上架日期",
+    "Review数量",
+    "售价（当地币种）",
+    "大品类排名",
+    "所在品类",
+    "预估月销量",
+    "产品优点&特征",
+    "缺点",
+    "生命周期",
+    "ASIN",
+    "亚马逊产品链接",
+    "图片",
+    "结论",
+    "理由"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "presets": [
+    {
+      "preset_id": "toys-party-supplies",
+      "keywords": [
+        "派对用品",
+        "派对装饰",
+        "party supplies",
+        "party decoration",
+        "party decorations"
+      ],
+      "category_normalized": "Toys > Party Supplies",
+      "amazon_new_releases": {
+        "US": "https://www.amazon.com/gp/new-releases/toys-and-games/1266203011",
+        "DE": "https://www.amazon.de/gp/new-releases/toys/359480031"
+      }
+    }
+  ]
+}

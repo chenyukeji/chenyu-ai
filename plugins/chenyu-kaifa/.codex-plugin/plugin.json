@@ -1,0 +1,35 @@
+{
+  "name": "chenyu-kaifa",
+  "version": "1.0.0",
+  "description": "Natural-language Amazon product discovery, transparent scoring and ranked Excel output for Chenyu.",
+  "author": {
+    "name": "chenyukeji",
+    "url": "https://github.com/chenyukeji"
+  },
+  "homepage": "https://github.com/chenyukeji/chenyu-ai",
+  "repository": "https://github.com/chenyukeji/chenyu-ai",
+  "keywords": [
+    "amazon",
+    "product-discovery",
+    "new-releases",
+    "sellersprite",
+    "excel"
+  ],
+  "skills": "skills",
+  "interface": {
+    "displayName": "\u6668\u7399 Amazon \u5f00\u53d1",
+    "shortDescription": "\u81ea\u52a8\u627e\u54c1\u3001\u8865\u6570\u5e76\u751f\u6210\u4e2d\u6587\u5f00\u54c1\u7ed3\u8bba\u8868\u3002",
+    "longDescription": "\u6839\u636e\u81ea\u7136\u8bed\u8a00\u81ea\u52a8\u8bc6\u522b\u627e\u54c1\u7b56\u7565\uff1b\u672a\u8bf4\u660e\u65f6\u9ed8\u8ba4\u6293\u53d6 Amazon \u7f8e\u56fd\u7ad9\u548c\u5fb7\u56fd\u7ad9\u65b0\u54c1\u699c ASIN\uff0c\u5e76\u7528\u5356\u5bb6\u7cbe\u7075\u8865\u5145\u6570\u636e\uff0c\u751f\u6210\u900f\u660e\u8bc4\u5206\u548c\u6309\u5f97\u5206\u964d\u5e8f\u7684\u5f00\u54c1 Excel\u3002",
+    "developerName": "\u6668\u7399\u79d1\u6280",
+    "category": "Productivity",
+    "capabilities": [
+      "Natural-language strategy routing",
+      "Internal Playwright collection",
+      "Amazon ASIN discovery",
+      "SellerSprite enrichment",
+      "Candidate scoring",
+      "Ranked Excel output"
+    ],
+    "defaultPrompt": "\u6839\u636e\u6211\u7684\u8981\u6c42\u627e\u4ea7\u54c1\uff0c\u7528\u5356\u5bb6\u7cbe\u7075\u8865\u6570\uff0c\u5e76\u751f\u6210\u6309\u5185\u90e8\u5f97\u5206\u964d\u5e8f\u3001\u5305\u542b\u4e2d\u6587\u7ed3\u8bba\u548c\u7406\u7531\u7684 Excel\u3002"
+  }
+}
