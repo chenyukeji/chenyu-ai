@@ -17,18 +17,31 @@ ASIN = re.compile(r'\bB0[A-Z0-9]{8}\b', re.I)
 PLACEHOLDER = re.compile(r'\[(?:brand|marque|marca|marke|marchio|品牌|待确认|todo)\]', re.I)
 BULLET_FORMAT = re.compile(
     r'^\s*(?:[\U0001F300-\U0001FAFF\u2600-\u27BF]'
-    r'[\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]*\s*)?'
+    r'[\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]*\s*)'
     r'【([^】\r\n]{1,40})】\s*(\S[\s\S]*)$'
 )
-SEARCH_TERMS_PUNCTUATION = re.compile(r'[,.;:!?|/\\，。；：！？]')
+SEARCH_TERMS_PUNCTUATION = re.compile(r'[^\w\s]', re.UNICODE)
 BAD_PUNCTUATION_SPACING = re.compile(r'[,;](?=\S)|:(?=[A-Za-zÀ-ÖØ-öø-ÿ])')
 TITLE_TARGET = (150, 190)
 BULLET_BODY_TARGET = (120, 320)
+SEARCH_TERMS_MAX_BYTES = 249
 ALLOWED_DESCRIPTION_TAGS = {'p', 'br', 'b'}
 DESCRIPTION_TAG = re.compile(r'<\s*/?\s*([a-zA-Z0-9]+)(?:\s[^>]*)?>')
 NOTICE_HEADINGS = {
     'DE': 'Hinweise', 'FR': 'Remarques', 'IT': 'Avvertenze',
     'ES': 'Avisos', 'UK': 'Notes',
+}
+SEARCH_TERMS_STOP_WORDS = {
+    'DE': {'ein', 'eine', 'einer', 'eines', 'einem', 'einen', 'und', 'oder', 'bei',
+           'für', 'fuer', 'von', 'das', 'die', 'der', 'den', 'dem', 'des', 'mit',
+           'zu', 'im', 'in', 'am', 'an'},
+    'FR': {'un', 'une', 'des', 'le', 'la', 'les', 'et', 'ou', 'de', 'du', 'en',
+           'pour', 'avec', 'sur'},
+    'IT': {'un', 'uno', 'una', 'il', 'lo', 'la', 'i', 'gli', 'le', 'e', 'o',
+           'di', 'da', 'per', 'con', 'su', 'in'},
+    'ES': {'un', 'una', 'unos', 'unas', 'el', 'la', 'los', 'las', 'y', 'o',
+           'de', 'del', 'para', 'con', 'en', 'por'},
+    'UK': {'a', 'an', 'the', 'and', 'or', 'of', 'for', 'with', 'in', 'on', 'to'},
 }
 
 
@@ -376,13 +389,38 @@ def validate(data):
         else:
             if '\n' in search_terms or '\r' in search_terms:
                 errors.append(f'{market}/{variant_id} search_terms must be one line')
+            if search_terms != search_terms.lower():
+                errors.append(f'{market}/{variant_id} search_terms must be lowercase')
             if SEARCH_TERMS_PUNCTUATION.search(search_terms):
                 errors.append(f'{market}/{variant_id} search_terms must not contain punctuation')
+            if re.search(r'[^\S ]', search_terms) or '  ' in search_terms:
+                errors.append(
+                    f'{market}/{variant_id} search_terms must use single spaces as separators'
+                )
+            byte_count = len(search_terms.encode('utf-8'))
+            if byte_count > SEARCH_TERMS_MAX_BYTES:
+                errors.append(
+                    f'{market}/{variant_id} search_terms uses {byte_count} UTF-8 bytes; '
+                    f'maximum is {SEARCH_TERMS_MAX_BYTES}'
+                )
             terms = words(search_terms)
             duplicates = sorted({term for term in terms if terms.count(term) > 1})
             if duplicates:
                 errors.append(
                     f'{market}/{variant_id} search_terms repeats tokens: {", ".join(duplicates)}'
+                )
+            stop_words = sorted(set(terms) & SEARCH_TERMS_STOP_WORDS.get(market, set()))
+            if stop_words:
+                errors.append(
+                    f'{market}/{variant_id} search_terms contains stop words: '
+                    + ', '.join(stop_words)
+                )
+            front_end_words = set(words('\n'.join([title, *map(str, bullets), description_text])))
+            overlap = sorted(set(terms) & front_end_words)
+            if overlap:
+                errors.append(
+                    f'{market}/{variant_id} search_terms repeats front-end tokens: '
+                    + ', '.join(overlap)
                 )
         visible = '\n'.join([str(listing.get('title', '')), *map(str, bullets), description_text,
                              str(listing.get('search_terms', ''))])

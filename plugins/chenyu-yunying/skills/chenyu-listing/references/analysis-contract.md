@@ -54,7 +54,7 @@ python scripts/analyze_listing.py "task/listing-package.json" --out "task/conten
       "bullet_references":["参考 B012345678 第1点","参考 B012345678 第2点","参考 B012345678 第3点","参考 B012345678 第4点","参考 B012345678 第5点"],
       "description":"<p>Diese Papierdekoration verbindet eine klar erkennbare festliche Gestaltung mit flexiblen Möglichkeiten für vorhandene Arrangements. Sie kann als einzelner Akzent oder zusammen mit passender Tisch- und Raumdekoration eingesetzt werden, ohne zusätzlich gezeigte Szenenartikel als Lieferumfang darzustellen.</p><p><b>Eigenschaften:</b><br>1. Bestätigtes Material: Die Dekoration besteht aus Papier; weitergehende Materialeigenschaften werden nicht vorausgesetzt.<br>2. Flexible Gestaltung: Die Elemente lassen sich je nach verfügbarem Platz einzeln oder zusammen anordnen.<br>3. Festlicher Einsatz: Die Gestaltung unterstützt Weihnachtsfeiern und andere bestätigte saisonale Innenszenen.</p><p><b>Produktdetails:</b><br>Material: Papier</p><p><b>Lieferumfang:</b><br>1 × Baumschmuck</p>",
       "description_reference":"参考 B012345678 第1-5点",
-      "search_terms":"baumschmuck papieranhaenger festdeko weihnachtsfeiern",
+      "search_terms":"dekoartikel schmuckanhaenger festbedarf",
       "search_terms_reference":"参考 B012345678 标题及五点/关键词提取",
       "claim_fact_ids":["F1"]
     }
@@ -74,6 +74,6 @@ facts 只能记录自有产品证据，source_type 固定 own_product；竞品�
 
 limits 默认空：仅在核实规则后填入站点下的 title_chars / search_terms_bytes，并在任务记录保留官方来源、类目和查询日期。脚本报告未核实项，不内置通用限制。
 
-package-review.json 检查目标站点/变体齐全、单行标题、规范标点空格、3 个核心标题关键词及场景、标题数量规则、颜色模式、标题中的原词或 alias、五点数量及默认“【利益点小标题】＋2—4句正文”格式、基础 HTML 描述、Search Terms、事实来源和映射。Emoji 为可选项。五点正文少于约120个可见字符时报错，超过约320个可见字符或存在可用次要词但未自然覆盖时提示人工复核；标题 150—190 字符也仅作为编辑警告，不冒充平台限制。字符和句数校验不能代替语义审核；模型还必须确认第一句直给具体特点和结果、五条按重要度排序、标题未覆盖的次要词被合理分配，并复核同款竞品高频主题是否遗漏。ready_for_delivery=false 时不得交付。
+package-review.json 检查目标站点/变体齐全、单行标题、规范标点空格、3 个核心标题关键词及场景、标题数量规则、颜色模式、标题中的原词或 alias、五点数量及默认“Emoji＋【利益点小标题】＋2—4句正文”格式、基础 HTML 描述、Search Terms、事实来源和映射。每条五点必须以一个相关 Emoji 开头；只有已核实的平台规则禁止特殊符号时才可移除并同步调整校验。Search Terms 必须全部小写、单行、以单个空格分隔且不含标点，不得重复字段内词、常见停用词或标题/五点/详情已覆盖的词，并少于 250 UTF-8 字节。五点正文少于约120个可见字符时报错，超过约320个可见字符或存在可用次要词但未自然覆盖时提示人工复核；标题 150—190 字符也仅作为编辑警告，不冒充平台限制。字符和句数校验不能代替语义审核；模型还必须确认第一句直给具体特点和结果、五条按重要度排序、标题未覆盖的次要词被合理分配，并复核同款竞品高频主题是否遗漏。ready_for_delivery=false 时不得交付。
 
 content-review.json 会先剥离 HTML 标签，再计算原词/语义组覆盖数、各字段样本分母、证据位置、长度和重复片段。两个检查都不负责语义审核、自动翻译、事实推断或发布；三个标题词是否语义重复、标题自然度、五点是否真正汇总多竞品主题、品牌候选及8词重合须由模型复核。输出文件已存在时拒绝覆盖。

@@ -61,7 +61,8 @@ class ListingTests(unittest.TestCase):
                                           '3. Anlass: Für Feiern geeignet.</p>'
                                           '<p><b>Produktdetails:</b><br>Material: Papier<br>Farbe: Weiß<br>Größe: 10 cm</p>'
                                           '<p><b>Lieferumfang:</b><br>1 × Dekoration</p>'),
-                          'search_terms': 'dekoration feier papier', 'claim_fact_ids': ['F1']}],
+                          'search_terms': 'dekoartikel schmuckanhänger festbedarf',
+                          'claim_fact_ids': ['F1']}],
         }
 
     def test_xlsx_evidence(self):
@@ -153,10 +154,20 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('must not contain punctuation' in error for error in result['errors']))
         self.assertTrue(any('repeats tokens: papier' in error for error in result['errors']))
 
+    def test_listing_package_enforces_incremental_search_terms(self):
+        data = copy.deepcopy(self.listing_package())
+        data['listings'][0]['search_terms'] = 'Dekoartikel und Papier ' + ('ä' * 120)
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('must be lowercase' in error for error in result['errors']))
+        self.assertTrue(any('contains stop words: und' in error for error in result['errors']))
+        self.assertTrue(any('repeats front-end tokens: papier' in error for error in result['errors']))
+        self.assertTrue(any('UTF-8 bytes' in error for error in result['errors']))
+
     def test_listing_package_rejects_thin_bullet_copy(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['bullets'][0] = (
-            '【Klarer Lieferumfang】Die Variante enthält die angegebenen Teile. '
+            '📦【Klarer Lieferumfang】Die Variante enthält die angegebenen Teile. '
             'Der Inhalt lässt sich vorab überblicken.'
         )
         result = package_validator.validate(data)
