@@ -6,6 +6,7 @@
 
 - `chenyu-meigong`：美工任务总入口，判断任务属于整套作图、改版还是局部精修。
 - `chenyu-zuotu`：读取作图单并制作或修改整套 Amazon 商品图片。
+- `chenyu-zhutu-youhua`：从审美角度主动诊断已有 Amazon 主图，并作为美术决策者优化构图、层次、留白、光影和材质表现。
 - `chenyu-jingxiu`：在保护原图主体、背景和构图的前提下执行局部精修。
 
 ## 常见输入

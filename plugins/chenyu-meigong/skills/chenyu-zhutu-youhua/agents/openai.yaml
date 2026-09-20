@@ -1,0 +1,8 @@
+interface:
+  display_name: "晨玙主图审美优化"
+  short_description: "主动诊断主图构图与质感，并作为美术决策者直接完成优化"
+  default_prompt: "使用 $chenyu-zhutu-youhua，从审美角度诊断这张 Amazon 主图，并按你的专业判断直接优化。"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+policy:
+  allow_implicit_invocation: true

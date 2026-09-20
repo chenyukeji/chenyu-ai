@@ -26,6 +26,7 @@ Excel可能包含ZIP附件图标和OLE嵌入对象，实际高清素材藏在附
   "tasks": [{
     "id": "sku-variant-01",
     "product_id": "sku-variant",
+    "image_type": "main_image",
     "source": {"file": "brief.xlsx", "sheet": "Sheet1", "cells": ["D2"]},
     "raw_requirement": "完整原文",
     "normalizations": [{"from": "不要AI", "to": "自然真实的摄影风格", "reason": "用户选择AI制作；只处理制作指令"}],
@@ -41,6 +42,8 @@ Excel可能包含ZIP附件图标和OLE嵌入对象，实际高清素材藏在附
   }]
 }
 ```
+
+`image_type`必须为`main_image`、`infographic_detail`或`lifestyle_scene`。表头、分区标题或原文出现“主图”时记录为`main_image`；不要根据行号猜测。`main_image`的requirements必须包含纯白`#FFFFFF`背景、无色偏/渐变/纹理/场景/边框/装饰，以及“产品颜色不得扩展到背景或环境光”的检查项。
 
 任务状态：planned、ready、generating、reviewing、passed、needs_review、blocked。要求状态：unchecked、pass、fail、unknown。生成前为planned，核实素材和要求后ready；有真实图像结果后才能reviewing；全部要求pass且相关文件检查通过才可passed。若像素规格无法核验则对应要求unknown，任务needs_review。
 

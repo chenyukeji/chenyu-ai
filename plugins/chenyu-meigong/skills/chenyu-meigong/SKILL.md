@@ -12,11 +12,12 @@ description: 晨玙美工总入口。接收作图单、产品实拍、参考素�
 | 请求 | 读取并执行 |
 | --- | --- |
 | 作图单出图、新图、换场景或整图构图改版 | [chenyu-zuotu](../chenyu-zuotu/SKILL.md) |
+| 已有 Amazon 主图，希望助手从审美角度主动诊断构图并直接优化 | [chenyu-zhutu-youhua](../chenyu-zhutu-youhua/SKILL.md) |
 | 保留整体，仅修白边、伪影、局部颜色或形状 | [chenyu-jingxiu](../chenyu-jingxiu/SKILL.md) |
 | 同时做新图和修旧图 | 按图片拆分，分别执行以上 Skill |
 | 先根据开发文档设计作图要求 | 若已安装运营插件可衔接 chenyu-zuotuyaoqiu；否则说明该规划能力需要另行提供，不声称已调用 |
 
-纯精修依照精修 Skill，成功时只交付最终完整图，不附加总入口分析。制作任务依照作图 Skill 交付。用户只要方案或预检时遵循其范围。
+从零制作主图依照作图 Skill；已有主图且需要主动审美决策与整体优化时依照主图优化 Skill；只按用户明确位置修一个局部问题时依照精准精修 Skill。用户只要方案或预检时遵循其范围。
 
 ## 协调
 
