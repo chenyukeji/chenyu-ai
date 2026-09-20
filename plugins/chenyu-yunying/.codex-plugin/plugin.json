@@ -1,0 +1,32 @@
+{
+  "name": "chenyu-yunying",
+  "version": "0.9.4+codex.20260920075305",
+  "description": "Product development briefs to Amazon listings and image briefs for Chenyu.",
+  "author": {
+    "name": "chenyukeji",
+    "url": "https://github.com/chenyukeji"
+  },
+  "homepage": "https://github.com/chenyukeji/chenyu-ai",
+  "repository": "https://github.com/chenyukeji/chenyu-ai",
+  "keywords": [
+    "amazon",
+    "listing",
+    "image-brief"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "\u6668\u7399 Amazon \u8fd0\u8425",
+    "shortDescription": "\u4ece\u5f00\u53d1\u6587\u6863\u751f\u6210\u81ea\u6709\u4ea7\u54c1 Listing \u548c\u4f5c\u56fe\u8981\u6c42\u3002",
+    "longDescription": "\u7edf\u4e00\u89e3\u6790\u5f00\u53d1 Excel\uff0c\u7531\u72ec\u7acb\u7ade\u54c1\u7814\u7a76\u80fd\u529b\u6293\u53d6 Listing\u3001\u9ad8\u6e05\u56fe\u518c\u548c A+ \u56fe\u7247\uff0c\u518d\u590d\u7528\u540c\u4e00\u7814\u7a76\u5305\u9ed8\u8ba4\u751f\u6210\u5fb7\u56fd\u3001\u6cd5\u56fd\u3001\u610f\u5927\u5229\u3001\u897f\u73ed\u7259\u56db\u7ad9\u672c\u5730\u5316\u65e0\u54c1\u724c Listing \u53ca\u8f7b\u91cf\u94fe\u63a5\u5f0f\u4f5c\u56fe\u8981\u6c42\u3002Listing \u6587\u6863\u9ed8\u8ba4\u4e0d\u8f93\u51fa\u5173\u952e\u8bcd\u8868\uff0c\u4f5c\u56fe\u5355\u9ed8\u8ba4 1254\u00d71254 px\uff0c\u56fe\u7247\u6587\u5b57\u7edf\u4e00\u4f7f\u7528\u7cbe\u7b80\u82f1\u6587\u3002",
+    "developerName": "\u6668\u7399\u79d1\u6280",
+    "category": "Productivity",
+    "capabilities": [
+      "Competitor research",
+      "Listing writing",
+      "Image brief planning"
+    ],
+    "defaultPrompt": [
+      "\u4f7f\u7528\u8fd0\u8425\u603b\u5165\u53e3\uff0c\u6839\u636e\u5f00\u53d1\u6587\u6863\u751f\u6210\u6240\u9700\u7684 Listing \u548c\u4f5c\u56fe\u8981\u6c42\u3002"
+    ]
+  }
+}

@@ -16,14 +16,14 @@ MARKETS = {
 ASIN = re.compile(r'\bB0[A-Z0-9]{8}\b', re.I)
 PLACEHOLDER = re.compile(r'\[(?:brand|marque|marca|marke|marchio|品牌|待确认|todo)\]', re.I)
 BULLET_FORMAT = re.compile(
-    r'^\s*[\U0001F300-\U0001FAFF\u2600-\u27BF]'
-    r'[\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]*\s*'
+    r'^\s*(?:[\U0001F300-\U0001FAFF\u2600-\u27BF]'
+    r'[\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]*\s*)?'
     r'【([^】\r\n]{1,40})】\s*(\S[\s\S]*)$'
 )
 SEARCH_TERMS_PUNCTUATION = re.compile(r'[,.;:!?|/\\，。；：！？]')
 BAD_PUNCTUATION_SPACING = re.compile(r'[,;](?=\S)|:(?=[A-Za-zÀ-ÖØ-öø-ÿ])')
 TITLE_TARGET = (150, 190)
-BULLET_BODY_TARGET = (180, 420)
+BULLET_BODY_TARGET = (120, 320)
 ALLOWED_DESCRIPTION_TAGS = {'p', 'br', 'b'}
 DESCRIPTION_TAG = re.compile(r'<\s*/?\s*([a-zA-Z0-9]+)(?:\s[^>]*)?>')
 NOTICE_HEADINGS = {
@@ -68,6 +68,7 @@ def validate(data):
     targets = data.get('targets', [])
     variants = data.get('variants', [])
     facts = data.get('facts', [])
+    competitors = data.get('competitors', [])
     keywords = data.get('keywords', [])
     mappings = data.get('mappings', [])
     listings = data.get('listings', [])
@@ -165,6 +166,16 @@ def validate(data):
                 f'the {TITLE_TARGET[0]}-{TITLE_TARGET[1]} editorial target; '
                 'do not add unsupported facts or override verified category limits'
             )
+        if competitors:
+            title_reference = str(listing.get('title_reference', '')).strip()
+            if not title_reference:
+                errors.append(f'{market}/{variant_id} title_reference is required when competitor evidence exists')
+            description_reference = str(listing.get('description_reference', '')).strip()
+            if not description_reference:
+                errors.append(f'{market}/{variant_id} description_reference is required when competitor evidence exists')
+            search_terms_reference = str(listing.get('search_terms_reference', '')).strip()
+            if not search_terms_reference:
+                errors.append(f'{market}/{variant_id} search_terms_reference is required when competitor evidence exists')
         bullets = listing.get('bullets', [])
         if len(bullets) != 5 or any(not str(item).strip() for item in bullets):
             errors.append(f'{market}/{variant_id} must contain five non-empty bullets')
@@ -174,7 +185,7 @@ def validate(data):
                 if not match:
                     errors.append(
                         f'{market}/{variant_id} bullet {index} must use '
-                        'Emoji + 【localized heading】 + body'
+                        '【localized benefit heading】 + body, with optional leading Emoji'
                     )
                     continue
                 body = re.sub(r'\s+', ' ', match.group(2)).strip()
@@ -192,6 +203,13 @@ def validate(data):
                     warnings.append(
                         f'{market}/{variant_id} bullet {index} body length {len(body)} exceeds '
                         f'the {BULLET_BODY_TARGET[1]}-character scan-friendly editorial target'
+                    )
+            if competitors:
+                bullet_references = listing.get('bullet_references', [])
+                if (len(bullet_references) != 5
+                        or any(not str(item).strip() for item in bullet_references)):
+                    errors.append(
+                        f'{market}/{variant_id} bullet_references must contain five non-empty sources'
                     )
         title_keywords = listing.get('title_keywords', [])
         normalized_title_keywords = [

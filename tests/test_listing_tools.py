@@ -125,6 +125,24 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(festschmuck['selected_for_title'])
         self.assertIn('title', festschmuck['exact_locations'])
 
+    def test_competitor_evidence_requires_references_for_all_listing_fields(self):
+        data = self.listing_package()
+        data['competitors'] = [{'id': 'C1', 'marketplace': 'DE', 'product_group': 'P1',
+                                'status': 'complete', 'asin': 'B012345678'}]
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('title_reference is required' in error for error in result['errors']))
+        self.assertTrue(any('description_reference is required' in error for error in result['errors']))
+        self.assertTrue(any('search_terms_reference is required' in error for error in result['errors']))
+        self.assertTrue(any('bullet_references must contain five' in error for error in result['errors']))
+
+        listing = data['listings'][0]
+        listing['title_reference'] = '参考 B012345678 标题'
+        listing['bullet_references'] = [f'参考 B012345678 第{i}点' for i in range(1, 6)]
+        listing['description_reference'] = '参考 B012345678 第1-5点'
+        listing['search_terms_reference'] = '参考 B012345678 标题及五点'
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+
     def test_listing_package_rejects_unified_format_violations(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['bullets'][0] = 'Lieferumfang: Nur ein kurzer Satz.'
@@ -138,12 +156,12 @@ class ListingTests(unittest.TestCase):
     def test_listing_package_rejects_thin_bullet_copy(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['bullets'][0] = (
-            '📦【Klarer Lieferumfang】Die ausgewählte Variante enthält die angegebenen '
-            'Dekorationsteile. Dadurch lässt sich der Inhalt vor dem Dekorieren überblicken.'
+            '【Klarer Lieferumfang】Die Variante enthält die angegebenen Teile. '
+            'Der Inhalt lässt sich vorab überblicken.'
         )
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])
-        self.assertTrue(any('at least 180 visible characters' in error
+        self.assertTrue(any('at least 120 visible characters' in error
                             for error in result['errors']))
 
     def test_listing_package_requires_three_core_title_keywords_and_scene(self):
