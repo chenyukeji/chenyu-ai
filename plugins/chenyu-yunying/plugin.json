@@ -1,5 +1,4 @@
 {
-  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-yunying",
   "version": "0.9.4",
   "description": "Product development briefs to Amazon listings and image briefs for Chenyu.",
