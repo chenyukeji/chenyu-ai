@@ -33,6 +33,8 @@
 
 Excel 列结构参考业务现有开品表，包含站点、上架日期、Review、售价、BSR、品类、月销量、中文优缺点、生命周期、ASIN、链接、图片、结论和理由。内部得分只用于降序排序，表格结论显示“强开、开、条件开、偏弱、观察、不建议”。图片直接嵌入 Excel；“缺点”是产品本身的不足或评论痛点；“生命周期”是全年或具体可售月份。
 
+默认任务目录为 `outputs/chenyu-kaifa/product-discovery/YYYY-MM-DD_产品简称/`。同一天同名的新任务追加 `_02`、`_03`；续跑时显式传入原 `run_dir`，不覆盖其他运行结果。详细规则见 [输出目录规范](references/output-paths.md)。
+
 ## 浏览器
 
 采集使用插件内部 Python/Playwright，不使用 Browser/Playwright MCP。依赖安装：
@@ -43,6 +45,8 @@ python -m playwright install chromium
 ```
 
 卖家精灵账号可保存在仓库根目录 `.chenyu-secrets/sellersprite.json`。该目录已被 Git 忽略，输出不会回显密码。
+
+卖家精灵单条 ASIN 查询默认最多等待 8 秒；正常命中、查询请求完成但无匹配，或页面明确返回空结果时都会立即进入下一条。每条查询在原始结果中记录实际耗时和结束原因，普通续跑会跳过已经确认查不到的 ASIN。
 
 ## 当前边界
 

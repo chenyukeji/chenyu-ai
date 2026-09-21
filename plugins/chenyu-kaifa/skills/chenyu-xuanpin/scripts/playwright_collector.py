@@ -40,6 +40,10 @@ MAX_PAGES = 20
 MAX_ACTIONS = 100
 MAX_RECORDS = 5000
 MAX_ASIN_ENRICHMENT = 100
+DEFAULT_SELLERSPRITE_QUERY_TIMEOUT_MS = 8000
+DEFAULT_SELLERSPRITE_QUERY_DELAY_MS = 200
+DEFAULT_SELLERSPRITE_QUERY_POLL_MS = 200
+DEFAULT_SELLERSPRITE_EMPTY_GRACE_MS = 800
 ASIN_PATTERN = re.compile(r"(?<![A-Z0-9])B[A-Z0-9]{9}(?![A-Z0-9])", re.I)
 ASIN_VALUE_PATTERN = re.compile(r"^[A-Z0-9]{10}$", re.I)
 DEFAULT_SELLERSPRITE_CREDENTIALS = Path(__file__).resolve().parents[5] / ".chenyu-secrets" / "sellersprite.json"
@@ -480,6 +484,7 @@ def extract_amazon_search(page, payload: dict) -> list[dict]:
         href = _first_attribute(row, ("h2 a", "a.a-link-normal[href*='/dp/']"), "href")
         price_text = _first_text(row, (".a-price .a-offscreen", ".a-price-whole"))
         review_text = _first_text(row, ("[data-csa-c-slot-id='alf-reviews']", "span.a-size-base.s-underline-text"))
+        image_url = _first_attribute(row, ("img.s-image", "img[data-image-latency]", "img[src]"), "src")
         body_text = _first_text(row, (":scope",)) or ""
         prime_eligible = "prime" in body_text.lower()
         if not prime_eligible:
@@ -507,6 +512,7 @@ def extract_amazon_search(page, payload: dict) -> list[dict]:
                 "source_entity_id": asin,
                 "sponsored": "sponsored" in body_text.lower() or "gesponsert" in body_text.lower(),
                 "detail_url": urljoin(page.url, href) if href else None,
+                "image_url": image_url,
             }
         )
     return records
@@ -906,8 +912,14 @@ def _select_sellersprite_market(page, marketplace: str) -> str:
                 option = page.locator(".el-select-dropdown__item:visible").filter(has_text=name).first
                 if option.count():
                     option.click()
-                    page.wait_for_timeout(500)
-                    return selector.input_value().strip()
+                    deadline = time.monotonic() + 3
+                    while time.monotonic() < deadline:
+                        selected = selector.input_value().strip()
+                        if any(expected.lower() in selected.lower() for expected in names):
+                            return selected
+                        page.wait_for_timeout(200)
+                    values_seen.append(f"{current} -> {selector.input_value().strip()}")
+                    break
             page.keyboard.press("Escape")
         except Exception:
             try:
@@ -917,6 +929,48 @@ def _select_sellersprite_market(page, marketplace: str) -> str:
     raise BrowserCollectionError(
         f"SellerSprite marketplace option was not found: {marketplace}; controls={values_seen}"
     )
+
+
+def _sellersprite_query_is_busy(page, search_button) -> bool:
+    try:
+        if search_button.is_disabled():
+            return True
+    except Exception:
+        pass
+    for selector in (".el-loading-mask:visible", ".el-icon-loading:visible", "[aria-busy='true']:visible"):
+        try:
+            if page.locator(selector).count():
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _sellersprite_result_is_explicitly_empty(page) -> bool:
+    """Return true only when the visible competitor table reports an empty result."""
+    try:
+        return bool(
+            page.evaluate(
+                """
+                () => {
+                  const visible = (element) => {
+                    const style = window.getComputedStyle(element);
+                    const rect = element.getBoundingClientRect();
+                    return style.display !== 'none' && style.visibility !== 'hidden' &&
+                      rect.width > 0 && rect.height > 0;
+                  };
+                  const emptyPattern = /(暂无数据|暂无结果|无数据|未查询到|没有找到|no data|no results?|not found)/i;
+                  return [...document.querySelectorAll('.el-table')].some((table) => {
+                    if (!visible(table) || !/(产品信息|product)/i.test(table.innerText || '')) return false;
+                    const empty = table.querySelector('.el-table__empty-text, .el-empty__description');
+                    return Boolean(empty && visible(empty) && emptyPattern.test(empty.innerText || ''));
+                  });
+                }
+                """
+            )
+        )
+    except Exception:
+        return False
 
 
 def collect_sellersprite_by_asin(payload: dict) -> dict:
@@ -943,8 +997,22 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
     records = []
     outcomes = []
     errors = []
-    query_timeout_ms = max(1000, min(int(payload.get("query_timeout_ms", 20000)), 60000))
-    query_delay_ms = max(0, min(int(payload.get("query_delay_ms", 500)), 5000))
+    query_timeout_ms = max(
+        1000,
+        min(int(payload.get("query_timeout_ms", DEFAULT_SELLERSPRITE_QUERY_TIMEOUT_MS)), 60000),
+    )
+    query_delay_ms = max(
+        0,
+        min(int(payload.get("query_delay_ms", DEFAULT_SELLERSPRITE_QUERY_DELAY_MS)), 5000),
+    )
+    query_poll_ms = max(
+        100,
+        min(int(payload.get("query_poll_ms", DEFAULT_SELLERSPRITE_QUERY_POLL_MS)), 1000),
+    )
+    empty_grace_ms = max(
+        300,
+        min(int(payload.get("empty_grace_ms", DEFAULT_SELLERSPRITE_EMPTY_GRACE_MS)), 5000),
+    )
     username, password, credential_source = _sellersprite_credentials(payload)
     with sync_playwright() as runtime:
         context, page, profile = _launch_context(runtime, {**payload, "url": url})
@@ -1002,25 +1070,66 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
             for asin in asins:
                 asin_input.fill(asin)
                 search_button.click()
-                deadline = time.monotonic() + query_timeout_ms / 1000
+                query_started = time.monotonic()
+                deadline = query_started + query_timeout_ms / 1000
                 matched = []
+                stop_reason = "timeout"
+                saw_busy = _sellersprite_query_is_busy(page, search_button)
                 while time.monotonic() < deadline:
                     if _challenge_visible(page):
                         errors.append({"asin": asin, "code": "LOGIN_OR_CHALLENGE"})
+                        stop_reason = "login_or_challenge"
                         break
                     page_records = extract_sellersprite_table(page, {**payload, "marketplace": marketplace})
                     matched = [record for record in page_records if record.get("asin") == asin]
                     if matched:
+                        stop_reason = "matched"
                         break
-                    page.wait_for_timeout(400)
+                    elapsed_ms = int((time.monotonic() - query_started) * 1000)
+                    is_busy = _sellersprite_query_is_busy(page, search_button)
+                    if is_busy:
+                        saw_busy = True
+                    if elapsed_ms >= 300 and saw_busy and not is_busy:
+                        page.wait_for_timeout(250)
+                        page_records = extract_sellersprite_table(
+                            page, {**payload, "marketplace": marketplace}
+                        )
+                        matched = [record for record in page_records if record.get("asin") == asin]
+                        stop_reason = "matched" if matched else "query_completed_without_match"
+                        break
+                    if (
+                        elapsed_ms >= empty_grace_ms
+                        and not is_busy
+                        and _sellersprite_result_is_explicitly_empty(page)
+                    ):
+                        stop_reason = "explicit_empty"
+                        break
+                    page.wait_for_timeout(query_poll_ms)
+                elapsed_ms = int((time.monotonic() - query_started) * 1000)
                 if matched:
                     for record in matched:
                         record["enrichment_source"] = "sellersprite_competitor_lookup"
                         record["requested_asin"] = asin
                     records.extend(matched)
-                    outcomes.append({"asin": asin, "status": "enriched", "record_count": len(matched)})
+                    outcomes.append(
+                        {
+                            "asin": asin,
+                            "status": "enriched",
+                            "record_count": len(matched),
+                            "elapsed_ms": elapsed_ms,
+                            "stop_reason": stop_reason,
+                        }
+                    )
                 else:
-                    outcomes.append({"asin": asin, "status": "not_found_or_unavailable", "record_count": 0})
+                    outcomes.append(
+                        {
+                            "asin": asin,
+                            "status": "not_found_or_unavailable",
+                            "record_count": 0,
+                            "elapsed_ms": elapsed_ms,
+                            "stop_reason": stop_reason,
+                        }
+                    )
                 if query_delay_ms:
                     page.wait_for_timeout(query_delay_ms)
 
@@ -1039,6 +1148,9 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                     "url": page.url,
                     "observed_at": _now_iso(),
                     "credential_source": credential_source,
+                    "query_timeout_ms": query_timeout_ms,
+                    "query_delay_ms": query_delay_ms,
+                    "query_poll_ms": query_poll_ms,
                 },
                 "counts": {
                     "requested": len(asins),

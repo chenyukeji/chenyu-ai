@@ -181,6 +181,37 @@ def test_workbook_has_reference_columns_and_sorted_scores(tmp_path):
     assert b"IMAGE(" not in sheet_bytes
 
 
+def test_workbook_fetches_each_unique_image_once_and_reuses_embedded_images(tmp_path):
+    scored = pipeline.score_candidates(pipeline.merge_candidates(fixture_records()), as_of_date="2026-09-20")
+    rows = pipeline.table_rows(scored)
+    for row in rows:
+        row["图片"] = "https://images.example/shared-product.png"
+    one_pixel_png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z1ZsAAAAASUVORK5CYII="
+    )
+    calls = []
+
+    def first_loader(url):
+        calls.append(url)
+        return one_pixel_png, "png"
+
+    output = tmp_path / "开品结果.xlsx"
+    first = workbook.export_discovery_workbook(output, rows, image_loader=first_loader)
+    assert calls == ["https://images.example/shared-product.png"]
+    assert first["embedded_image_count"] == 2
+    assert first["unique_image_fetch_count"] == 1
+    assert first["downloaded_image_count"] == 2
+
+    def should_not_fetch(_):
+        raise AssertionError("existing embedded images should be copied from the workbook")
+
+    second = workbook.export_discovery_workbook(output, rows, image_loader=should_not_fetch)
+    assert second["embedded_image_count"] == 2
+    assert second["reused_image_count"] == 2
+    assert second["downloaded_image_count"] == 0
+    assert second["unique_image_fetch_count"] == 0
+
+
 def test_end_to_end_inline_discovery_creates_ranked_workbook(tmp_path):
     result = run.handle(
         {
@@ -212,8 +243,13 @@ def test_sellersprite_enrichment_backfills_missing_product_metrics(monkeypatch, 
     def fake_enrich(payload):
         assert payload["marketplace"] == "US"
         assert payload["asins"] == ["B0ENRICH01"]
+        assert payload["query_timeout_ms"] == 8000
+        assert payload["query_delay_ms"] == 200
+        assert payload["query_poll_ms"] == 200
+        assert payload["empty_grace_ms"] == 800
         return {
             "collection_status": "complete",
+            "source_metadata": {"marketplace": "US", "selected_market": "美国站"},
             "records": [
                 {
                     "marketplace": "US",
@@ -249,6 +285,43 @@ def test_sellersprite_enrichment_backfills_missing_product_metrics(monkeypatch, 
     assert row["预估月销量"] == 260
     raw = json.loads((run_dir / "05-sellersprite-us-raw.json").read_text(encoding="utf-8"))
     assert raw["counts"]["enriched"] == 1
+    assert raw["query_metadata"][0]["selected_market"] == "美国站"
+
+
+def test_sellersprite_resume_skips_cached_unavailable_asins(monkeypatch, tmp_path):
+    source = {
+        "marketplace": "DE",
+        "asin": "B0UNAVAIL1",
+        "new_release_rank": 8,
+        "source_strategy": "E",
+    }
+    calls = []
+
+    def fake_enrich(payload):
+        calls.append(payload["asins"])
+        return {
+            "collection_status": "partial",
+            "records": [],
+            "outcomes": [
+                {"asin": "B0UNAVAIL1", "status": "not_found_or_unavailable", "record_count": 0}
+            ],
+        }
+
+    monkeypatch.setattr(run, "collect_sellersprite_by_asin", fake_enrich)
+    run_dir = tmp_path / "negative-cache-run"
+    run_dir.mkdir()
+    payload = {"discovery": {"sellersprite_enrich": True}}
+
+    first_manifest = {"artifacts": {}, "warnings": []}
+    run._enrich_records_from_sellersprite([source], payload, run_dir, first_manifest)
+    assert calls == [["B0UNAVAIL1"]]
+
+    second_manifest = {"artifacts": {}, "warnings": []}
+    run._enrich_records_from_sellersprite([source], payload, run_dir, second_manifest)
+    assert calls == [["B0UNAVAIL1"]]
+    raw = json.loads((run_dir / "05-sellersprite-de-raw.json").read_text(encoding="utf-8"))
+    assert raw["counts"]["queried"] == 0
+    assert raw["counts"]["skipped_cached_unavailable"] == 1
 
 
 def test_status_exposes_one_focused_skill_workflow():

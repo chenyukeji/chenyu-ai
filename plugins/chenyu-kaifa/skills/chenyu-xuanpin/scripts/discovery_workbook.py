@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import json
 import math
+import posixpath
+import re
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.request import Request, urlopen
+from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape, quoteattr
 
 
@@ -18,6 +21,13 @@ HEADERS = [
 
 class WorkbookError(ValueError):
     pass
+
+
+SHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+DRAWING_NS = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+DRAWINGML_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+RID_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 
 
 def _column_name(index: int) -> str:
@@ -63,8 +73,17 @@ def _image_type(data: bytes, content_type: str | None = None) -> str | None:
 
 
 def _download_image(url: str) -> tuple[bytes, str]:
-    request = Request(
+    # Amazon search pages often return a URL whose path ends in a JPEG name but
+    # whose transformation requests WebP (for example ``._AC_UL480_FMwebp_QL65_.jpg``).
+    # Excel cannot embed that response as JPEG, so request Amazon's original image.
+    url = re.sub(
+        r"\._[^/]+_\.(jpe?g|png)(?=\?|$)",
+        r".\1",
         str(url),
+        flags=re.IGNORECASE,
+    )
+    request = Request(
+        url,
         headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
             "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
@@ -81,22 +100,130 @@ def _download_image(url: str) -> tuple[bytes, str]:
     return data, extension
 
 
-def _collect_images(rows: list[dict], image_loader) -> tuple[dict[int, dict], list[int]]:
+def _relationship_targets(package: zipfile.ZipFile, rels_path: str) -> dict[str, str]:
+    root = ET.fromstring(package.read(rels_path))
+    return {
+        item.get("Id"): item.get("Target")
+        for item in root.findall(f"{{{REL_NS}}}Relationship")
+        if item.get("Id") and item.get("Target")
+    }
+
+
+def _cell_value(cell: ET.Element) -> str:
+    inline = "".join(item.text or "" for item in cell.findall(f".//{{{SHEET_NS}}}t"))
+    if inline:
+        return inline.strip()
+    value = cell.find(f"{{{SHEET_NS}}}v")
+    return (value.text or "").strip() if value is not None else ""
+
+
+def _embedded_images_by_product(workbook_path: str | Path | None) -> dict[tuple[str, str], dict]:
+    """Read already embedded images from an earlier workbook without extracting files."""
+    if not workbook_path:
+        return {}
+    path = Path(workbook_path).expanduser().resolve()
+    if not path.is_file():
+        return {}
+    try:
+        with zipfile.ZipFile(path) as package:
+            sheet_path = "xl/worksheets/sheet1.xml"
+            sheet_root = ET.fromstring(package.read(sheet_path))
+            drawing = sheet_root.find(f"{{{SHEET_NS}}}drawing")
+            if drawing is None:
+                return {}
+            drawing_rel_id = drawing.get(f"{{{RID_NS}}}id")
+            sheet_rels_path = "xl/worksheets/_rels/sheet1.xml.rels"
+            drawing_target = _relationship_targets(package, sheet_rels_path).get(drawing_rel_id)
+            if not drawing_target:
+                return {}
+            drawing_path = posixpath.normpath(
+                posixpath.join(posixpath.dirname(sheet_path), drawing_target)
+            ).lstrip("/")
+            drawing_rels_path = posixpath.join(
+                posixpath.dirname(drawing_path),
+                "_rels",
+                posixpath.basename(drawing_path) + ".rels",
+            )
+            image_targets = _relationship_targets(package, drawing_rels_path)
+
+            row_values: dict[int, dict[str, str]] = {}
+            for cell in sheet_root.findall(f".//{{{SHEET_NS}}}c"):
+                ref = cell.get("r") or ""
+                match = re.fullmatch(r"([A-Z]+)(\d+)", ref)
+                if not match or match.group(1) not in {"A", "K"}:
+                    continue
+                row_values.setdefault(int(match.group(2)), {})[match.group(1)] = _cell_value(cell)
+
+            drawing_root = ET.fromstring(package.read(drawing_path))
+            cached = {}
+            for anchor in drawing_root.findall(f"{{{DRAWING_NS}}}oneCellAnchor"):
+                row_node = anchor.find(f"{{{DRAWING_NS}}}from/{{{DRAWING_NS}}}row")
+                blip = anchor.find(f".//{{{DRAWINGML_NS}}}blip")
+                if row_node is None or blip is None or row_node.text is None:
+                    continue
+                excel_row = int(row_node.text) + 1
+                identity = row_values.get(excel_row, {})
+                site = str(identity.get("A") or "").strip().upper()
+                asin = str(identity.get("K") or "").strip().upper()
+                relationship_id = blip.get(f"{{{RID_NS}}}embed")
+                image_target = image_targets.get(relationship_id)
+                if not site or not asin or not image_target:
+                    continue
+                media_path = posixpath.normpath(
+                    posixpath.join(posixpath.dirname(drawing_path), image_target)
+                ).lstrip("/")
+                data = package.read(media_path)
+                extension = _image_type(data)
+                if extension:
+                    cached[(site, asin)] = {"data": data, "extension": extension}
+            return cached
+    except (OSError, KeyError, ValueError, zipfile.BadZipFile, ET.ParseError):
+        return {}
+
+
+def _row_image_key(row: dict) -> tuple[str, str] | None:
+    site = str(row.get("站点") or "").strip().upper()
+    asin = str(row.get("ASIN") or "").strip().upper()
+    return (site, asin) if site and asin else None
+
+
+def _collect_images(
+    rows: list[dict],
+    image_loader,
+    cached_images: dict[tuple[str, str], dict] | None = None,
+) -> tuple[dict[int, dict], list[int], dict]:
     targets = {index: str(row.get("图片")) for index, row in enumerate(rows) if row.get("图片")}
     if not targets:
-        return {}, []
+        return {}, [], {"reused": 0, "downloaded": 0, "unique_fetches": 0}
     embedded = {}
     failures = []
-    with ThreadPoolExecutor(max_workers=min(12, len(targets))) as pool:
-        futures = {pool.submit(image_loader, url): index for index, url in targets.items()}
-        for future in as_completed(futures):
-            index = futures[future]
-            try:
-                data, extension = future.result()
-                embedded[index] = {"data": data, "extension": extension}
-            except Exception:
-                failures.append(index)
-    return embedded, sorted(failures)
+    cached_images = cached_images or {}
+    reused_indexes = set()
+    pending_by_url: dict[str, list[int]] = {}
+    for index, url in targets.items():
+        cached = cached_images.get(_row_image_key(rows[index]))
+        if cached:
+            embedded[index] = cached
+            reused_indexes.add(index)
+        else:
+            pending_by_url.setdefault(url, []).append(index)
+    if pending_by_url:
+        with ThreadPoolExecutor(max_workers=min(12, len(pending_by_url))) as pool:
+            futures = {pool.submit(image_loader, url): url for url in pending_by_url}
+            for future in as_completed(futures):
+                url = futures[future]
+                indexes = pending_by_url[url]
+                try:
+                    data, extension = future.result()
+                    for index in indexes:
+                        embedded[index] = {"data": data, "extension": extension}
+                except Exception:
+                    failures.extend(indexes)
+    return embedded, sorted(failures), {
+        "reused": len(reused_indexes),
+        "downloaded": sum(1 for index in embedded if index not in reused_indexes),
+        "unique_fetches": len(pending_by_url),
+    }
 
 
 def _drawing_parts(rows: list[dict], embedded: dict[int, dict]) -> tuple[str, str, list[tuple[str, bytes]]]:
@@ -131,13 +258,24 @@ def _drawing_parts(rows: list[dict], embedded: dict[int, dict]) -> tuple[str, st
     return drawing, rels, media
 
 
-def export_discovery_workbook(output_path: str | Path, rows: list[dict], image_loader=None) -> dict:
+def export_discovery_workbook(
+    output_path: str | Path,
+    rows: list[dict],
+    image_loader=None,
+    reuse_workbook_path: str | Path | None = None,
+) -> dict:
     if not isinstance(rows, list):
         raise WorkbookError("rows must be a list")
     rows = sorted(rows, key=lambda row: -float(row.get("得分") or 0))
     output = Path(output_path).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    embedded, image_failures = _collect_images(rows, image_loader or _download_image)
+    cache_source = reuse_workbook_path or (output if output.exists() else None)
+    cached_images = _embedded_images_by_product(cache_source)
+    embedded, image_failures, image_stats = _collect_images(
+        rows,
+        image_loader or _download_image,
+        cached_images,
+    )
 
     hyperlink_rels = []
     hyperlinks = []
@@ -244,4 +382,7 @@ def export_discovery_workbook(output_path: str | Path, rows: list[dict], image_l
     return {
         "path": str(output), "sheet": "开品结果", "row_count": len(rows), "sorted_by": "得分 desc",
         "embedded_image_count": len(embedded), "image_failure_count": len(image_failures),
+        "reused_image_count": image_stats["reused"],
+        "downloaded_image_count": image_stats["downloaded"],
+        "unique_image_fetch_count": image_stats["unique_fetches"],
     }

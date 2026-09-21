@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -51,6 +52,38 @@ def _write_json(path: Path, value) -> str:
 
 def _read_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def _find_chenyu_ai_root() -> Path:
+    cwd = Path.cwd().resolve()
+    for candidate in (cwd, *cwd.parents):
+        if candidate.name.lower() == "chenyu-ai" and (candidate / "plugins" / "chenyu-kaifa").is_dir():
+            return candidate
+        child = candidate / "chenyu-ai"
+        if (child / "plugins" / "chenyu-kaifa").is_dir():
+            return child.resolve()
+    raise ContractError("cannot locate the chenyu-ai repository; pass an explicit run_dir")
+
+
+def _folder_component(value) -> str:
+    text = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "-", str(value or "product-discovery"))
+    text = re.sub(r"\s+", "-", text)
+    text = re.sub(r"-+", "-", text).strip(" .-_")
+    return (text or "product-discovery")[:60].rstrip(" .-_")
+
+
+def _default_run_dir(task: dict) -> Path:
+    run_date = datetime.now(timezone.utc).astimezone().date().isoformat()
+    product_name = _folder_component(task.get("category_or_need") or task.get("request"))
+    parent = _find_chenyu_ai_root() / "outputs" / "chenyu-kaifa" / "product-discovery"
+    base_name = f"{run_date}_{product_name}"
+    candidate = parent / base_name
+    if not candidate.exists():
+        return candidate
+    suffix = 2
+    while (parent / f"{base_name}_{suffix:02d}").exists():
+        suffix += 1
+    return parent / f"{base_name}_{suffix:02d}"
 
 
 def create_task(request=None, task=None, strategy_selection=None) -> dict:
@@ -180,6 +213,8 @@ def _enrich_records_from_sellersprite(
         raw_path = run_dir / f"05-sellersprite-{market.lower()}-raw.json"
         cached_result = _read_json(raw_path) if raw_path.exists() and not refresh else {}
         seller_records = list(cached_result.get("records") or [])
+        cached_outcomes = list(cached_result.get("outcomes") or [])
+        query_metadata = list(cached_result.get("query_metadata") or [])
         for seller_row in seller_records:
             raw_cells = seller_row.get("raw_cells") or {}
             review_cell = next(
@@ -190,8 +225,17 @@ def _enrich_records_from_sellersprite(
             if seller_row.get("review_count") is None and first_review_value in {"-", "—", "–"}:
                 seller_row["review_count"] = 0
         cached_asins = {str(row.get("asin") or "").upper() for row in seller_records}
-        to_query = target_asins if refresh else [asin for asin in target_asins if asin not in cached_asins]
+        cached_unavailable_asins = {
+            str(outcome.get("asin") or "").upper()
+            for outcome in cached_outcomes
+            if outcome.get("status") in {"not_found", "unavailable", "not_found_or_unavailable"}
+        }
+        to_query = target_asins if refresh else [
+            asin for asin in target_asins
+            if asin not in cached_asins and asin not in cached_unavailable_asins
+        ]
         query_results = []
+        outcomes = [] if refresh else cached_outcomes
         for offset in range(0, len(to_query), 100):
             chunk = to_query[offset : offset + 100]
             result = collect_sellersprite_by_asin(
@@ -199,13 +243,18 @@ def _enrich_records_from_sellersprite(
                     "marketplace": market,
                     "asins": chunk,
                     "headless": headless,
-                    "query_timeout_ms": discovery.get("query_timeout_ms", 20000),
-                    "query_delay_ms": discovery.get("query_delay_ms", 500),
+                    "query_timeout_ms": discovery.get("query_timeout_ms", 8000),
+                    "query_delay_ms": discovery.get("query_delay_ms", 200),
+                    "query_poll_ms": discovery.get("query_poll_ms", 200),
+                    "empty_grace_ms": discovery.get("empty_grace_ms", 800),
                     "manual_timeout_seconds": discovery.get("manual_timeout_seconds", 180),
                 }
             )
             query_results.append(result)
             seller_records.extend(result.get("records") or [])
+            outcomes.extend(result.get("outcomes") or [])
+            if result.get("source_metadata"):
+                query_metadata.append(result["source_metadata"])
             if result.get("collection_status") == "blocked":
                 break
 
@@ -215,6 +264,12 @@ def _enrich_records_from_sellersprite(
             if all(key):
                 deduped[key] = row
         seller_records = list(deduped.values())
+        outcome_by_asin = {}
+        for outcome in outcomes:
+            asin = str(outcome.get("asin") or "").upper()
+            if asin:
+                outcome_by_asin[asin] = outcome
+        outcomes = list(outcome_by_asin.values())
         enriched_asins = {key[1] for key in deduped}
         status = "complete" if all(asin in enriched_asins for asin in target_asins) else "partial"
         block_reasons = [result.get("block_reason") for result in query_results if result.get("block_reason")]
@@ -222,9 +277,15 @@ def _enrich_records_from_sellersprite(
             "collection_status": "blocked" if block_reasons else status,
             "block_reason": block_reasons[0] if block_reasons else None,
             "records": seller_records,
+            "outcomes": outcomes,
+            "query_metadata": query_metadata,
             "counts": {
                 "requested": len(target_asins),
                 "queried": len(to_query),
+                "skipped_cached_unavailable": len([
+                    asin for asin in target_asins
+                    if asin in cached_unavailable_asins and asin not in cached_asins
+                ]),
                 "enriched": len([asin for asin in target_asins if asin in enriched_asins]),
                 "missing": len([asin for asin in target_asins if asin not in enriched_asins]),
             },
@@ -352,7 +413,7 @@ def run_discovery_flow(payload: dict) -> dict:
     run_dir = (
         Path(requested_run_dir).expanduser().resolve()
         if requested_run_dir
-        else (Path.cwd() / "outputs" / "kaifa-runs" / task["task_id"]).resolve()
+        else _default_run_dir(task).resolve()
     )
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest = _manifest(task, run_dir)
