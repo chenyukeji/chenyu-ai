@@ -20,11 +20,17 @@
 
 插件输出可审核的比较、采购计划和风险建议。它不会代替员工联系供应商、承诺订单、签约、下单或付款；缺失和冲突信息会作为待确认项保留。
 
+默认输出位于 `outputs/chenyu-caigou/`，先按 `supplier-comparison`、`procurement-plan`、`supply-tracking` 等交付部分分大目录，再使用 `YYYY-MM-DD_产品简称` 建立本次任务目录。详细规则见 [输出目录规范](references/output-paths.md)。
+
 ## 目录说明
 
 ```text
 chenyu-caigou/
+├── .codex-plugin/
+│   └── plugin.json
 ├── plugin.json
+├── references/
+│   └── output-paths.md
 └── skills/
     └── chenyu-caigou/
 ```

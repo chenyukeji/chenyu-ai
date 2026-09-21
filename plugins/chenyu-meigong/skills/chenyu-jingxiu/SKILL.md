@@ -5,6 +5,8 @@ description: 根据完整原图、一张或多张原图细节图及各自对应�
 
 # Amazon Product Image Detail Repair
 
+开始执行会生成本地文件的任务前，先读取并遵循 [输出目录规范](../../references/output-paths.md)，本 Skill 使用 `retouch` 交付部分。若宿主图像工具只能直接展示结果，则遵守工具规则，不为满足目录约定编造文件路径。
+
 ## 任务契约
 
 接收三个部分：

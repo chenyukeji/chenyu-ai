@@ -4,6 +4,8 @@
 
 插件不登录或修改 Amazon 店铺，不自动发布 Listing，不执行广告投放，也不会把真实开发表、竞品快照、图片或任务输出写入插件源码和分发包。
 
+默认输出位于 `outputs/chenyu-yunying/`，先按 `competitor-research`、`listing`、`image-brief` 或 `combined-delivery` 分大目录，再使用 `YYYY-MM-DD_产品简称` 建立本次任务目录。同一综合任务在各部分复用相同任务名；详细规则见 [输出目录规范](references/output-paths.md)。
+
 ## 当前包含什么
 
 | Skill | 适合什么需求 | 主要输入 | 主要交付 | 不负责 |

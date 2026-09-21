@@ -7,6 +7,8 @@ description: 根据开发 Excel、产品事实、可选 Listing 及统一竞品�
 
 读取 [开发文档读取规范](../../references/kaifawendang.md)，复用已确认产品事实。已有 Listing 时核对卖点一致性；没有 Listing 也可独立规划，不强制先写文案。
 
+开始执行会生成文件的任务前，先读取并遵循 [输出目录规范](../../references/output-paths.md)，本 Skill 使用 `image-brief` 交付部分。
+
 同一任务已有 `competitor-research.json` 时读取其中 visual_evidence、原始商品链接和图片 URL，借鉴信息层级、构图类别和卖点呈现方式，不重复联网抓取。用户提供竞品链接但尚无研究包且确实要求参考竞品视觉时，先读取并执行 [竞品研究 Skill](../chenyu-jingpin/SKILL.md)。
 
 竞品图片通常只作版式参考；若图片中的产品与当前变体在图案、颜色、结构和规格上逐项一致，可记录匹配依据并作为同款产品视觉参考，供美工观察完整外观或细节。即使判定同款，也不能把竞品文案、品牌、配件、尺寸或功能声明自动写成自有产品事实。

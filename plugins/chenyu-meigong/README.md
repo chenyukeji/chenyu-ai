@@ -20,11 +20,15 @@
 
 插件交付最终完整图片，并检查 SKU、变体、图号和素材对应关系。它不会自动上传或发布 Amazon 商品图，也不会把参考产品的商标、规格或结构当作自有产品事实。
 
+默认输出位于 `outputs/chenyu-meigong/`，先按 `image-production`、`retouch`、`main-image-optimization` 分大目录，再使用 `YYYY-MM-DD_产品简称` 建立本次任务目录。详细规则见 [输出目录规范](references/output-paths.md)。
+
 ## 目录说明
 
 ```text
 chenyu-meigong/
 ├── plugin.json
+├── references/
+│   └── output-paths.md
 └── skills/
     ├── chenyu-meigong/
     ├── chenyu-zuotu/

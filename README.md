@@ -52,6 +52,16 @@ plugins/
 - `assets/`、`references/`、`scripts/` 仅在有真实内容时建立，不保留空目录。
 - 后续需要 MCP、App 或独立 Agent 时，只在对应插件中增加，四个插件仍可分别安装和升级。
 
+## 统一输出目录
+
+未指定其他保存位置时，四个插件的业务成果统一写入：
+
+```text
+outputs/<插件名>/<交付部分>/<YYYY-MM-DD_产品简称>/
+```
+
+例如运营 Listing 使用 `outputs/chenyu-yunying/listing/2026-09-20_tree-skirt-120cm/`，美工整套出图使用 `outputs/chenyu-meigong/image-production/2026-09-20_tree-skirt-120cm/`。同一综合任务在不同交付部分下复用相同任务名；新运行遇到同名目录时追加 `_02`、`_03`，不得覆盖旧成果。只查看、解释或诊断时不创建空目录。各插件的具体交付部分见其 `references/output-paths.md`。
+
 ## 员工安装
 
 日常由 `chenyu-yunying` 或 `chenyu-meigong` 总入口接收需求，也可直接选择专业 Skill。运营将开发文档整理为 Listing 和作图要求，美工接收作图要求与产品素材制作或精修图片。总入口通过当前助手读取专业 Skill 协调工作，不提供后台调度或跨会话记忆。

@@ -1,0 +1,31 @@
+{
+  "name": "chenyu-caigou",
+  "version": "0.1.0",
+  "description": "Amazon supplier comparison, procurement planning, and supply tracking workflows for Chenyu.",
+  "author": {
+    "name": "chenyukeji",
+    "url": "https://github.com/chenyukeji"
+  },
+  "homepage": "https://github.com/chenyukeji/chenyu-ai",
+  "repository": "https://github.com/chenyukeji/chenyu-ai",
+  "keywords": [
+    "amazon",
+    "procurement",
+    "supplier",
+    "supply-chain"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "晨玙 Amazon 采购",
+    "shortDescription": "比较供应商、制定采购计划并跟踪供应链风险。",
+    "longDescription": "根据产品需求、供应商报价、MOQ、交期、预测、库存、物流与质量记录，输出供应商比较、采购计划和风险预警。",
+    "developerName": "晨玙科技",
+    "category": "Productivity",
+    "capabilities": [
+      "Supplier comparison",
+      "Procurement planning",
+      "Supply risk tracking"
+    ],
+    "defaultPrompt": "根据我提供的产品需求、报价和库存资料，完成供应商比较并提出采购与风险建议。"
+  }
+}

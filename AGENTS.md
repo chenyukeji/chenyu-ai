@@ -21,3 +21,9 @@ This repository packages role-based Amazon workflows as portable plugins for com
 - Each plugin root contains `plugin.json` and `skills/`.
 - Add MCP servers, apps, or standalone agents only to the plugin that owns them and only when there is a real implementation.
 
+## Output storage
+
+- Generated business artifacts belong under `<chenyu-ai>/outputs/<plugin-name>/<deliverable-part>/<YYYY-MM-DD_product-short-name>/` unless the user explicitly chooses another destination.
+- Reuse the same dated task-folder name across deliverable parts of one request. If that folder already exists for a new run, append `_02`, `_03`, and so on instead of overwriting it.
+- Do not create empty output folders for read-only work, and never write task outputs into plugin source, installed plugin caches, or distribution ZIP files.
+

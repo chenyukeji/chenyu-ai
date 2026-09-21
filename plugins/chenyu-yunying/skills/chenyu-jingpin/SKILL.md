@@ -7,6 +7,8 @@ description: 从开发文档、Amazon 商品链接或站点榜单候选获取并
 
 读取 [开发文档读取规范](../../references/kaifawendang.md)。本 Skill 只产出竞品证据；自己的产品事实由运营入口维护，自己的 Listing 由 `chenyu-listing` 生成，自己的作图要求由 `chenyu-zuotuyaoqiu` 生成。
 
+开始执行会生成文件的任务前，先读取并遵循 [输出目录规范](../../references/output-paths.md)，本 Skill 使用 `competitor-research` 交付部分。
+
 ## 输入
 
 接收开发 Excel、已有 manifest.json、单独提供的 Amazon 商品链接或上述组合，并记录用户要求的目标站点。若只有 XLSX，运行 `python ../chenyu-yunying/scripts/extract_development_brief.py "开发表.xlsx" --out "任务目录/brief"`；已存在本任务 manifest 时直接复用，不重复解析或抓取。
