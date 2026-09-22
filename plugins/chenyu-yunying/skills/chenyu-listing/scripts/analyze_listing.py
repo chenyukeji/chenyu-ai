@@ -24,6 +24,7 @@ def visible_text(value):
 
 def fields(record):
     return {'title': record.get('title', ''),
+            'item_highlights': record.get('item_highlights', ''),
             **{'bullet_' + str(i+1): v for i, v in enumerate(record.get('bullets', []))},
             'description': visible_text(record.get('description', ''))}
 
@@ -40,12 +41,16 @@ def analyze(data):
                       and any(fields(c).values())]
         groups = {c['product_group'] for c in candidates}
         exact, semantic = set(), set()
-        field_groups = {f: set() for f in ('title', 'bullets', 'description')}
+        field_groups = {
+            f: set() for f in ('title', 'item_highlights', 'bullets', 'description')
+        }
         evidence = []
         for c in candidates:
             for f, v in fields(c).items():
                 if v:
-                    field_groups['bullets' if f.startswith('bullet_') else f].add(c['product_group'])
+                    field_groups['bullets' if f.startswith('bullet_') else f].add(
+                        c['product_group']
+                    )
                 if contains(v, kw['phrase']):
                     exact.add(c['product_group'])
                 matches = [p for p in phrases if contains(v, p)]
@@ -70,7 +75,26 @@ def analyze(data):
         if len(listing.get('bullets', [])) != 5:
             issues.append('Bullet count is not default five; verify category/user requirements')
         limits = data.get('limits', {}).get(listing['marketplace'], {})
-        lengths = {'title_chars': len(fs['title']), 'search_terms_bytes': len(st.encode('utf-8'))}
+        lengths = {
+            'title_chars': len(fs['title']),
+            'item_highlights_chars': len(fs['item_highlights']),
+            'search_terms_bytes': len(st.encode('utf-8')),
+        }
+        for index, bullet in enumerate(listing.get('bullets', []), 1):
+            match = re.search(r'】\s*(.*)$', str(bullet), re.S)
+            lengths[f'bullet_{index}_body_chars'] = len(
+                re.sub(r'\s+', ' ', match.group(1)).strip() if match else str(bullet).strip()
+            )
+        if lengths['title_chars'] > 75:
+            issues.append(f'title_chars: {lengths["title_chars"]} exceeds 75')
+        if lengths['item_highlights_chars'] > 125:
+            issues.append(
+                f'item_highlights_chars: {lengths["item_highlights_chars"]} exceeds 125'
+            )
+        for index in range(1, 6):
+            value = lengths.get(f'bullet_{index}_body_chars')
+            if value is not None and value <= 200:
+                issues.append(f'bullet_{index}_body_chars: {value} must exceed 200')
         for name, count in lengths.items():
             if name in limits and count > limits[name]:
                 issues.append(f'{name}: {count} exceeds {limits[name]}')
@@ -106,7 +130,11 @@ def analyze(data):
                 'matched_forms': {field: values for field, values in matches.items() if values},
             })
         reviews.append({'marketplace': listing['marketplace'], 'variant_id': listing.get('variant_id'),
-                        'lengths': lengths, 'unverified_limits': [k for k in lengths if k not in limits],
+                        'lengths': lengths,
+                        'unverified_limits': [
+                            k for k in ('title_chars', 'item_highlights_chars',
+                                        'search_terms_bytes') if k not in limits
+                        ],
                         'issues': issues, 'overlap_review': overlaps, 'coverage': coverage,
                         'semantic_review_required': True})
     return {'keyword_frequency': frequency, 'listing_reviews': reviews}

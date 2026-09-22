@@ -9,8 +9,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "晨玙 Amazon 运营",
-    "shortDescription": "从开发文档生成自有产品 Listing 和作图要求。",
-    "longDescription": "统一解析开发 Excel，由独立竞品研究能力抓取 Listing、高清图册和 A+ 图片，再复用同一研究包默认生成德国、法国、意大利、西班牙四站本地化无品牌 Listing 及轻量链接式作图要求。作图单先固定七张任务再逐张匹配参考，默认 1254×1254 px，图片文字统一使用精简英文，不嵌入参考图片。广告能力规划中。",
+    "shortDescription": "从开发文档生成符合 2026 规则的欧洲站 Listing 和作图要求。",
+    "longDescription": "统一解析开发 Excel 和竞品研究包，默认生成德国、法国、意大利、西班牙四站本地化 Listing，包含 75 字符 Item Name、125 字符 Item Highlights、每条正文超过 200 字符的五点、详细 HTML 详情及经卖家精灵反查和 Amazon 相关性复核后的增量 Search Terms；同时可生成轻量链接式作图要求。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": ["Competitor research", "Listing writing", "Image brief planning"],

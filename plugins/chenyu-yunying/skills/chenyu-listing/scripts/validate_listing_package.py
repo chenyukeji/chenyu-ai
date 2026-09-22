@@ -22,14 +22,26 @@ BULLET_FORMAT = re.compile(
 )
 SEARCH_TERMS_PUNCTUATION = re.compile(r'[^\w\s]', re.UNICODE)
 BAD_PUNCTUATION_SPACING = re.compile(r'[,;](?=\S)|:(?=[A-Za-zÀ-ÖØ-öø-ÿ])')
-TITLE_TARGET = (150, 190)
-BULLET_BODY_TARGET = (120, 320)
+TITLE_LIMIT = 75
+TITLE_MINIMUM = 68
+TITLE_TARGET = (70, 75)
+ITEM_HIGHLIGHTS_LIMIT = 125
+ITEM_HIGHLIGHTS_TARGET_MINIMUM = 115
+BULLET_BODY_MINIMUM = 201
 SEARCH_TERMS_MAX_BYTES = 249
+FORBIDDEN_TITLE_CHARACTERS = set('!$?_{}^¬¦/')
 ALLOWED_DESCRIPTION_TAGS = {'p', 'br', 'b'}
 DESCRIPTION_TAG = re.compile(r'<\s*/?\s*([a-zA-Z0-9]+)(?:\s[^>]*)?>')
 NOTICE_HEADINGS = {
     'DE': 'Hinweise', 'FR': 'Remarques', 'IT': 'Avvertenze',
     'ES': 'Avisos', 'UK': 'Notes',
+}
+USE_CARE_HEADINGS = {
+    'DE': ('Verwendung', 'Pflege'),
+    'FR': ('Utilisation', 'Entretien'),
+    'IT': ('Uso', 'Cura'),
+    'ES': ('Uso', 'Cuidado'),
+    'UK': ('Use', 'Care'),
 }
 SEARCH_TERMS_STOP_WORDS = {
     'DE': {'ein', 'eine', 'einer', 'eines', 'einem', 'einen', 'und', 'oder', 'bei',
@@ -43,6 +55,7 @@ SEARCH_TERMS_STOP_WORDS = {
            'de', 'del', 'para', 'con', 'en', 'por'},
     'UK': {'a', 'an', 'the', 'and', 'or', 'of', 'for', 'with', 'in', 'on', 'to'},
 }
+DESCRIPTION_SENTENCE = re.compile(r'[.!?。！？]+')
 
 
 def words(text):
@@ -85,6 +98,7 @@ def validate(data):
     keywords = data.get('keywords', [])
     mappings = data.get('mappings', [])
     listings = data.get('listings', [])
+    search_term_audits = data.get('search_term_audits', [])
     if not targets:
         errors.append('targets is empty')
     if len(targets) != len(set(targets)):
@@ -119,13 +133,66 @@ def validate(data):
             errors.append('fact ids must be non-empty and unique')
             continue
         fact_by_id[fact_id] = fact
-        if fact.get('source_type') != 'own_product':
-            errors.append(f'fact {fact_id} is not sourced from own_product')
+        source_type = fact.get('source_type')
+        if source_type not in ('own_product', 'same_product_evidence'):
+            errors.append(
+                f'fact {fact_id} source_type must be own_product or same_product_evidence'
+            )
         if fact.get('status') not in ('confirmed', 'unconfirmed', 'conflict'):
             errors.append(f'fact {fact_id} has invalid status')
         source = fact.get('source', {})
-        if not isinstance(source, dict) or not any(source.get(k) for k in ('sheet', 'cell', 'file', 'user_message')):
+        if not isinstance(source, dict) or not any(
+                source.get(k) for k in ('sheet', 'cell', 'file', 'user_message', 'asin')):
             errors.append(f'fact {fact_id} has no traceable source')
+        if source_type == 'same_product_evidence':
+            if fact.get('same_product_confirmed') is not True:
+                errors.append(f'fact {fact_id} lacks explicit same-product confirmation')
+            if not isinstance(source, dict) or not ASIN.fullmatch(str(source.get('asin', ''))):
+                errors.append(f'fact {fact_id} same-product evidence requires a valid source ASIN')
+            if fact.get('status') != 'confirmed':
+                errors.append(f'fact {fact_id} same-product evidence must be confirmed')
+
+    audits_by_key = {}
+    for audit in search_term_audits:
+        key = (audit.get('marketplace'), audit.get('variant_id'))
+        audits_by_key.setdefault(key, []).append(audit)
+        source_asin = str(audit.get('source_asin', '')).strip()
+        if not ASIN.fullmatch(source_asin):
+            errors.append(f'search term audit {key[0]}/{key[1]} requires a valid source_asin')
+        if audit.get('source_tool') != 'sellersprite_reverse_asin':
+            errors.append(
+                f'search term audit {key[0]}/{key[1]} source_tool must be '
+                'sellersprite_reverse_asin'
+            )
+        checked = audit.get('organic_results_checked')
+        relevant = audit.get('relevant_results')
+        if (isinstance(checked, bool) or not isinstance(checked, int) or checked < 20):
+            errors.append(
+                f'search term audit {key[0]}/{key[1]} must check at least 20 organic results'
+            )
+            continue
+        if (isinstance(relevant, bool) or not isinstance(relevant, int)
+                or relevant < 0 or relevant > checked):
+            errors.append(
+                f'search term audit {key[0]}/{key[1]} has invalid relevant_results'
+            )
+            continue
+        ratio = relevant / checked
+        expected_band = 'high' if ratio >= 0.70 else 'medium' if ratio >= 0.40 else 'low'
+        if audit.get('relevance_band') != expected_band:
+            errors.append(
+                f'search term audit {key[0]}/{key[1]} relevance_band must be {expected_band}'
+            )
+        if audit.get('decision') == 'adopt' and expected_band == 'low':
+            errors.append(
+                f'search term audit {key[0]}/{key[1]} must not adopt a low-relevance phrase'
+            )
+        if (audit.get('source_marketplace') != audit.get('marketplace')
+                and audit.get('local_volume_claimed') is not False):
+            errors.append(
+                f'search term audit {key[0]}/{key[1]} must not claim local volume from '
+                'another marketplace'
+            )
 
     mapping_by_key = {}
     for mapping in mappings:
@@ -173,12 +240,57 @@ def validate(data):
             errors.append(f'{market}/{variant_id} title must be one line')
         elif BAD_PUNCTUATION_SPACING.search(title) or '  ' in title:
             errors.append(f'{market}/{variant_id} title uses non-standard punctuation spacing')
-        elif not TITLE_TARGET[0] <= len(title) <= TITLE_TARGET[1]:
+        if len(title) > TITLE_LIMIT:
+            errors.append(
+                f'{market}/{variant_id} title uses {len(title)} characters; maximum is {TITLE_LIMIT}'
+            )
+        elif title and len(title) < TITLE_MINIMUM:
+            errors.append(
+                f'{market}/{variant_id} title uses {len(title)} characters; minimum internal '
+                f'requirement is {TITLE_MINIMUM}'
+            )
+        elif title and len(title) < TITLE_TARGET[0]:
             warnings.append(
                 f'{market}/{variant_id} title length {len(title)} is outside '
-                f'the {TITLE_TARGET[0]}-{TITLE_TARGET[1]} editorial target; '
-                'do not add unsupported facts or override verified category limits'
+                f'the {TITLE_TARGET[0]}-{TITLE_TARGET[1]} editorial target'
             )
+        forbidden = sorted(set(title) & FORBIDDEN_TITLE_CHARACTERS)
+        if forbidden:
+            errors.append(
+                f'{market}/{variant_id} title contains forbidden separators or characters: '
+                + ' '.join(forbidden)
+            )
+        title_tokens = words(title)
+        repeated_title_tokens = sorted({
+            token for token in title_tokens
+            if title_tokens.count(token) > 2
+            and token not in SEARCH_TERMS_STOP_WORDS.get(market, set())
+        })
+        if repeated_title_tokens:
+            errors.append(
+                f'{market}/{variant_id} title repeats content words more than twice: '
+                + ', '.join(repeated_title_tokens)
+            )
+        item_highlights = str(listing.get('item_highlights', '')).strip()
+        if not item_highlights:
+            errors.append(f'{market}/{variant_id} item_highlights is empty')
+        else:
+            if '\n' in item_highlights or '\r' in item_highlights:
+                errors.append(f'{market}/{variant_id} item_highlights must be one line')
+            if BAD_PUNCTUATION_SPACING.search(item_highlights) or '  ' in item_highlights:
+                errors.append(
+                    f'{market}/{variant_id} item_highlights uses non-standard punctuation spacing'
+                )
+            if len(item_highlights) > ITEM_HIGHLIGHTS_LIMIT:
+                errors.append(
+                    f'{market}/{variant_id} item_highlights uses {len(item_highlights)} '
+                    f'characters; maximum is {ITEM_HIGHLIGHTS_LIMIT}'
+                )
+            elif len(item_highlights) < ITEM_HIGHLIGHTS_TARGET_MINIMUM:
+                warnings.append(
+                    f'{market}/{variant_id} item_highlights length {len(item_highlights)} is below '
+                    f'the {ITEM_HIGHLIGHTS_TARGET_MINIMUM}-{ITEM_HIGHLIGHTS_LIMIT} editorial target'
+                )
         if competitors:
             title_reference = str(listing.get('title_reference', '')).strip()
             if not title_reference:
@@ -189,6 +301,14 @@ def validate(data):
             search_terms_reference = str(listing.get('search_terms_reference', '')).strip()
             if not search_terms_reference:
                 errors.append(f'{market}/{variant_id} search_terms_reference is required when competitor evidence exists')
+            item_highlights_reference = str(
+                listing.get('item_highlights_reference', '')
+            ).strip()
+            if not item_highlights_reference:
+                errors.append(
+                    f'{market}/{variant_id} item_highlights_reference is required when '
+                    'competitor evidence exists'
+                )
         bullets = listing.get('bullets', [])
         if len(bullets) != 5 or any(not str(item).strip() for item in bullets):
             errors.append(f'{market}/{variant_id} must contain five non-empty bullets')
@@ -198,24 +318,19 @@ def validate(data):
                 if not match:
                     errors.append(
                         f'{market}/{variant_id} bullet {index} must use '
-                        '【localized benefit heading】 + body, with optional leading Emoji'
+                        'a related Emoji + 【localized benefit heading】 + body'
                     )
                     continue
                 body = re.sub(r'\s+', ' ', match.group(2)).strip()
-                sentence_count = len(re.findall(r'[.!?。！？]+', body))
+                sentence_count = len(DESCRIPTION_SENTENCE.findall(body))
                 if not 2 <= sentence_count <= 4:
                     errors.append(
                         f'{market}/{variant_id} bullet {index} body must contain 2-4 sentences'
                     )
-                if len(body) < BULLET_BODY_TARGET[0]:
+                if len(body) < BULLET_BODY_MINIMUM:
                     errors.append(
-                        f'{market}/{variant_id} bullet {index} body must contain at least '
-                        f'{BULLET_BODY_TARGET[0]} visible characters of substantive copy'
-                    )
-                if len(body) > BULLET_BODY_TARGET[1]:
-                    warnings.append(
-                        f'{market}/{variant_id} bullet {index} body length {len(body)} exceeds '
-                        f'the {BULLET_BODY_TARGET[1]}-character scan-friendly editorial target'
+                        f'{market}/{variant_id} bullet {index} body must contain more than '
+                        '200 visible characters of substantive copy'
                     )
             if competitors:
                 bullet_references = listing.get('bullet_references', [])
@@ -229,9 +344,12 @@ def validate(data):
             unicodedata.normalize('NFC', str(item).strip()).casefold()
             for item in title_keywords
         ]
-        if (len(title_keywords) != 3 or any(not item for item in normalized_title_keywords)
-                or len(set(normalized_title_keywords)) != 3):
-            errors.append(f'{market}/{variant_id} title_keywords must contain three distinct phrases')
+        if (not 2 <= len(title_keywords) <= 4
+                or any(not item for item in normalized_title_keywords)
+                or len(set(normalized_title_keywords)) != len(title_keywords)):
+            errors.append(
+                f'{market}/{variant_id} title_keywords must contain 2-4 distinct phrases'
+            )
             first_keyword_forms = []
         else:
             bullet_text = '\n'.join(map(str, bullets))
@@ -314,10 +432,27 @@ def validate(data):
                 errors.append(
                     f'{market}/{variant_id} color term must not replace a title keyword: {color_term}'
                 )
+        critical_differentiators = listing.get('critical_differentiators', [])
+        if not isinstance(critical_differentiators, list):
+            errors.append(f'{market}/{variant_id} critical_differentiators must be a list')
+            critical_differentiators = []
+        for differentiator in critical_differentiators:
+            differentiator = str(differentiator).strip()
+            if not differentiator or not contains(title, differentiator):
+                errors.append(
+                    f'{market}/{variant_id} title does not contain declared critical '
+                    f'differentiator: {differentiator}'
+                )
+                continue
+            first_token = words(differentiator)[0]
+            token_positions = words(title)
+            if first_token in token_positions and token_positions.index(first_token) > 6:
+                errors.append(
+                    f'{market}/{variant_id} critical differentiator must appear near the front '
+                    f'of the title: {differentiator}'
+                )
         title_scene = str(listing.get('title_scene', '')).strip()
-        if not title_scene:
-            errors.append(f'{market}/{variant_id} title_scene is empty')
-        elif not contains(title, title_scene):
+        if title_scene and not contains(title, title_scene):
             errors.append(f'{market}/{variant_id} title does not contain title_scene: {title_scene}')
         description = str(listing.get('description', ''))
         tags = [tag.casefold() for tag in DESCRIPTION_TAG.findall(description)]
@@ -341,17 +476,48 @@ def validate(data):
             features = description_text[positions[0] + len(headings[0]):positions[1]]
             details = description_text[positions[1] + len(headings[1]):positions[2]].strip(' :\n\t')
             package = description_text[positions[2] + len(headings[2]):].strip(' :\n\t')
-            feature_count = len(re.findall(
-                r'(?m)^\s*[1-5][.)]\s*[^:\n：]{1,60}[:：]\s*\S', features
-            ))
             if not overview:
                 errors.append(f'{market}/{variant_id} description overview is empty')
-            if not 3 <= feature_count <= 5:
+            else:
+                overview_sentences = len(DESCRIPTION_SENTENCE.findall(overview))
+                if not 2 <= overview_sentences <= 3:
+                    errors.append(
+                        f'{market}/{variant_id} description overview must contain 2-3 sentences'
+                    )
+            feature_matches = list(re.finditer(
+                r'(?m)^\s*[1-5][.)]\s*[^:\n：]{1,60}[:：]\s*\S', features
+            ))
+            if not 3 <= len(feature_matches) <= 5:
                 errors.append(f'{market}/{variant_id} description must contain 3-5 numbered features')
+            for index, match in enumerate(feature_matches, 1):
+                end = (feature_matches[index].start()
+                       if index < len(feature_matches) else len(features))
+                feature_text = features[match.start():end].strip()
+                feature_body = re.split(r'[:：]', feature_text, maxsplit=1)[-1].strip()
+                sentence_count = len(DESCRIPTION_SENTENCE.findall(feature_body))
+                if not 2 <= sentence_count <= 4:
+                    errors.append(
+                        f'{market}/{variant_id} description feature {index} must contain '
+                        '2-4 detailed sentences'
+                    )
             if not details:
                 errors.append(f'{market}/{variant_id} product details block is empty')
             if not package:
                 errors.append(f'{market}/{variant_id} package contents block is empty')
+            use_care_positions = []
+            for heading in USE_CARE_HEADINGS[market]:
+                match = re.search(
+                    r'(?mi)^\s*' + re.escape(heading) + r'\s*:', description_text
+                )
+                if match:
+                    use_care_positions.append(match.start())
+            if use_care_positions and not all(
+                    positions[1] < position < positions[2]
+                    for position in use_care_positions):
+                errors.append(
+                    f'{market}/{variant_id} description use/care block must follow product '
+                    'details and precede package contents'
+                )
             notice_match = re.search(
                 r'(?mi)^\s*' + re.escape(NOTICE_HEADINGS[market]) + r'\s*:',
                 description_text,
@@ -375,14 +541,16 @@ def validate(data):
                 continue
             forms = [phrase, *keyword.get('aliases', [])]
             adopted_secondary.append([str(form).strip() for form in forms if str(form).strip()])
-        if adopted_secondary:
-            for index, item in enumerate(bullets, 1):
-                if not any(any(contains(item, form) for form in forms)
-                           for forms in adopted_secondary):
-                    warnings.append(
-                        f'{market}/{variant_id} bullet {index} does not naturally cover '
-                        'an available non-title keyword; review rather than force insertion'
-                    )
+        front_end_copy = '\n'.join([
+            title, item_highlights, *map(str, bullets), description_text,
+            *map(str, listing.get('front_end_attributes', [])),
+        ])
+        for forms in adopted_secondary:
+            if not any(contains(front_end_copy, form) for form in forms):
+                warnings.append(
+                    f'{market}/{variant_id} does not naturally cover available non-title '
+                    f'keyword: {forms[0]}'
+                )
         search_terms = str(listing.get('search_terms', '')).strip()
         if not search_terms:
             errors.append(f'{market}/{variant_id} search_terms is empty')
@@ -415,14 +583,49 @@ def validate(data):
                     f'{market}/{variant_id} search_terms contains stop words: '
                     + ', '.join(stop_words)
                 )
-            front_end_words = set(words('\n'.join([title, *map(str, bullets), description_text])))
+            front_end_words = set(words(front_end_copy))
             overlap = sorted(set(terms) & front_end_words)
             if overlap:
                 errors.append(
                     f'{market}/{variant_id} search_terms repeats front-end tokens: '
                     + ', '.join(overlap)
                 )
-        visible = '\n'.join([str(listing.get('title', '')), *map(str, bullets), description_text,
+            if competitors:
+                primary_asin = str(listing.get('primary_reference_asin', '')).strip()
+                if not ASIN.fullmatch(primary_asin):
+                    errors.append(
+                        f'{market}/{variant_id} primary_reference_asin is required when '
+                        'competitor evidence exists'
+                    )
+                audits = audits_by_key.get(key, [])
+                if not audits:
+                    errors.append(
+                        f'{market}/{variant_id} requires SellerSprite and Amazon search-term audits'
+                    )
+                else:
+                    adopted_audits = [
+                        audit for audit in audits if audit.get('decision') == 'adopt'
+                    ]
+                    for audit in audits:
+                        if (primary_asin
+                                and str(audit.get('source_asin', '')).strip() != primary_asin):
+                            errors.append(
+                                f'{market}/{variant_id} search-term audit source_asin must match '
+                                'primary_reference_asin'
+                            )
+                    adopted_tokens = {
+                        token
+                        for audit in adopted_audits
+                        for token in words(audit.get('phrase', ''))
+                    }
+                    unaudited = sorted(set(terms) - adopted_tokens)
+                    if unaudited:
+                        errors.append(
+                            f'{market}/{variant_id} search_terms contains tokens without an '
+                            f'adopted relevance audit: {", ".join(unaudited)}'
+                        )
+        visible = '\n'.join([str(listing.get('title', '')), item_highlights,
+                             *map(str, bullets), description_text,
                              str(listing.get('search_terms', ''))])
         if ASIN.search(visible):
             errors.append(f'{market}/{variant_id} contains an ASIN')

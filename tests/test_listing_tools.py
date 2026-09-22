@@ -44,8 +44,12 @@ class ListingTests(unittest.TestCase):
                           'title_keywords': ['Dekoration', 'Papierdekoration', 'Festschmuck'],
                           'title_scene': 'für Feiern', 'title_quantity': 1,
                           'title_quantity_term': '', 'color_mode': 'not_applicable',
-                          'title_color_terms': [],
-                          'title': 'Dekoration, Papierdekoration und Festschmuck für Feiern',
+                          'title_color_terms': [], 'critical_differentiators': [],
+                          'title': ('Dekoration, Papierdekoration und Festschmuck für Feiern '
+                                    'und Feiertage'),
+                          'item_highlights': ('Papiermaterial mit klarer Form für Tisch, Regal und '
+                                              'Innenraum, einzeln platzierbar oder mit vorhandener '
+                                              'Festdeko kombinierbar'),
                           'bullets': [
                               '📦【Klarer Lieferumfang】Der Lieferumfang ist auf die gewählte Variante abgestimmt und nennt die enthaltenen Dekorationsteile eindeutig. So lässt sich die geplante Anordnung vor dem Dekorieren besser einschätzen, während zusätzlich abgebildete Szenenartikel nicht mit dem Inhalt verwechselt werden.',
                               '🧩【Bestätigtes Papiermaterial】Die Dekoration besteht aus Papier und lässt sich dadurch gut in vorhandene saisonale Arrangements integrieren. Materialangaben bleiben in Titel, Beschreibung und Produktdetails einheitlich, ohne daraus unbestätigte Eigenschaften wie Wasserfestigkeit oder besondere Haltbarkeit abzuleiten.',
@@ -56,12 +60,13 @@ class ListingTests(unittest.TestCase):
                           'description': ('<p>Eine Dekoration aus Papier für festliche Arrangements. '
                                           'Sie lässt sich einzeln oder zusammen mit vorhandenen Dekorationen einsetzen.</p>'
                                           '<p><b>Eigenschaften:</b><br>'
-                                          '1. Leicht: Einfach zu platzieren.<br>'
-                                          '2. Form: Dekorative Gestaltung.<br>'
-                                          '3. Anlass: Für Feiern geeignet.</p>'
+                                          '1. Platzierung: Die Papierdekoration lässt sich auf geeigneten Flächen gezielt anordnen. Sie ergänzt vorhandene Arrangements, ohne zusätzlich abgebildete Gegenstände als Lieferumfang darzustellen.<br>'
+                                          '2. Gestaltung: Die klare Form setzt einen sichtbaren dekorativen Akzent. Sie kann einzeln stehen oder mit abgestimmten Elementen kombiniert werden.<br>'
+                                          '3. Anlass: Die Gestaltung ist für bestätigte Feiern und saisonale Innenräume vorgesehen. Der verfügbare Platz bestimmt, ob sie einzeln oder als Teil eines größeren Arrangements verwendet wird.</p>'
                                           '<p><b>Produktdetails:</b><br>Material: Papier<br>Farbe: Weiß<br>Größe: 10 cm</p>'
                                           '<p><b>Lieferumfang:</b><br>1 × Dekoration</p>'),
                           'search_terms': 'dekoartikel schmuckanhänger festbedarf',
+                          'front_end_attributes': [],
                           'claim_fact_ids': ['F1']}],
         }
 
@@ -133,15 +138,29 @@ class ListingTests(unittest.TestCase):
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('title_reference is required' in error for error in result['errors']))
+        self.assertTrue(any('item_highlights_reference is required' in error
+                            for error in result['errors']))
         self.assertTrue(any('description_reference is required' in error for error in result['errors']))
         self.assertTrue(any('search_terms_reference is required' in error for error in result['errors']))
         self.assertTrue(any('bullet_references must contain five' in error for error in result['errors']))
 
         listing = data['listings'][0]
         listing['title_reference'] = '参考 B012345678 标题'
+        listing['item_highlights_reference'] = '参考 B012345678 标题及第2点'
         listing['bullet_references'] = [f'参考 B012345678 第{i}点' for i in range(1, 6)]
         listing['description_reference'] = '参考 B012345678 第1-5点'
         listing['search_terms_reference'] = '参考 B012345678 标题及五点'
+        listing['primary_reference_asin'] = 'B012345678'
+        data['search_term_audits'] = [{
+            'marketplace': 'DE', 'variant_id': 'V1',
+            'phrase': 'dekoartikel schmuckanhänger festbedarf',
+            'source_asin': 'B012345678',
+            'source_tool': 'sellersprite_reverse_asin',
+            'source_marketplace': 'DE',
+            'organic_results_checked': 20, 'relevant_results': 16,
+            'relevance_band': 'high', 'decision': 'adopt',
+            'local_volume_claimed': False,
+        }]
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
 
     def test_listing_package_rejects_unified_format_violations(self):
@@ -164,6 +183,45 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('repeats front-end tokens: papier' in error for error in result['errors']))
         self.assertTrue(any('UTF-8 bytes' in error for error in result['errors']))
 
+    def test_item_highlights_is_required_and_included_in_front_end_deduplication(self):
+        data = copy.deepcopy(self.listing_package())
+        data['listings'][0]['item_highlights'] = ''
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('item_highlights is empty' in error for error in result['errors']))
+
+        data = copy.deepcopy(self.listing_package())
+        data['listings'][0]['search_terms'] = 'innenraum'
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('repeats front-end tokens: innenraum' in error
+                            for error in result['errors']))
+
+    def test_same_product_evidence_is_a_valid_confirmed_fact_source(self):
+        data = copy.deepcopy(self.listing_package())
+        fact = data['facts'][0]
+        fact['source_type'] = 'same_product_evidence'
+        fact['same_product_confirmed'] = True
+        fact['source'] = {
+            'asin': 'B012345678', 'field': 'bullet_2', 'user_message': '同款确认'
+        }
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+
+        fact['same_product_confirmed'] = False
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('lacks explicit same-product confirmation' in error
+                            for error in result['errors']))
+
+    def test_bullet_copy_has_no_artificial_maximum(self):
+        data = copy.deepcopy(self.listing_package())
+        long_sentence = ' '.join(['Konkrete Produktinformation'] * 18)
+        data['listings'][0]['bullets'][0] = (
+            f'📦【Ausführliche Produktangabe】{long_sentence}. '
+            f'{long_sentence}.'
+        )
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+
     def test_listing_package_rejects_thin_bullet_copy(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['bullets'][0] = (
@@ -172,12 +230,16 @@ class ListingTests(unittest.TestCase):
         )
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])
-        self.assertTrue(any('at least 120 visible characters' in error
+        self.assertTrue(any('more than 200 visible characters' in error
                             for error in result['errors']))
 
-    def test_listing_package_requires_three_core_title_keywords_and_scene(self):
+    def test_listing_package_accepts_two_to_four_core_keywords_and_optional_scene(self):
         data = copy.deepcopy(self.listing_package())
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        data['listings'][0]['title_keywords'] = ['Dekoration', 'Papierdekoration']
+        data['listings'][0]['title_scene'] = ''
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        data = copy.deepcopy(self.listing_package())
         data['keywords'][2]['is_core'] = False
         data['listings'][0]['title_scene'] = 'für Hochzeiten'
         result = package_validator.validate(data)
@@ -227,7 +289,8 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('title quantity must immediately precede' in error
                             for error in result['errors']))
 
-        listing['title'] = '12 Stück Dekoration, Papierdekoration und Festschmuck für Feiern'
+        listing['title'] = ('12 Stück Dekoration, Dekoration aus Papier und Festschmuck '
+                            'für Feiern')
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
 
         listing['title_quantity'] = 1
@@ -249,7 +312,8 @@ class ListingTests(unittest.TestCase):
         data['listings'][0]['title'] += ' B012345678'
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])
-        self.assertTrue(any('not sourced from own_product' in error for error in result['errors']))
+        self.assertTrue(any('source_type must be own_product or same_product_evidence' in error
+                            for error in result['errors']))
         self.assertTrue(any('five non-empty bullets' in error for error in result['errors']))
         self.assertTrue(any('uses non-confirmed fact' in error for error in result['errors']))
         self.assertTrue(any('contains an ASIN' in error for error in result['errors']))

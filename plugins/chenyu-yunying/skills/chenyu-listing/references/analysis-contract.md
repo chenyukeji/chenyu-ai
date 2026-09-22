@@ -1,79 +1,144 @@
 # 分析脚本接口
 
-相关脚本使用 Python 3.10+ 标准库，无第三方依赖。路径相对当前 Skill 目录；实际执行时解析绝对路径，输入输出使用独立任务目录。不得把真实开发表、竞品快照、图片或生成结果写入插件及 Git。
+`listing-package.json` 是生成、校验和交付之间的内部接口。买家可见内容不得包含内部审核字段。
 
-```bash
-python ../chenyu-yunying/scripts/extract_development_brief.py "input.xlsx" --out "task/brief"
-python scripts/validate_listing_package.py "task/listing-package.json" --out "task/package-review.json"
-python scripts/analyze_listing.py "task/listing-package.json" --out "task/content-review.json"
-```
-
-提取器保留原始单元格及公式缓存（缓存可能过期），不执行公式；文字链接、真正超链接、常量 HYPERLINK 均保留来源。动态 HYPERLINK 只警告，需助手根据单元格证据补读。媒体原样导出，图片锚点为1起始行列；附件只清点，WPS单元格图片等不支持的对象发出警告。未知图片不自动归属变体。输出目录须为空。
-
-最终包示例（虚构数据，仅说明接口）：
+## 最小结构
 
 ```json
 {
   "targets": ["DE"],
-  "variants": [{"id":"V1","marketplaces":["DE"]}],
+  "variants": [{"id": "V1", "marketplaces": ["DE"]}],
   "facts": [
-    {"id":"F1","source_type":"own_product","status":"confirmed","field":"material","value":"Papier","variant_ids":["V1"],"source":{"sheet":"Product","cell":"B2"}}
+    {
+      "id": "F1",
+      "source_type": "own_product",
+      "status": "confirmed",
+      "field": "material",
+      "value": "Polyester",
+      "variant_ids": ["V1"],
+      "source": {"sheet": "Product", "cell": "B2"}
+    },
+    {
+      "id": "F2",
+      "source_type": "same_product_evidence",
+      "same_product_confirmed": true,
+      "status": "confirmed",
+      "field": "installation",
+      "value": "Mittige Öffnung und Seitenschlitz",
+      "variant_ids": ["V1"],
+      "source": {"asin": "B012345678", "field": "bullet_3", "user_message": "同款确认"}
+    }
   ],
   "competitors": [
-    {"id":"C1","marketplace":"DE","product_group":"P1","status":"partial","url":"https://example.com/item","retrieved_at":"2026-01-01","title":"Baumschmuck aus Papier","bullets":[],"description":""}
+    {
+      "id": "C1",
+      "marketplace": "DE",
+      "product_group": "P1",
+      "status": "complete",
+      "asin": "B012345678",
+      "url": "https://www.amazon.de/dp/B012345678",
+      "title": "...",
+      "bullets": ["..."],
+      "description": "..."
+    }
   ],
   "keywords": [
-    {"marketplace":"DE","phrase":"Baumschmuck","aliases":["Baumdeko"],"type":"product","is_core":true,"decision":"adopt","fact_source":"自有产品身份"},
-    {"marketplace":"DE","phrase":"Papieranhänger","aliases":["Anhänger aus Papier"],"type":"attribute","is_core":true,"decision":"adopt","fact_source":"F1"},
-    {"marketplace":"DE","phrase":"Weihnachtsdekoration","aliases":["Festdeko"],"type":"scene","is_core":true,"decision":"adopt","fact_source":"已确认场景"},
-    {"marketplace":"DE","phrase":"Weihnachtsanhänger","aliases":[],"type":"secondary","is_core":false,"decision":"adopt","fact_source":"竞品字段证据"}
+    {"marketplace": "DE", "phrase": "Weihnachtsbaumdecke", "aliases": ["Baumdecke"], "is_core": true},
+    {"marketplace": "DE", "phrase": "Weihnachtsbaum Rock", "aliases": [], "is_core": true},
+    {"marketplace": "DE", "phrase": "Baumschmuck Unterlage", "aliases": [], "decision": "adopt"}
   ],
   "mappings": [
-    {"marketplace":"DE","variant_id":"V1","fact_ids":["F1"],"buying_reasons":["Lieferumfang klar","Papiermaterial bestätigt","leicht in Arrangements integrierbar","für festliche Dekoration","sachgerechte Aufbewahrung"],"keywords":["Baumschmuck","Papieranhänger","Weihnachtsdekoration"],"listing_fields":["title","bullet_1","bullet_2","bullet_3","bullet_4","bullet_5","description"]}
+    {
+      "marketplace": "DE",
+      "variant_id": "V1",
+      "fact_ids": ["F1", "F2"],
+      "buying_reasons": ["Abdeckung", "einfache Platzierung"],
+      "keywords": ["Weihnachtsbaumdecke", "Weihnachtsbaum Rock", "Baumschmuck Unterlage"],
+      "listing_fields": ["title", "item_highlights", "bullet_1", "bullet_2", "bullet_3", "bullet_4", "bullet_5", "description", "search_terms"]
+    }
+  ],
+  "search_term_audits": [
+    {
+      "marketplace": "DE",
+      "variant_id": "V1",
+      "phrase": "christbaum teppich",
+      "source_asin": "B012345678",
+      "source_tool": "sellersprite_reverse_asin",
+      "source_marketplace": "DE",
+      "organic_results_checked": 20,
+      "relevant_results": 16,
+      "relevance_band": "high",
+      "decision": "adopt",
+      "local_volume_claimed": false
+    }
   ],
   "listings": [
     {
-      "marketplace":"DE",
-      "language":"de-DE",
-      "variant_id":"V1",
-      "title_keywords":["Baumschmuck","Papieranhänger","Weihnachtsdekoration"],
-      "title_scene":"für Weihnachtsfeiern",
-      "title_quantity":1,
-      "title_quantity_term":"",
-      "color_mode":"not_applicable",
-      "title_color_terms":[],
-      "title":"Baumschmuck, Papieranhänger und Weihnachtsdekoration für Weihnachtsfeiern",
-      "title_reference":"参考 B012345678 标题",
-      "bullets":[
-        "📦【Klarer Lieferumfang】Der Lieferumfang ist auf die gewählte Variante abgestimmt und nennt die enthaltenen Dekorationsteile eindeutig. So lässt sich die geplante Anordnung vor dem Dekorieren besser einschätzen, während zusätzlich abgebildete Szenenartikel nicht mit dem Inhalt verwechselt werden.",
-        "🧩【Bestätigtes Papiermaterial】Die Dekoration besteht aus Papier und lässt sich dadurch gut in vorhandene saisonale Arrangements integrieren. Materialangaben bleiben in Titel, Beschreibung und Produktdetails einheitlich, ohne daraus unbestätigte Eigenschaften wie Wasserfestigkeit oder besondere Haltbarkeit abzuleiten.",
-        "✨【Flexibel kombinierbar】Die einzelnen Dekorationselemente können als ruhiger Akzent verwendet oder mit bereits vorhandener Tisch- und Raumdekoration kombiniert werden. Dadurch entsteht eine zusammenhängende Gestaltung, ohne dass zusätzliche, nicht enthaltene Accessoires als Bestandteil des Sets dargestellt werden.",
-        "🎉【Für festliche Arrangements】Die Gestaltung eignet sich für bestätigte Weihnachtsfeiern und saisonale Innenraumdekorationen. Sie kann je nach Platzangebot auf geeigneten Flächen arrangiert werden und ergänzt unterschiedliche festliche Stilrichtungen, ohne einen bestimmten Aufbau vorzuschreiben.",
-        "💡【Sachgerechter Umgang】Verwenden Sie ausschließlich die im Lieferumfang genannten Teile und behandeln Sie die Papieroberfläche entsprechend dem bestätigten Material. Lagern Sie die Dekoration trocken und geschützt, damit Form und Erscheinungsbild zwischen den Einsätzen erhalten bleiben."
-      ],
-      "bullet_references":["参考 B012345678 第1点","参考 B012345678 第2点","参考 B012345678 第3点","参考 B012345678 第4点","参考 B012345678 第5点"],
-      "description":"<p>Diese Papierdekoration verbindet eine klar erkennbare festliche Gestaltung mit flexiblen Möglichkeiten für vorhandene Arrangements. Sie kann als einzelner Akzent oder zusammen mit passender Tisch- und Raumdekoration eingesetzt werden, ohne zusätzlich gezeigte Szenenartikel als Lieferumfang darzustellen.</p><p><b>Eigenschaften:</b><br>1. Bestätigtes Material: Die Dekoration besteht aus Papier; weitergehende Materialeigenschaften werden nicht vorausgesetzt.<br>2. Flexible Gestaltung: Die Elemente lassen sich je nach verfügbarem Platz einzeln oder zusammen anordnen.<br>3. Festlicher Einsatz: Die Gestaltung unterstützt Weihnachtsfeiern und andere bestätigte saisonale Innenszenen.</p><p><b>Produktdetails:</b><br>Material: Papier</p><p><b>Lieferumfang:</b><br>1 × Baumschmuck</p>",
-      "description_reference":"参考 B012345678 第1-5点",
-      "search_terms":"dekoartikel schmuckanhaenger festbedarf",
-      "search_terms_reference":"参考 B012345678 标题及五点/关键词提取",
-      "claim_fact_ids":["F1"]
+      "marketplace": "DE",
+      "language": "de-DE",
+      "variant_id": "V1",
+      "title": "...",
+      "title_keywords": ["Weihnachtsbaumdecke", "Weihnachtsbaum Rock"],
+      "critical_differentiators": ["5-lagig"],
+      "title_scene": "",
+      "title_quantity": 1,
+      "title_quantity_term": "",
+      "color_mode": "single",
+      "title_color_terms": [],
+      "title_reference": "参考开发表及 B012345678 标题",
+      "item_highlights": "...",
+      "item_highlights_reference": "参考开发表及 B012345678 标题/第2点",
+      "bullets": ["...", "...", "...", "...", "..."],
+      "bullet_references": ["...", "...", "...", "...", "..."],
+      "description": "<p>...</p>",
+      "description_reference": "参考开发表及 B012345678 第1-5点",
+      "front_end_attributes": ["Rot", "120 cm"],
+      "primary_reference_asin": "B012345678",
+      "search_terms": "christbaum teppich",
+      "search_terms_reference": "参考 B012345678 卖家精灵反查及 Amazon DE 前20个自然结果",
+      "claim_fact_ids": ["F1", "F2"],
+      "notice_fact_ids": []
     }
   ],
-  "brands": [],
-  "limits": {}
+  "limits": {
+    "DE": {"title_chars": 75, "item_highlights_chars": 125, "search_terms_bytes": 249}
+  }
 }
 ```
 
-站点仅 DE/FR/IT/ES/UK，status 使用 complete/partial/failed。product_group 由研究证据确定，不由脚本猜测。aliases 必须经过语义判断。brands 填入已知自有与竞品品牌以检查泄漏，不用于生成文案。
+## 字段规则
 
-facts 只能记录自有产品证据，source_type 固定 own_product；竞品信息只进入 competitors/keywords，不得转成 facts。confirmed 事实可进入买家文案，unconfirmed/conflict 只进入待确认摘要。variants 可用 marketplaces 限定实际销售站点，省略则应用全部 targets。每个应交付的站点/变体必须有 mapping 和 listing；claim_fact_ids 列出该文案使用的已确认事实。
+### facts
 
-每条 listing 的 `title_keywords` 必须正好引用同站点 keywords 中 3 个不同且 `is_core:true` 的主 phrase，`title_scene` 记录标题采用的主要场景。`title_reference` 为标题溯源，`bullet_references` 与五点一一对应，`description_reference` 和 `search_terms_reference` 分别对应详情与 Search Terms；存在竞品研究包时四类参考字段均不可为空。优先写“参考 ASIN 标题/第 N 点/标题及五点”，只列直接支持该字段的来源。`title_quantity` 是已确认的实际售卖件数，必须是正整数：等于 1 时 `title_quantity_term` 必须为空且标题不写数量；大于 1 时必须提供本地化 `title_quantity_term`，并让它紧贴在第一个核心关键词或其 alias 正前方。数量短语不能写入 `title_keywords`，开发表中的采购数量也不能用于该字段。`color_mode` 使用 `single`、`multi` 或 `not_applicable`；单色可在 `title_color_terms` 声明至多一个标题颜色，多色和不适用时必须为空。标题可使用关键词的 aliases，自行猜测的相似词不算覆盖。关键词表中未用于标题且 `decision` 不是 exclude 的词是五点、详情和 Search Terms 的候选；优先分散覆盖，但不能为了“一点一词”破坏语法或重复卖点。
+- `source_type=own_product`：来自开发资料、自有图片或用户明确说明。
+- `source_type=same_product_evidence`：必须同时满足 `same_product_confirmed=true`、`status=confirmed`，并在 `source` 中保存有效 ASIN 和同款确认来源。
+- 同款证据不得用于迁移品牌、冲突规格/数量/配件、认证、质保、售后或竞品独有版本。
 
-不主动新增评论痛点分析。研究包已有或用户明确提供评论时，评论只能调整写作重点，评论计数、观点和竞品缺陷不能进入 facts 或被写成自有产品优势。`notice_fact_ids` 为可选字段；提供时必须来自已确认事实，并在详情包装块之后生成本地化注意事项标题。没有可靠注意事项事实时省略该字段和该 HTML 块。
+### listings
 
-limits 默认空：仅在核实规则后填入站点下的 title_chars / search_terms_bytes，并在任务记录保留官方来源、类目和查询日期。脚本报告未核实项，不内置通用限制。
+- `title_keywords` 为 2–4 个不同核心短语，必须在同站点 `keywords` 中标记 `is_core:true`，并以原词或 alias 自然进入标题。
+- `critical_differentiators` 只列能影响购买、适配或价格的重要差异；每项必须出现在标题前部。
+- `title_scene` 可空；非空时必须出现在标题。
+- `title_quantity` 为正整数。等于 1 时 `title_quantity_term` 为空；大于 1 时数量短语必须紧贴第一核心产品词。
+- `item_highlights` 与 `item_highlights_reference` 必填。
+- `front_end_attributes` 收录未直接写在文案对象中的已填前台属性，Search Terms 去重时一并计算。
+- Item Name、Item Highlights、五点和详情可以重复核心词、关键事实、尺寸和场景，不设跨字段机械去重错误。
 
-package-review.json 检查目标站点/变体齐全、单行标题、规范标点空格、3 个核心标题关键词及场景、标题数量规则、颜色模式、标题中的原词或 alias、五点数量及默认“Emoji＋【利益点小标题】＋2—4句正文”格式、基础 HTML 描述、Search Terms、事实来源和映射。每条五点必须以一个相关 Emoji 开头；只有已核实的平台规则禁止特殊符号时才可移除并同步调整校验。Search Terms 必须全部小写、单行、以单个空格分隔且不含标点，不得重复字段内词、常见停用词或标题/五点/详情已覆盖的词，并少于 250 UTF-8 字节。五点正文少于约120个可见字符时报错，超过约320个可见字符或存在可用次要词但未自然覆盖时提示人工复核；标题 150—190 字符也仅作为编辑警告，不冒充平台限制。字符和句数校验不能代替语义审核；模型还必须确认第一句直给具体特点和结果、五条按重要度排序、标题未覆盖的次要词被合理分配，并复核同款竞品高频主题是否遗漏。ready_for_delivery=false 时不得交付。
+### search_term_audits
 
-content-review.json 会先剥离 HTML 标签，再计算原词/语义组覆盖数、各字段样本分母、证据位置、长度和重复片段。两个检查都不负责语义审核、自动翻译、事实推断或发布；三个标题词是否语义重复、标题自然度、五点是否真正汇总多竞品主题、品牌候选及8词重合须由模型复核。输出文件已存在时拒绝覆盖。
+- 每个含竞品证据的站点/变体必须保存卖家精灵反查与 Amazon 搜索相关性记录。
+- `source_tool` 固定为 `sellersprite_reverse_asin`，`source_asin` 与该 Listing 的 `primary_reference_asin` 一致。
+- `organic_results_checked` 至少 20；`relevant_results / organic_results_checked` 不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。
+- `decision=adopt` 不能用于 `low` 候选。跨站点数据必须设置 `local_volume_claimed=false`。
+- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元。
+
+## 脚本
+
+```powershell
+python scripts/validate_listing_package.py listing-package.json --out package-review.json
+python scripts/analyze_listing.py listing-package.json --out listing-analysis.json
+```
+
+`validate_listing_package.py` 检查站点/变体覆盖、事实与同款证据、75/125 字符限制、2–4 个核心标题词、数量与关键差异位置、五点数量/格式/正文长度、HTML 详情结构、Search Terms 增量词和反查审计。`ready_for_delivery=false` 时不得交付。
+
+`analyze_listing.py` 输出竞品独立商品组频次、字段覆盖、Item Name/Item Highlights/五点/Search Terms 长度，以及与竞品连续 8 词重合的人工复核提示。重合提示不等于抄袭判定，也不会禁止同款事实在多个前台字段自然重复。
