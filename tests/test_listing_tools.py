@@ -134,7 +134,8 @@ class ListingTests(unittest.TestCase):
     def test_competitor_evidence_requires_references_for_all_listing_fields(self):
         data = self.listing_package()
         data['competitors'] = [{'id': 'C1', 'marketplace': 'DE', 'product_group': 'P1',
-                                'status': 'complete', 'asin': 'B012345678'}]
+                                'status': 'complete', 'asin': 'B012345678',
+                                'title': 'Dekoartikel Schmuckanhänger Festbedarf'}]
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('title_reference is required' in error for error in result['errors']))
@@ -151,16 +152,93 @@ class ListingTests(unittest.TestCase):
         listing['description_reference'] = '参考 B012345678 第1-5点'
         listing['search_terms_reference'] = '参考 B012345678 标题及五点'
         listing['primary_reference_asin'] = 'B012345678'
-        data['search_term_audits'] = [{
-            'marketplace': 'DE', 'variant_id': 'V1',
-            'phrase': 'dekoartikel schmuckanhänger festbedarf',
-            'source_asin': 'B012345678',
-            'source_tool': 'sellersprite_reverse_asin',
-            'source_marketplace': 'DE',
-            'organic_results_checked': 20, 'relevant_results': 16,
-            'relevance_band': 'high', 'decision': 'adopt',
-            'local_volume_claimed': False,
+        data['search_term_audits'] = [
+            {
+                'marketplace': 'DE', 'variant_id': 'V1',
+                'phrase': 'dekoartikel schmuckanhänger festbedarf',
+                'source_asin': 'B012345678',
+                'source_tool': 'sellersprite_reverse_asin',
+                'source_marketplace': 'DE',
+                'organic_results_checked': 20, 'relevant_results': 16,
+                'relevance_band': 'high', 'decision': 'adopt',
+                'local_volume_claimed': False,
+            },
+            {
+                'marketplace': 'DE', 'variant_id': 'V1',
+                'phrase': 'dekoartikel schmuckanhänger',
+                'source_asin': 'B012345678',
+                'source_tool': 'reference_title_terms',
+                'source_field': 'title', 'source_marketplace': 'DE',
+                'organic_results_checked': 20, 'relevant_results': 15,
+                'relevance_band': 'high', 'decision': 'adopt',
+                'local_volume_claimed': False,
+            },
+        ]
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+
+        data['search_term_audits'] = data['search_term_audits'][:1]
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('requires synonym candidates from reference listing titles' in error
+                            for error in result['errors']))
+
+    def test_listing_package_rejects_internal_variant_codes_in_buyer_copy(self):
+        data = copy.deepcopy(self.listing_package())
+        data['listings'][0]['item_highlights'] = (
+            'Design A: Papiermaterial mit klarer Form für Tisch, Regal und Innenraum, '
+            'einzeln platzierbar oder mit Festdeko kombinierbar'
+        )
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('contains internal variant codes' in error
+                            for error in result['errors']))
+
+        data['listings'][0]['buyer_visible_variant_terms'] = ['Design A']
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+
+    def test_listing_package_requires_all_adopted_incremental_tokens(self):
+        data = copy.deepcopy(self.listing_package())
+        data['competitors'] = [{
+            'id': 'C1', 'marketplace': 'DE', 'product_group': 'P1',
+            'status': 'complete', 'asin': 'B012345678',
+            'title': 'Dekoartikel Schmuckanhänger Festbedarf Wintermotiv',
         }]
+        listing = data['listings'][0]
+        listing.update({
+            'title_reference': '参考 B012345678 标题',
+            'item_highlights_reference': '参考 B012345678 标题',
+            'bullet_references': ['参考 B012345678' for _ in range(5)],
+            'description_reference': '参考 B012345678',
+            'search_terms_reference': '参考 B012345678 标题及卖家精灵反查',
+            'primary_reference_asin': 'B012345678',
+        })
+        data['search_term_audits'] = [
+            {
+                'marketplace': 'DE', 'variant_id': 'V1',
+                'phrase': 'dekoartikel schmuckanhänger festbedarf',
+                'source_asin': 'B012345678',
+                'source_tool': 'sellersprite_reverse_asin',
+                'source_marketplace': 'DE',
+                'organic_results_checked': 20, 'relevant_results': 16,
+                'relevance_band': 'high', 'decision': 'adopt',
+                'local_volume_claimed': False,
+            },
+            {
+                'marketplace': 'DE', 'variant_id': 'V1',
+                'phrase': 'wintermotiv', 'source_asin': 'B012345678',
+                'source_tool': 'reference_title_terms', 'source_field': 'title',
+                'source_marketplace': 'DE',
+                'organic_results_checked': 20, 'relevant_results': 15,
+                'relevance_band': 'high', 'decision': 'adopt',
+                'local_volume_claimed': False,
+            },
+        ]
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('omits audited incremental tokens: wintermotiv' in error
+                            for error in result['errors']))
+
+        listing['search_terms'] += ' wintermotiv'
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
 
     def test_listing_package_rejects_unified_format_violations(self):

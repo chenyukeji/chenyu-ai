@@ -70,6 +70,20 @@
       "relevance_band": "high",
       "decision": "adopt",
       "local_volume_claimed": false
+    },
+    {
+      "marketplace": "DE",
+      "variant_id": "V1",
+      "phrase": "christbaum unterlage",
+      "source_asin": "B012345678",
+      "source_tool": "reference_title_terms",
+      "source_field": "title",
+      "source_marketplace": "DE",
+      "organic_results_checked": 20,
+      "relevant_results": 15,
+      "relevance_band": "high",
+      "decision": "adopt",
+      "local_volume_claimed": false
     }
   ],
   "listings": [
@@ -93,9 +107,10 @@
       "description": "<p>...</p>",
       "description_reference": "参考开发表及 B012345678 第1-5点",
       "front_end_attributes": ["Rot", "120 cm"],
+      "buyer_visible_variant_terms": [],
       "primary_reference_asin": "B012345678",
-      "search_terms": "christbaum teppich",
-      "search_terms_reference": "参考 B012345678 卖家精灵反查及 Amazon DE 前20个自然结果",
+      "search_terms": "christbaum teppich unterlage",
+      "search_terms_reference": "参考 B012345678 卖家精灵反查、参考标题及 Amazon DE 前20个自然结果",
       "claim_fact_ids": ["F1", "F2"],
       "notice_fact_ids": []
     }
@@ -122,15 +137,17 @@
 - `title_quantity` 为正整数。等于 1 时 `title_quantity_term` 为空；大于 1 时数量短语必须紧贴第一核心产品词。
 - `item_highlights` 与 `item_highlights_reference` 必填。
 - `front_end_attributes` 收录未直接写在文案对象中的已填前台属性，Search Terms 去重时一并计算。
+- `buyer_visible_variant_terms` 默认空数组。只有用户明确确认属于买家公开名称的变体词才可加入；没有进入此清单的 `Design A/B/C` 等内部编号不得出现在买家可见字段。
 - Item Name、Item Highlights、五点和详情可以重复核心词、关键事实、尺寸和场景，不设跨字段机械去重错误。
 
 ### search_term_audits
 
-- 每个含竞品证据的站点/变体必须保存卖家精灵反查与 Amazon 搜索相关性记录。
-- `source_tool` 固定为 `sellersprite_reverse_asin`，`source_asin` 与该 Listing 的 `primary_reference_asin` 一致。
+- 每个含竞品证据的站点/变体必须同时保存卖家精灵反查、参考链接标题同义词和 Amazon 搜索相关性记录。
+- 卖家精灵候选使用 `source_tool=sellersprite_reverse_asin`，其 `source_asin` 与 Listing 的 `primary_reference_asin` 一致。
+- 参考标题候选使用 `source_tool=reference_title_terms`、`source_field=title`，其 `source_asin` 必须存在于 `competitors`；可以来自任一有效参考链接，不限第一条。
 - `organic_results_checked` 至少 20；`relevant_results / organic_results_checked` 不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。
 - `decision=adopt` 不能用于 `low` 候选。跨站点数据必须设置 `local_volume_claimed=false`。
-- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元。
+- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元；反过来，已采用且前台未覆盖的有效词元也必须全部写入。
 
 ## 脚本
 
@@ -139,6 +156,6 @@ python scripts/validate_listing_package.py listing-package.json --out package-re
 python scripts/analyze_listing.py listing-package.json --out listing-analysis.json
 ```
 
-`validate_listing_package.py` 检查站点/变体覆盖、事实与同款证据、75/125 字符限制、2–4 个核心标题词、数量与关键差异位置、五点数量/格式/正文长度、HTML 详情结构、Search Terms 增量词和反查审计。`ready_for_delivery=false` 时不得交付。
+`validate_listing_package.py` 检查站点/变体覆盖、事实与同款证据、75/125 字符限制、2–4 个核心标题词、数量与关键差异位置、内部变体编号泄漏、五点数量/格式/正文长度、HTML 详情结构、Search Terms 增量词、卖家精灵与参考标题双来源审计，以及已采用增量词是否全部写入。`ready_for_delivery=false` 时不得交付。
 
 `analyze_listing.py` 输出竞品独立商品组频次、字段覆盖、Item Name/Item Highlights/五点/Search Terms 长度，以及与竞品连续 8 词重合的人工复核提示。重合提示不等于抄袭判定，也不会禁止同款事实在多个前台字段自然重复。

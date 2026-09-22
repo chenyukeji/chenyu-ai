@@ -15,6 +15,11 @@ MARKETS = {
 }
 ASIN = re.compile(r'\bB0[A-Z0-9]{8}\b', re.I)
 PLACEHOLDER = re.compile(r'\[(?:brand|marque|marca|marke|marchio|品牌|待确认|todo)\]', re.I)
+INTERNAL_VARIANT_CODE = re.compile(
+    r'\b(?:design|diseño|disegno|modèle|modell|modello|variante|variant|style|stil|motif|muster)'
+    r'\b\s*[-_:]?\s*[a-z]\b|(?:款式|变体|设计)\s*[-_:：]?\s*[a-z]\b',
+    re.I,
+)
 BULLET_FORMAT = re.compile(
     r'^\s*(?:[\U0001F300-\U0001FAFF\u2600-\u27BF]'
     r'[\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]*\s*)'
@@ -159,10 +164,17 @@ def validate(data):
         source_asin = str(audit.get('source_asin', '')).strip()
         if not ASIN.fullmatch(source_asin):
             errors.append(f'search term audit {key[0]}/{key[1]} requires a valid source_asin')
-        if audit.get('source_tool') != 'sellersprite_reverse_asin':
+        source_tool = audit.get('source_tool')
+        if source_tool not in ('sellersprite_reverse_asin', 'reference_title_terms'):
             errors.append(
                 f'search term audit {key[0]}/{key[1]} source_tool must be '
-                'sellersprite_reverse_asin'
+                'sellersprite_reverse_asin or reference_title_terms'
+            )
+        if (source_tool == 'reference_title_terms'
+                and audit.get('source_field') != 'title'):
+            errors.append(
+                f'search term audit {key[0]}/{key[1]} from reference_title_terms '
+                'must use source_field=title'
             )
         checked = audit.get('organic_results_checked')
         relevant = audit.get('relevant_results')
@@ -603,15 +615,38 @@ def validate(data):
                         f'{market}/{variant_id} requires SellerSprite and Amazon search-term audits'
                     )
                 else:
+                    source_tools = {audit.get('source_tool') for audit in audits}
+                    if 'sellersprite_reverse_asin' not in source_tools:
+                        errors.append(
+                            f'{market}/{variant_id} requires SellerSprite reverse-ASIN '
+                            'search-term candidates'
+                        )
+                    if 'reference_title_terms' not in source_tools:
+                        errors.append(
+                            f'{market}/{variant_id} requires synonym candidates from reference '
+                            'listing titles'
+                        )
                     adopted_audits = [
                         audit for audit in audits if audit.get('decision') == 'adopt'
                     ]
+                    competitor_asins = {
+                        str(competitor.get('asin', '')).strip().upper()
+                        for competitor in competitors
+                        if ASIN.fullmatch(str(competitor.get('asin', '')).strip())
+                    }
                     for audit in audits:
-                        if (primary_asin
-                                and str(audit.get('source_asin', '')).strip() != primary_asin):
+                        audit_asin = str(audit.get('source_asin', '')).strip().upper()
+                        if (audit.get('source_tool') == 'sellersprite_reverse_asin'
+                                and primary_asin and audit_asin != primary_asin.upper()):
                             errors.append(
-                                f'{market}/{variant_id} search-term audit source_asin must match '
-                                'primary_reference_asin'
+                                f'{market}/{variant_id} SellerSprite audit source_asin must '
+                                'match primary_reference_asin'
+                            )
+                        if (audit.get('source_tool') == 'reference_title_terms'
+                                and audit_asin not in competitor_asins):
+                            errors.append(
+                                f'{market}/{variant_id} reference-title audit source_asin must '
+                                'match a competitor record'
                             )
                     adopted_tokens = {
                         token
@@ -624,6 +659,17 @@ def validate(data):
                             f'{market}/{variant_id} search_terms contains tokens without an '
                             f'adopted relevance audit: {", ".join(unaudited)}'
                         )
+                    unused_adopted = sorted(
+                        adopted_tokens
+                        - front_end_words
+                        - set(terms)
+                        - SEARCH_TERMS_STOP_WORDS.get(market, set())
+                    )
+                    if unused_adopted:
+                        errors.append(
+                            f'{market}/{variant_id} search_terms omits audited incremental '
+                            f'tokens: {", ".join(unused_adopted)}'
+                        )
         visible = '\n'.join([str(listing.get('title', '')), item_highlights,
                              *map(str, bullets), description_text,
                              str(listing.get('search_terms', ''))])
@@ -631,6 +677,22 @@ def validate(data):
             errors.append(f'{market}/{variant_id} contains an ASIN')
         if PLACEHOLDER.search(visible):
             errors.append(f'{market}/{variant_id} contains a placeholder')
+        allowed_variant_terms = {
+            unicodedata.normalize('NFC', str(term)).casefold().strip()
+            for term in listing.get('buyer_visible_variant_terms', [])
+            if str(term).strip()
+        }
+        leaked_variant_codes = sorted({
+            unicodedata.normalize('NFC', match.group(0)).casefold().strip()
+            for match in INTERNAL_VARIANT_CODE.finditer(visible)
+            if unicodedata.normalize('NFC', match.group(0)).casefold().strip()
+            not in allowed_variant_terms
+        })
+        if leaked_variant_codes:
+            errors.append(
+                f'{market}/{variant_id} contains internal variant codes in buyer-visible copy: '
+                + ', '.join(leaked_variant_codes)
+            )
         claim_ids = listing.get('claim_fact_ids', [])
         if not claim_ids:
             errors.append(f'{market}/{variant_id} has no claim_fact_ids')
