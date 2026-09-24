@@ -13,7 +13,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse, unquote
 
 
 class BrowserCollectionError(ValueError):
@@ -879,19 +879,48 @@ def extract_sellersprite_table(page, payload: dict) -> list[dict]:
     return output[:MAX_RECORDS]
 
 
+def _sellersprite_auth_state(page) -> str:
+    """Require a rendered account identity; editable guest inputs are not evidence."""
+    try:
+        identity = page.locator(".profile-trigger:visible").first
+        if identity.count():
+            label = identity.inner_text(timeout=1000).strip()
+            if re.search(r"未登录|游客|登录/注册|sign in|log in", label, re.I):
+                return "guest"
+            if label:
+                return "authenticated"
+        body = page.locator("body").inner_text(timeout=1000)
+        if re.search(r"未登录|您是游客身份|登录/注册", body):
+            return "guest"
+    except Exception:
+        pass
+    return "unknown"
+
+
 def _sellersprite_login_block_reason(page, asin_input) -> str | None:
+    state = _sellersprite_auth_state(page)
+    if state == "guest":
+        return "sellersprite_login_required"
+    if state != "authenticated":
+        return "sellersprite_login_unverified"
     try:
         if asin_input.count() and not asin_input.is_disabled():
             return None
     except Exception:
         pass
-    try:
-        body = page.locator("body").inner_text(timeout=1500).lower()[:12000]
-    except Exception:
-        body = ""
-    if any(marker in body for marker in ("未登录", "登录", "sign in", "log in")):
-        return "sellersprite_login_required"
     return "sellersprite_asin_query_unavailable"
+
+
+def _wait_for_sellersprite_session(page, timeout_ms=12000) -> str | None:
+    deadline = time.monotonic() + timeout_ms / 1000
+    reason = "sellersprite_login_unverified"
+    while time.monotonic() < deadline:
+        asin_input = page.locator("input[placeholder*='ASIN' i]:visible").first
+        reason = _sellersprite_login_block_reason(page, asin_input)
+        if reason is None or reason == "sellersprite_login_required":
+            return reason
+        page.wait_for_timeout(200)
+    return reason
 
 
 def _wait_for_sellersprite_asin_input(page, timeout_ms: int = 12000):
@@ -998,6 +1027,7 @@ def _sellersprite_batch_url(url: str, marketplace: str, asins: list[str], batch_
     """Build the UI URL used by SellerSprite for a multi-ASIN lookup."""
     parsed = urlparse(url)
     query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query.setdefault("monthName", "bsr_sales_nearly")
     query.update(
         {
             "market": marketplace,
@@ -1009,51 +1039,94 @@ def _sellersprite_batch_url(url: str, marketplace: str, asins: list[str], batch_
     return urlunparse(parsed._replace(query=urlencode(query)))
 
 
-def _query_sellersprite_batch(
-    page,
-    payload: dict,
-    marketplace: str,
-    asins: list[str],
-    query_timeout_ms: int,
-    query_poll_ms: int,
-    empty_grace_ms: int,
-) -> tuple[list[dict], int, str]:
-    """Run one UI batch lookup and return every requested ASIN visible in the table."""
+class _SellerSpriteQueryResponse:
+    """Observe only this lookup, never store response bodies, cookies or credentials."""
+    def __init__(self, page, asins):
+        self.page = page
+        self.asins = set(asins)
+        self.completed = False
+        self.empty = False
+        self.error = None
+        self.handler = self._response
+        page.on("response", self.handler)
+
+    def _response(self, response):
+        parsed = urlparse(response.url)
+        if not (parsed.hostname or "").endswith("sellersprite.com") or parsed.path != "/v3/api/competing-lookup":
+            return
+        request = response.request
+        query = unquote(request.url) + " " + unquote(request.post_data or "")
+        queried = set(ASIN_PATTERN.findall(query.upper()))
+        if queried != self.asins:
+            return
+        if response.status in (401, 403):
+            self.error = "authentication_or_permission_required"
+            return
+        if response.status == 429:
+            self.error = "rate_limited"
+            return
+        if response.status != 200:
+            self.error = "query_http_error"
+            return
+        try:
+            body = response.json()
+            if not isinstance(body, dict) or body.get("code") != "OK" or body.get("success") is False:
+                self.error = "query_api_error"
+                return
+            data = body.get("data")
+            if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+                self.error = "query_response_unrecognized"
+                return
+            self.completed = True
+            self.empty = data.get("total") == 0 and not data["items"]
+        except Exception:
+            self.error = "query_response_unrecognized"
+
+    def close(self):
+        self.page.remove_listener("response", self.handler)
+
+
+def _wait_sellersprite_query(page, payload, marketplace, asins, trigger, query_timeout_ms, query_poll_ms):
+    observed = _SellerSpriteQueryResponse(page, asins)
     started = time.monotonic()
-    target_asins = set(asins)
-    batch_url = _sellersprite_batch_url(page.url, marketplace, asins, len(asins))
-    _goto(page, batch_url)
-    deadline = started + query_timeout_ms / 1000
-    matched_by_asin = {}
-    last_change = started
-    stop_reason = "timeout"
-    while time.monotonic() < deadline:
-        if _challenge_visible(page):
-            stop_reason = "login_or_challenge"
-            break
-        page_records = extract_sellersprite_table(page, {**payload, "marketplace": marketplace})
-        current = {
-            str(record.get("asin") or "").upper(): record
-            for record in page_records
-            if str(record.get("asin") or "").upper() in target_asins
-        }
-        if len(current) != len(matched_by_asin):
-            matched_by_asin = current
-            last_change = time.monotonic()
-        if len(matched_by_asin) == len(target_asins):
-            stop_reason = "batch_matched"
-            break
-        elapsed_ms = int((time.monotonic() - started) * 1000)
-        stable_ms = int((time.monotonic() - last_change) * 1000)
-        if elapsed_ms >= empty_grace_ms and _sellersprite_result_is_explicitly_empty(page):
-            stop_reason = "batch_explicit_empty"
-            break
-        if matched_by_asin and elapsed_ms >= empty_grace_ms and stable_ms >= empty_grace_ms:
-            stop_reason = "batch_partial"
-            break
-        page.wait_for_timeout(query_poll_ms)
-    elapsed_ms = int((time.monotonic() - started) * 1000)
-    return list(matched_by_asin.values()), elapsed_ms, stop_reason
+    matched = []
+    reason = "query_timeout"
+    try:
+        trigger()
+        deadline = time.monotonic() + query_timeout_ms / 1000
+        while time.monotonic() < deadline:
+            if _challenge_visible(page):
+                reason = "login_or_challenge"
+                break
+            if _sellersprite_auth_state(page) == "guest":
+                reason = "sellersprite_login_required"
+                break
+            if observed.error:
+                reason = observed.error
+                break
+            if observed.completed and _sellersprite_auth_state(page) == "authenticated":
+                if observed.empty:
+                    reason = "confirmed_empty"
+                    break
+                records = extract_sellersprite_table(page, {**payload, "marketplace": marketplace})
+                matched = [row for row in records if str(row.get("asin") or "").upper() in asins]
+                if len({row["asin"] for row in matched}) == len(asins):
+                    reason = "matched"
+                    break
+            page.wait_for_timeout(query_poll_ms)
+        else:
+            if observed.completed:
+                reason = "partial_match" if matched else "query_parse_error"
+        return matched, int((time.monotonic() - started) * 1000), reason
+    finally:
+        observed.close()
+
+
+def _query_sellersprite_batch(page, payload, marketplace, asins, query_timeout_ms, query_poll_ms, empty_grace_ms):
+    url = _sellersprite_batch_url(page.url, marketplace, asins, len(asins))
+    return _wait_sellersprite_query(
+        page, payload, marketplace, asins, lambda: _goto(page, url), query_timeout_ms, query_poll_ms,
+    )
 
 
 def collect_sellersprite_by_asin(payload: dict) -> dict:
@@ -1061,259 +1134,99 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
     marketplace = str(payload.get("marketplace") or "").upper()
     if marketplace not in {"US", "DE"}:
         raise BrowserCollectionError("marketplace must be US or DE for SellerSprite ASIN enrichment")
-    requested_asins = payload.get("asins") or []
-    if not isinstance(requested_asins, list):
+    requested = payload.get("asins") or []
+    if not isinstance(requested, list):
         raise BrowserCollectionError("asins must be a list")
-    asins = []
-    for value in requested_asins:
-        asin = str(value or "").strip().upper()
-        if not ASIN_VALUE_PATTERN.fullmatch(asin):
-            raise BrowserCollectionError(f"invalid ASIN: {value}")
-        if asin not in asins:
-            asins.append(asin)
-    if not asins:
-        raise BrowserCollectionError("at least one ASIN is required")
+    asins = list(dict.fromkeys(str(value or "").strip().upper() for value in requested))
+    if not asins or any(not ASIN_VALUE_PATTERN.fullmatch(asin) for asin in asins):
+        raise BrowserCollectionError("at least one valid ASIN is required")
     if len(asins) > MAX_ASIN_ENRICHMENT:
-        raise BrowserCollectionError(f"at most {MAX_ASIN_ENRICHMENT} ASINs may be enriched per run")
-
-    sync_playwright = _require_playwright()
-    records = []
-    outcomes = []
-    errors = []
-    query_timeout_ms = max(
-        1000,
-        min(int(payload.get("query_timeout_ms", DEFAULT_SELLERSPRITE_QUERY_TIMEOUT_MS)), 60000),
-    )
-    query_delay_ms = max(
-        0,
-        min(int(payload.get("query_delay_ms", DEFAULT_SELLERSPRITE_QUERY_DELAY_MS)), 5000),
-    )
-    query_poll_ms = max(
-        100,
-        min(int(payload.get("query_poll_ms", DEFAULT_SELLERSPRITE_QUERY_POLL_MS)), 1000),
-    )
-    empty_grace_ms = max(
-        300,
-        min(int(payload.get("empty_grace_ms", DEFAULT_SELLERSPRITE_EMPTY_GRACE_MS)), 5000),
-    )
+        raise BrowserCollectionError(f"at most {MAX_ASIN_ENRICHMENT} ASINs per call")
+    timeout = max(1000, min(int(payload.get("query_timeout_ms", 8000)), 30000))
+    poll = max(100, min(int(payload.get("query_poll_ms", 200)), 1000))
+    delay = max(0, min(int(payload.get("query_delay_ms", 200)), 5000))
+    batch_size = max(1, min(int(payload.get("batch_size", 60)), 60))
     batch_queries = bool(payload.get("batch_queries", True))
-    batch_size = max(
-        1,
-        min(int(payload.get("batch_size", DEFAULT_SELLERSPRITE_BATCH_SIZE)), DEFAULT_SELLERSPRITE_BATCH_SIZE),
-    )
     username, password, credential_source = _sellersprite_credentials(payload)
-    with sync_playwright() as runtime:
+    records, outcomes = [], []
+    block_reason = None
+    selected_market = None
+    refreshed = False
+    with _require_playwright()() as runtime:
         context, page, profile = _launch_context(runtime, {**payload, "url": url})
         try:
             _goto(page, url)
-            if _challenge_visible(page):
-                cleared = False
-                if not payload.get("headless", False):
-                    cleared = _wait_for_challenge_clearance(page, int(payload.get("manual_timeout_seconds", 120)))
-                if not cleared:
-                    return {
-                        "collection_status": "blocked",
-                        "block_reason": "login_or_challenge_requires_user",
-                        "records": [],
-                        "outcomes": [],
-                        "profile_dir": str(profile),
-                        "counts": {"requested": len(asins), "enriched": 0, "missing": len(asins)},
-                    }
-            asin_input = _wait_for_sellersprite_asin_input(page, 5000)
-            block_reason = _sellersprite_login_block_reason(page, asin_input)
-            auth_result = None
-            if block_reason and username and password:
-                auth_result = _login_sellersprite_in_page(
-                    page,
-                    username,
-                    password,
-                    url,
-                    int(payload.get("manual_timeout_seconds", 180)),
-                )
-                asin_input = _wait_for_sellersprite_asin_input(page, 12000)
-                block_reason = _sellersprite_login_block_reason(page, asin_input)
-            if block_reason:
-                return {
-                    "collection_status": "blocked",
-                    "block_reason": block_reason,
-                    "auth_result": auth_result,
-                    "records": [],
-                    "outcomes": [{"asin": asin, "status": "blocked"} for asin in asins],
-                    "profile_dir": str(profile),
-                    "source_metadata": {
-                        "source": payload.get("source") or "sellersprite_competitor_lookup",
-                        "marketplace": marketplace,
-                        "selected_market": None,
-                        "url": page.url,
-                        "observed_at": _now_iso(),
-                        "credential_source": credential_source,
-                    },
-                    "counts": {"requested": len(asins), "enriched": 0, "missing": len(asins)},
-                }
-            selected_market = _select_sellersprite_market(page, marketplace)
-            search_button = page.get_by_role("button", name=re.compile(r"立即查询|search", re.I)).first
-            if not search_button.count():
-                raise BrowserCollectionError("SellerSprite ASIN search button was not found")
-
-            pending_asins = list(asins)
-            if batch_queries and len(asins) > 1:
-                pending_asins = []
-                for offset in range(0, len(asins), batch_size):
-                    batch_asins = asins[offset : offset + batch_size]
-                    batch_records, batch_elapsed_ms, batch_stop_reason = _query_sellersprite_batch(
-                        page,
-                        payload,
-                        marketplace,
-                        batch_asins,
-                        query_timeout_ms,
-                        query_poll_ms,
-                        empty_grace_ms,
-                    )
-                    batch_record_by_asin = {
-                        str(record.get("asin") or "").upper(): record for record in batch_records
-                    }
-                    for asin in batch_asins:
-                        record = batch_record_by_asin.get(asin)
-                        if record:
-                            record["enrichment_source"] = "sellersprite_competitor_lookup"
-                            record["requested_asin"] = asin
-                            records.append(record)
-                            outcomes.append(
-                                {
-                                    "asin": asin,
-                                    "status": "enriched",
-                                    "record_count": 1,
-                                    "elapsed_ms": batch_elapsed_ms,
-                                    "stop_reason": batch_stop_reason,
-                                    "query_mode": "batch",
-                                }
-                            )
+            block_reason = _wait_for_sellersprite_session(page)
+            if block_reason and username and password and not _challenge_visible(page):
+                auth = _login_sellersprite_in_page(page, username, password, url, int(payload.get("manual_timeout_seconds", 30)))
+                block_reason = auth.get("block_reason") if auth.get("login_status") != "verified" else _wait_for_sellersprite_session(page)
+                if auth.get("login_status") != "verified" and not block_reason:
+                    block_reason = "sellersprite_login_unverified"
+            if not block_reason:
+                selected_market = _select_sellersprite_market(page, marketplace)
+                queue = [asins[i:i + batch_size] for i in range(0, len(asins), batch_size)] if batch_queries else [[a] for a in asins]
+                while queue:
+                    group = queue.pop(0)
+                    try:
+                        if len(group) > 1:
+                            found, elapsed, reason = _query_sellersprite_batch(page, payload, marketplace, group, timeout, poll, 800)
                         else:
-                            pending_asins.append(asin)
-                    if batch_stop_reason == "login_or_challenge":
-                        errors.extend(
-                            {"asin": asin, "code": "LOGIN_OR_CHALLENGE"} for asin in pending_asins
-                        )
-                        outcomes.extend(
-                            {
-                                "asin": asin,
-                                "status": "blocked",
-                                "record_count": 0,
-                                "elapsed_ms": batch_elapsed_ms,
-                                "stop_reason": batch_stop_reason,
-                                "query_mode": "batch",
-                            }
-                            for asin in pending_asins
-                        )
-                        pending_asins = []
+                            def trigger():
+                                _wait_for_sellersprite_asin_input(page, 5000).fill(group[0])
+                                page.get_by_role("button", name=re.compile(r"立即查询|search", re.I)).first.click()
+                            found, elapsed, reason = _wait_sellersprite_query(page, payload, marketplace, group, trigger, timeout, poll)
+                    except Exception:
+                        found, elapsed, reason = [], 0, "query_browser_error"
+                    if reason in {"sellersprite_login_required", "authentication_or_permission_required"} and not refreshed and username and password:
+                        refreshed = True
+                        auth = _login_sellersprite_in_page(page, username, password, url, int(payload.get("manual_timeout_seconds", 30)))
+                        if auth.get("login_status") == "verified":
+                            selected_market = _select_sellersprite_market(page, marketplace)
+                            queue.insert(0, group)
+                            continue
+                    mode = "batch" if len(group) > 1 else "single_fallback" if batch_queries and len(asins) > 1 else "single"
+                    matched_asins = set()
+                    for record in found:
+                        record.update(enrichment_source="sellersprite_competitor_lookup", requested_asin=record["asin"])
+                        matched_asins.add(record["asin"])
+                        records.append(record)
+                        outcomes.append({"asin": record["asin"], "status": "enriched", "record_count": 1, "elapsed_ms": elapsed, "stop_reason": "matched", "query_mode": mode})
+                    missing = [a for a in group if a not in matched_asins]
+                    if len(group) > 1 and reason in {"partial_match", "query_response_unrecognized"}:
+                        # Restore normal UI defaults before retrying an unsupported batch URL.
+                        _goto(page, url)
+                        block_reason = _wait_for_sellersprite_session(page)
+                        if block_reason:
+                            break
+                        selected_market = _select_sellersprite_market(page, marketplace)
+                        queue[0:0] = [[a] for a in missing]
+                    elif reason == "confirmed_empty":
+                        outcomes.extend({"asin": a, "status": "not_found", "record_count": 0, "elapsed_ms": elapsed, "stop_reason": reason, "query_mode": mode, "empty_verified": True, "auth_verified": True, "observed_at": _now_iso()} for a in missing)
+                    elif missing:
+                        block_reason = reason
+                        outcomes.extend({"asin": a, "status": "query_failed", "record_count": 0, "elapsed_ms": elapsed, "stop_reason": reason, "query_mode": mode} for a in missing)
                         break
-                    if query_delay_ms and offset + batch_size < len(asins):
-                        page.wait_for_timeout(query_delay_ms)
-                asin_input = _wait_for_sellersprite_asin_input(page, 5000)
-                search_button = page.get_by_role("button", name=re.compile(r"立即查询|search", re.I)).first
-
-            for asin in pending_asins:
-                asin_input.fill(asin)
-                search_button.click()
-                query_started = time.monotonic()
-                deadline = query_started + query_timeout_ms / 1000
-                matched = []
-                stop_reason = "timeout"
-                saw_busy = _sellersprite_query_is_busy(page, search_button)
-                while time.monotonic() < deadline:
-                    if _challenge_visible(page):
-                        errors.append({"asin": asin, "code": "LOGIN_OR_CHALLENGE"})
-                        stop_reason = "login_or_challenge"
-                        break
-                    page_records = extract_sellersprite_table(page, {**payload, "marketplace": marketplace})
-                    matched = [record for record in page_records if record.get("asin") == asin]
-                    if matched:
-                        stop_reason = "matched"
-                        break
-                    elapsed_ms = int((time.monotonic() - query_started) * 1000)
-                    is_busy = _sellersprite_query_is_busy(page, search_button)
-                    if is_busy:
-                        saw_busy = True
-                    if elapsed_ms >= 300 and saw_busy and not is_busy:
-                        page.wait_for_timeout(250)
-                        page_records = extract_sellersprite_table(
-                            page, {**payload, "marketplace": marketplace}
-                        )
-                        matched = [record for record in page_records if record.get("asin") == asin]
-                        stop_reason = "matched" if matched else "query_completed_without_match"
-                        break
-                    if (
-                        elapsed_ms >= empty_grace_ms
-                        and not is_busy
-                        and _sellersprite_result_is_explicitly_empty(page)
-                    ):
-                        stop_reason = "explicit_empty"
-                        break
-                    page.wait_for_timeout(query_poll_ms)
-                elapsed_ms = int((time.monotonic() - query_started) * 1000)
-                if matched:
-                    for record in matched:
-                        record["enrichment_source"] = "sellersprite_competitor_lookup"
-                        record["requested_asin"] = asin
-                    records.extend(matched)
-                    outcomes.append(
-                        {
-                            "asin": asin,
-                            "status": "enriched",
-                            "record_count": len(matched),
-                            "elapsed_ms": elapsed_ms,
-                            "stop_reason": stop_reason,
-                            "query_mode": "single_fallback" if batch_queries and len(asins) > 1 else "single",
-                        }
-                    )
-                else:
-                    outcomes.append(
-                        {
-                            "asin": asin,
-                            "status": "not_found_or_unavailable",
-                            "record_count": 0,
-                            "elapsed_ms": elapsed_ms,
-                            "stop_reason": stop_reason,
-                            "query_mode": "single_fallback" if batch_queries and len(asins) > 1 else "single",
-                        }
-                    )
-                if query_delay_ms:
-                    page.wait_for_timeout(query_delay_ms)
-
-            enriched_asins = {record.get("asin") for record in records}
-            status = "complete" if len(enriched_asins) == len(asins) and not errors else "partial"
+                    if delay:
+                        page.wait_for_timeout(delay)
+            seen = {o["asin"] for o in outcomes}
+            outcomes.extend({"asin": a, "status": "blocked", "record_count": 0, "stop_reason": block_reason or "query_not_completed"} for a in asins if a not in seen)
+            unique = {row["asin"]: row for row in records}
             result = {
-                "collection_status": status,
-                "records": records,
-                "outcomes": outcomes,
-                "errors": errors,
+                "collection_status": "blocked" if block_reason else "complete" if len(unique) == len(asins) else "partial",
+                "block_reason": block_reason,
+                "records": list(unique.values()), "outcomes": outcomes,
+                "errors": [{"code": block_reason}] if block_reason else [],
                 "profile_dir": str(profile),
-                "source_metadata": {
-                    "source": payload.get("source") or "sellersprite_competitor_lookup",
-                    "marketplace": marketplace,
-                    "selected_market": selected_market,
-                    "url": page.url,
-                    "observed_at": _now_iso(),
-                    "credential_source": credential_source,
-                    "query_timeout_ms": query_timeout_ms,
-                    "query_delay_ms": query_delay_ms,
-                    "query_poll_ms": query_poll_ms,
-                    "batch_queries": batch_queries,
-                    "batch_size": batch_size,
-                },
-                "counts": {
-                    "requested": len(asins),
-                    "enriched": len(enriched_asins),
-                    "missing": len(asins) - len(enriched_asins),
-                },
+                "source_metadata": {"source": "sellersprite_competitor_lookup", "marketplace": marketplace,
+                    "selected_market": selected_market, "url": page.url, "observed_at": _now_iso(),
+                    "credential_source": credential_source, "query_timeout_ms": timeout,
+                    "batch_queries": batch_queries, "batch_size": batch_size},
+                "counts": {"requested": len(asins), "enriched": len(unique), "missing": len(asins) - len(unique)},
             }
-            output_path = payload.get("output_path")
-            if output_path:
-                target = Path(output_path).expanduser().resolve()
+            if payload.get("output_path"):
+                target = Path(payload["output_path"]).expanduser().resolve()
                 target.parent.mkdir(parents=True, exist_ok=True)
-                temporary = target.with_name(target.name + ".tmp")
-                temporary.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-                temporary.replace(target)
+                target.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
                 result["output_path"] = str(target)
             return result
         finally:
@@ -1432,7 +1345,7 @@ def _login_sellersprite_in_page(page, username: str, password: str, destination:
     if not account_input.count() or not password_input.count() or not submit.count():
         _goto(page, destination)
         asin_input = _wait_for_sellersprite_asin_input(page, 12000)
-        if asin_input.count() and not asin_input.is_disabled():
+        if _wait_for_sellersprite_session(page) is None:
             return {"login_status": "verified", "current_url": page.url}
         raise BrowserCollectionError(f"SellerSprite password-login form was not found at {page.url}")
     account_input.fill(username)
@@ -1459,7 +1372,7 @@ def _login_sellersprite_in_page(page, username: str, password: str, destination:
 
     _goto(page, destination)
     asin_input = _wait_for_sellersprite_asin_input(page, 12000)
-    verified = bool(asin_input.count() and not asin_input.is_disabled())
+    verified = _wait_for_sellersprite_session(page) is None
     result = {"login_status": "verified" if verified else "blocked", "current_url": page.url}
     if not verified:
         result["block_reason"] = (

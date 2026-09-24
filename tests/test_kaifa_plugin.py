@@ -232,8 +232,8 @@ def test_scoring_is_descending_and_explains_reasons():
 def test_conclusion_caps_conflicting_risk_and_missing_data_signals():
     assert pipeline._conclusion(95, [], rank=5, sales=500, reviews=500) == "🟢 条件开"
     assert pipeline._conclusion(95, [], rank=5, sales=500, reviews=150) == "🟢 开"
-    assert pipeline._conclusion(95, ["售价"], rank=5, sales=500, reviews=10) == "🟢 条件开"
-    assert pipeline._conclusion(95, ["售价", "Review数量"], rank=5, sales=500, reviews=None) == "🟡 观察"
+    assert pipeline._conclusion(95, ["售价"], rank=5, sales=500, reviews=10) == "🟡 待补数据"
+    assert pipeline._conclusion(95, ["售价", "Review数量"], rank=5, sales=500, reviews=None) == "🟡 待补数据"
     assert pipeline._conclusion(95, [], rank=5, sales=20, reviews=10) == "🟡 偏弱"
 
 
@@ -420,7 +420,7 @@ def test_sellersprite_resume_skips_cached_unavailable_asins(monkeypatch, tmp_pat
             "collection_status": "partial",
             "records": [],
             "outcomes": [
-                {"asin": "B0UNAVAIL1", "status": "not_found_or_unavailable", "record_count": 0}
+                {"asin": "B0UNAVAIL1", "status": "not_found", "record_count": 0, "stop_reason": "confirmed_empty", "empty_verified": True, "auth_verified": True, "observed_at": run._now()}
             ],
         }
 
@@ -697,7 +697,7 @@ def test_discovery_flow_can_use_history_database_instead_of_live_amazon(monkeypa
             },
         }
     )
-    assert result["status"] == "COMPLETE"
+    assert result["status"] == "PARTIAL"
     assert result["counts"]["source_records"] == 3
     assert Path(result["artifacts"]["new_releases_history"]).exists()
     source = json.loads((run_dir / "07-source-records.json").read_text(encoding="utf-8"))

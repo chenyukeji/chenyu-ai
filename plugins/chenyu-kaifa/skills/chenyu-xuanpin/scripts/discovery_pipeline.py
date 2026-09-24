@@ -272,6 +272,8 @@ def _category_display_zh(value) -> str | None:
 
 
 def _conclusion(score: int, missing_data: list[str], rank=None, sales=None, reviews=None) -> str:
+    if missing_data:
+        return "🟡 待补数据"
     labels = ["🔴 不建议", "🟡 观察", "🟡 偏弱", "🟢 条件开", "🟢 开", "🟢 强开"]
     if score >= 85 and len(missing_data) <= 1:
         base_index = 5
@@ -565,7 +567,7 @@ def score_candidates(candidates: list[dict], shortlist_limit=20, as_of_date=None
                 "primary_listing": listing,
                 "score": score,
                 "score_components": components,
-                "score_status": "heuristic_v1_not_calibrated",
+                "score_status": "insufficient_data" if missing_data else "heuristic_v1_not_calibrated",
                 "reason_version": "decision_reason_v2",
                 "strengths": positives,
                 "product_advantages": product_advantages,

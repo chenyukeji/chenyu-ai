@@ -203,6 +203,18 @@ def _apply_category_context(records: list[dict], task: dict) -> list[dict]:
     return records
 
 
+def _cacheable_empty(outcome: dict) -> bool:
+    if not (outcome.get("status") == "not_found" and outcome.get("empty_verified") is True
+            and outcome.get("auth_verified") is True and outcome.get("stop_reason") == "confirmed_empty"):
+        return False
+    try:
+        observed = datetime.fromisoformat(outcome["observed_at"])
+        age = (datetime.now(timezone.utc) - observed).total_seconds()
+        return 0 <= age < 86400
+    except (KeyError, ValueError, TypeError):
+        return False
+
+
 def _enrich_records_from_sellersprite(
     records: list[dict], payload: dict, run_dir: Path, manifest: dict
 ) -> list[dict]:
@@ -249,7 +261,7 @@ def _enrich_records_from_sellersprite(
         cached_unavailable_asins = {
             str(outcome.get("asin") or "").upper()
             for outcome in cached_outcomes
-            if outcome.get("status") in {"not_found", "unavailable", "not_found_or_unavailable"}
+            if _cacheable_empty(outcome)
         }
         to_query = target_asins if refresh else [
             asin for asin in target_asins
@@ -325,10 +337,14 @@ def _enrich_records_from_sellersprite(
             enriched_path,
             {"collection_status": raw_payload["collection_status"], "records": market_rows, "counts": raw_payload["counts"]},
         )
+        if block_reasons:
+            manifest.setdefault("enrichment_blocking_items", []).extend(block_reasons)
         if raw_payload["collection_status"] != "complete":
             manifest["warnings"].append(
                 f"{market} 卖家精灵补数未完整：{raw_payload['counts']['missing']} 个 ASIN 未补齐"
             )
+        if block_reasons:
+            break
     return output
 
 
@@ -379,7 +395,7 @@ def _stop(manifest: dict, run_dir: Path, status: str, stage: str, blocking_items
     manifest.update({"status": status, "current_stage": stage, "blocking_items": blocking_items})
     _save_manifest(manifest, run_dir)
     return {
-        "ok": True,
+        "ok": status != "AWAITING_ENRICHMENT",
         "run_id": manifest["run_id"],
         "status": status,
         "current_stage": stage,
@@ -534,6 +550,8 @@ def run_discovery_flow(payload: dict) -> dict:
             saved_records_path,
             {"records": records, "sources": sources, "count": len(records)},
         )
+    if manifest.get("enrichment_blocking_items"):
+        return _stop(manifest, run_dir, "AWAITING_ENRICHMENT", "sellersprite_enrichment", manifest["enrichment_blocking_items"])
     stage_started = time.perf_counter()
     candidates = candidates or merge_candidates(records)
     _record_timing(manifest, "candidate_merge", stage_started)
@@ -551,6 +569,9 @@ def run_discovery_flow(payload: dict) -> dict:
     )
     _record_timing(manifest, "scoring", stage_started)
     manifest["artifacts"]["screening"] = _write_json(run_dir / "09-screening.json", screening)
+    pending_count = sum(bool(row["missing_data"]) for row in screening["results"])
+    if pending_count:
+        manifest["warnings"].append(f"{pending_count} 个商品缺少关键评分字段，已标记待补数据，不作选品结论。")
     rows = table_rows(screening)
     manifest["artifacts"]["table_rows"] = _write_json(run_dir / "10-table-rows.json", {"rows": rows})
     stage_started = time.perf_counter()
@@ -558,12 +579,13 @@ def run_discovery_flow(payload: dict) -> dict:
     _record_timing(manifest, "workbook_export", stage_started)
     _record_timing(manifest, "total", flow_started)
     manifest["artifacts"]["workbook"] = workbook["path"]
-    manifest.update({"status": "COMPLETE", "current_stage": "delivery", "blocking_items": []})
+    delivery_status = "PARTIAL" if any(row["missing_data"] for row in screening["results"]) else "COMPLETE"
+    manifest.update({"status": delivery_status, "current_stage": "delivery", "blocking_items": []})
     _save_manifest(manifest, run_dir)
     return {
         "ok": True,
         "run_id": manifest["run_id"],
-        "status": "COMPLETE",
+        "status": delivery_status,
         "strategy_resolution": task["strategy_resolution"],
         "category_resolution": task["category_resolution"],
         "counts": {"source_records": len(records), **screening["counts"]},

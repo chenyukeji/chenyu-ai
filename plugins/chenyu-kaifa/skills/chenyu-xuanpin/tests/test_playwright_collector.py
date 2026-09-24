@@ -47,10 +47,15 @@ class SellerSpriteBatchTests(TestCase):
             target_page.url = url
 
         with (
+            mock.patch.object(collector, "_SellerSpriteQueryResponse") as observer,
+            mock.patch.object(collector, "_sellersprite_auth_state", return_value="authenticated"),
             mock.patch.object(collector, "_goto", side_effect=fake_goto),
             mock.patch.object(collector, "_challenge_visible", return_value=False),
             mock.patch.object(collector, "extract_sellersprite_table", return_value=rows),
         ):
+            observer.return_value.completed = True
+            observer.return_value.empty = False
+            observer.return_value.error = None
             records, elapsed_ms, reason = collector._query_sellersprite_batch(
                 page,
                 {},
@@ -63,7 +68,7 @@ class SellerSpriteBatchTests(TestCase):
 
         self.assertEqual({row["asin"] for row in records}, set(requested))
         self.assertGreaterEqual(elapsed_ms, 0)
-        self.assertEqual(reason, "batch_matched")
+        self.assertEqual(reason, "matched")
         self.assertEqual(page.waits, [])
 
     def test_amazon_product_extracts_primary_image(self):

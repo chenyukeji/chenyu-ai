@@ -54,7 +54,7 @@ def _conclusion_style(value) -> int:
     text = str(value or "")
     if "强开" in text or text.endswith("开") or "条件开" in text:
         return 4
-    if "偏弱" in text or "观察" in text:
+    if "偏弱" in text or "观察" in text or "待补数据" in text:
         return 5
     if "不建议" in text:
         return 6
