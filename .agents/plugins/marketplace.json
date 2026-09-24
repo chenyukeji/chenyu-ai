@@ -1,0 +1,56 @@
+{
+  "name": "chenyu-ai",
+  "interface": {
+    "displayName": "Chenyu Ai"
+  },
+  "plugins": [
+    {
+      "name": "chenyu-caigou",
+      "source": {
+        "source": "local",
+        "path": "./plugins/chenyu-caigou"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "chenyu-kaifa",
+      "source": {
+        "source": "local",
+        "path": "./plugins/chenyu-kaifa"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "chenyu-meigong",
+      "source": {
+        "source": "local",
+        "path": "./plugins/chenyu-meigong"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "chenyu-yunying",
+      "source": {
+        "source": "local",
+        "path": "./plugins/chenyu-yunying"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

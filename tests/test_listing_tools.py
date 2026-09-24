@@ -293,12 +293,29 @@ class ListingTests(unittest.TestCase):
 
     def test_bullet_copy_has_no_artificial_maximum(self):
         data = copy.deepcopy(self.listing_package())
-        long_sentence = ' '.join(['Konkrete Produktinformation'] * 18)
         data['listings'][0]['bullets'][0] = (
-            f'📦【Ausführliche Produktangabe】{long_sentence}. '
-            f'{long_sentence}.'
+            '📦【Ausführliche Produktangabe】Das Set enthält vier einzeln '
+            'gestaltete Figuren mit klar erkennbaren Formen, stabilen Aufstellflächen und '
+            'abgestimmten Details für Regale, Tische und saisonale Dekorationen. '
+            'Jede Figur lässt sich separat platzieren, nach dem Umstellen erneut ausrichten '
+            'und mit vorhandenen Dekorationen kombinieren, ohne dass eine feste Reihenfolge '
+            'oder ein bestimmter Aufbau erforderlich ist.'
         )
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+
+    def test_listing_package_rejects_repeated_bullet_sentences(self):
+        data = copy.deepcopy(self.listing_package())
+        repeated = (
+            'Die vier Figuren lassen sich einzeln auf Regalen, Tischen und Fensterbänken '
+            'platzieren und nach dem Umstellen erneut ausrichten'
+        )
+        data['listings'][0]['bullets'][0] = (
+            f'📦【Flexible Platzierung】{repeated}. {repeated}.'
+        )
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('repeats the same sentence' in error
+                            for error in result['errors']))
 
     def test_listing_package_rejects_thin_bullet_copy(self):
         data = copy.deepcopy(self.listing_package())

@@ -12,3 +12,4 @@ data/*.db
 data/*.sqlite*
 outputs/*
 !outputs/.gitkeep
+dist/

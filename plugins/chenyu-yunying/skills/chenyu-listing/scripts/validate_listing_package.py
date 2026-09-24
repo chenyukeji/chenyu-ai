@@ -61,6 +61,124 @@ SEARCH_TERMS_STOP_WORDS = {
     'UK': {'a', 'an', 'the', 'and', 'or', 'of', 'for', 'with', 'in', 'on', 'to'},
 }
 DESCRIPTION_SENTENCE = re.compile(r'[.!?。！？]+')
+BUYER_META_PATTERNS = {
+    'DE': (
+        re.compile(r'\b(?:Käufer|Kunden|Verbraucher)\b', re.I),
+        re.compile(
+            r'\b(?:Lieferumfang|Packungsinhalt)\b.{0,80}'
+            r'\b(?:erkennbar|unterscheidbar|verwechseln|klar)\b', re.I
+        ),
+        re.compile(
+            r'\b(?:erkennbar|unterscheidbar|verwechseln|klar)\b.{0,80}'
+            r'\b(?:Lieferumfang|Packungsinhalt)\b', re.I
+        ),
+    ),
+    'FR': (
+        re.compile(r'\b(?:acheteur|acheteuse|client|cliente|consommateur|consommatrice)s?\b', re.I),
+        re.compile(
+            r'\bcontenu (?:du lot|de l[’\']emballage)\b.{0,80}'
+            r'\b(?:identifier|distinguer|clair|confondre)\b', re.I
+        ),
+    ),
+    'IT': (
+        re.compile(r'\b(?:acquirente|cliente|consumatore|consumatrice)i?\b', re.I),
+        re.compile(
+            r'\bcontenuto (?:del set|della confezione)\b.{0,80}'
+            r'\b(?:identificare|distinguere|chiaro|confondere)\b', re.I
+        ),
+    ),
+    'ES': (
+        re.compile(
+            r'\b(?:comprador(?:es)?|compradora(?:s)?|cliente(?:s)?|'
+            r'consumidor(?:es)?|consumidora(?:s)?)\b', re.I
+        ),
+        re.compile(
+            r'\bcontenido (?:del pack|del paquete)\b.{0,80}'
+            r'\b(?:identificar|distinguir|claro|confundir)\b', re.I
+        ),
+    ),
+    'UK': (
+        re.compile(r'\b(?:buyer|customer|consumer)s?\b', re.I),
+        re.compile(
+            r'\b(?:package contents|what is included)\b.{0,80}'
+            r'\b(?:identify|distinguish|clear|confuse)\b', re.I
+        ),
+    ),
+}
+GENERIC_COHERENCE_PATTERNS = {
+    'DE': (re.compile(r'\bzusammengehörige (?:Gruppe|Serie)\b', re.I),
+           re.compile(r'\boptisch (?:zusammen|einheitlich)\b', re.I)),
+    'FR': (re.compile(r'\bvisuellement cohérent', re.I),
+           re.compile(r'\bapparence coordonnée\b', re.I)),
+    'IT': (re.compile(r'\baspetto (?:coordinato|uniforme)\b', re.I),
+           re.compile(r'\briconoscibile come (?:set|gruppo)\b', re.I)),
+    'ES': (re.compile(r'\b(?:aspecto|imagen) (?:coordinado|coordinada|uniforme)\b', re.I),),
+    'UK': (re.compile(r'\b(?:coordinated look|cohesive set)\b', re.I),),
+}
+IMAGE_BRIEF_LEAK_PATTERNS = {
+    'DE': (
+        re.compile(
+            r'\b(?:Bildwirkung|Bildaufbau|Komposition|Kamerawinkel|Nahaufnahme|'
+            r'Vordergrund|Hintergrund|visuelle Ebenen)\b', re.I
+        ),
+        re.compile(r'\bmehr Dynamik in (?:die|der) Szene\b', re.I),
+        re.compile(r'\bversetzt.{0,80}\b(?:Ebenen|Gruppe)\b', re.I),
+    ),
+    'FR': (
+        re.compile(
+            r'\b(?:composition colorée|composition visuelle|cadrage|gros plan|'
+            r'premier plan|arrière-plan|niveaux visuels)\b', re.I
+        ),
+        re.compile(r'\bplus de mouvement à la scène\b', re.I),
+        re.compile(r'\ben décalé.{0,80}\b(?:plusieurs niveaux|petit groupe)\b', re.I),
+    ),
+    'IT': (
+        re.compile(
+            r'\b(?:composizione colorata|composizione visiva|inquadratura|primo piano|'
+            r'sfondo|livelli visivi)\b', re.I
+        ),
+        re.compile(r'\bscena più dinamica\b', re.I),
+        re.compile(r'\bsfalsat[ei].{0,80}\blivelli differenti\b', re.I),
+    ),
+    'ES': (
+        re.compile(
+            r'\b(?:composición colorida|composición visual|encuadre|primer plano|'
+            r'fondo|niveles visuales)\b', re.I
+        ),
+        re.compile(r'\bmás dinamismo\b', re.I),
+        re.compile(r'\bescalonad[ao]s?.{0,80}\balturas distintas\b', re.I),
+    ),
+    'UK': (
+        re.compile(
+            r'\b(?:visual composition|camera angle|close-up|foreground|background|'
+            r'visual layers|framing)\b', re.I
+        ),
+        re.compile(r'\b(?:add movement to the scene|make the scene more dynamic)\b', re.I),
+        re.compile(r'\bstaggered.{0,80}\b(?:different heights|visual layers)\b', re.I),
+    ),
+}
+BLANKET_PROP_DISCLAIMER_PATTERNS = {
+    'DE': (re.compile(
+        r'\b(?:weitere|andere).{0,40}(?:Dekorationen|Requisiten|Zubehör).{0,60}'
+        r'(?:nicht enthalten|nicht im Lieferumfang)\b', re.I
+    ),),
+    'FR': (re.compile(
+        r'\b(?:autres|éléments).{0,40}(?:décoratifs|accessoires).{0,60}'
+        r'(?:ne sont pas inclus|non inclus)\b', re.I
+    ),),
+    'IT': (re.compile(
+        r'\b(?:altri|elementi).{0,40}(?:decorativi|accessori).{0,60}'
+        r'(?:non sono inclusi|non inclusi)\b', re.I
+    ),),
+    'ES': (re.compile(
+        r'\b(?:otros|demás).{0,40}(?:elementos|decoraciones|accesorios).{0,60}'
+        r'(?:no están incluidos|no incluidos)\b', re.I
+    ),),
+    'UK': (re.compile(
+        r'\b(?:other|additional).{0,40}(?:props|decorations|accessories).{0,60}'
+        r'(?:not included|not supplied)\b', re.I
+    ),),
+}
 
 
 def words(text):
@@ -92,6 +210,61 @@ def visible_html(text):
     value = re.sub(r'(?i)</\s*p\s*>', '\n', value)
     value = re.sub(r'<[^>]*>', '', value)
     return html.unescape(value)
+
+
+def normalized_sentences(text):
+    """Return long normalized sentences for exact repetition checks."""
+    value = re.sub(r'\s+', ' ', str(text)).strip()
+    sentences = []
+    for part in DESCRIPTION_SENTENCE.split(value):
+        normalized = ' '.join(words(part))
+        if len(normalized) >= 24:
+            sentences.append(normalized)
+    return sentences
+
+
+def validate_buyer_copy(errors, market, variant_id, labeled_texts):
+    """Reject seller-facing narration, generic filler, disclaimers, and repeated sentences."""
+    seen_sentences = {}
+    for label, value in labeled_texts:
+        text = str(value)
+        for pattern in BUYER_META_PATTERNS.get(market, ()):
+            if pattern.search(text):
+                errors.append(
+                    f'{market}/{variant_id} {label} contains seller-facing explanation '
+                    'instead of buyer-useful product copy'
+                )
+                break
+        for pattern in GENERIC_COHERENCE_PATTERNS.get(market, ()):
+            if pattern.search(text):
+                errors.append(
+                    f'{market}/{variant_id} {label} contains generic coordination filler; '
+                    'replace it with a concrete product fact, action, placement, or result'
+                )
+                break
+        for pattern in IMAGE_BRIEF_LEAK_PATTERNS.get(market, ()):
+            if pattern.search(text):
+                errors.append(
+                    f'{market}/{variant_id} {label} contains image-brief or composition '
+                    'language; replace it with product facts, real use, fit, or buyer benefit'
+                )
+                break
+        for pattern in BLANKET_PROP_DISCLAIMER_PATTERNS.get(market, ()):
+            if pattern.search(text):
+                errors.append(
+                    f'{market}/{variant_id} {label} contains a blanket prop disclaimer; '
+                    'package contents should list included items only unless a specific '
+                    'evidence-backed notice is required'
+                )
+                break
+        for sentence in normalized_sentences(text):
+            if sentence in seen_sentences:
+                errors.append(
+                    f'{market}/{variant_id} repeats the same sentence in '
+                    f'{seen_sentences[sentence]} and {label}'
+                )
+            else:
+                seen_sentences[sentence] = label
 
 
 def validate(data):
@@ -322,6 +495,7 @@ def validate(data):
                     'competitor evidence exists'
                 )
         bullets = listing.get('bullets', [])
+        buyer_bullet_texts = []
         if len(bullets) != 5 or any(not str(item).strip() for item in bullets):
             errors.append(f'{market}/{variant_id} must contain five non-empty bullets')
         else:
@@ -334,6 +508,7 @@ def validate(data):
                     )
                     continue
                 body = re.sub(r'\s+', ' ', match.group(2)).strip()
+                buyer_bullet_texts.append((f'bullet {index}', body))
                 sentence_count = len(DESCRIPTION_SENTENCE.findall(body))
                 if not 2 <= sentence_count <= 4:
                     errors.append(
@@ -351,6 +526,7 @@ def validate(data):
                     errors.append(
                         f'{market}/{variant_id} bullet_references must contain five non-empty sources'
                     )
+            validate_buyer_copy(errors, market, variant_id, buyer_bullet_texts)
         title_keywords = listing.get('title_keywords', [])
         normalized_title_keywords = [
             unicodedata.normalize('NFC', str(item).strip()).casefold()
@@ -477,6 +653,9 @@ def validate(data):
                 + ', '.join(unsupported)
             )
         description_text = visible_html(description)
+        validate_buyer_copy(
+            errors, market, variant_id, [('description', description_text)]
+        )
         heading_matches = [re.search(r'(?mi)^\s*' + re.escape(heading) + r'\s*:',
                                      description_text)
                            for heading in headings]

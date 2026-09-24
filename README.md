@@ -68,9 +68,25 @@ outputs/<插件名>/<交付部分>/<YYYY-MM-DD_产品简称>/
 
 `chenyu-guanggao`（广告）仅为后续计划，当前未实现。目录和 Skill 标识统一使用拼音，Listing 保留通用名称；标准文件名不翻译。插件更名后，安装新名称的包并停用旧包，避免同名专业 Skill 重复出现。运营包包含共用 `references/`，分发时保留。
 
-管理员或维护者分别打包 `plugins/` 下的四个目录，ZIP 根层必须直接看到 `plugin.json` 和 `skills/`。员工在 ChatGPT 工作区的插件管理页面上传自己岗位对应的 ZIP，安装后新建对话即可使用。
+仓库已在 `.agents/plugins/marketplace.json` 注册四个岗位插件。拥有仓库访问权限的员工可添加并刷新 GitHub marketplace：
 
-四个部门使用各自的压缩包，互不依赖；更新某个部门时只需重新发放该部门 ZIP。
+```bash
+codex plugin marketplace add chenyukeji/chenyu-ai
+codex plugin marketplace upgrade chenyu-ai
+```
+
+然后按岗位安装，例如：
+
+```bash
+codex plugin add chenyu-yunying@chenyu-ai
+codex plugin add chenyu-meigong@chenyu-ai
+codex plugin add chenyu-kaifa@chenyu-ai
+codex plugin add chenyu-caigou@chenyu-ai
+```
+
+安装或升级后新建对话，确保 Codex 加载新版本。GitHub `main` 是插件源码、规则、测试、清单和 marketplace 的唯一基线；本地插件只能从已经提交并推送的同一源码刷新，不能保留领先或落后的私人副本。
+
+ZIP 仍作为备用分发方式：管理员或维护者分别打包 `plugins/` 下的四个目录，ZIP 根层必须直接看到 `plugin.json` 和 `skills/`，再由员工在 ChatGPT 工作区插件管理页面上传。四个部门插件互不依赖；`dist/` 中的 ZIP 是派生发布物，不进入源码提交，需要分发时应从已提交版本重新生成并作为 GitHub Release 附件发布。
 
 ## 后续架构计划
 
