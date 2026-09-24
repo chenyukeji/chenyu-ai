@@ -42,6 +42,17 @@ LISTING_FIELDS = (
     "saleable_window",
     "peak_months",
     "seasonality",
+    "history_signals",
+    "history_first_seen",
+    "history_last_seen",
+    "history_days_present",
+    "history_snapshots_available",
+    "history_consecutive_snapshots",
+    "history_repeat_rate",
+    "history_period_rank_change",
+    "history_rank_velocity",
+    "history_rank_consistency",
+    "history_rank_history",
 )
 
 
@@ -236,14 +247,14 @@ def _product_summary_zh(candidate: dict) -> str:
         (("giveaway", "mitgebsel", "party favor", "回礼"), "儿童派对回礼套装"),
         (("decoration", "deko", "party supplies", "派对用品"), "派对装饰套装"),
     )
-    product_type = "派对用品"
+    product_label = "派对用品"
     for keywords, label in type_rules:
         if any(keyword in text for keyword in keywords):
-            product_type = label
+            product_label = label
             break
     count_match = re.search(r"(?<!\d)(\d{1,3})\s*(?:pcs|pieces|stück|pack|count|件|个)", text)
     count = f"{count_match.group(1)}件装" if count_match else None
-    return "·".join(_dedupe(themes + [product_type, count]))
+    return "·".join(_dedupe(themes + [product_label, count]))
 
 
 def _category_display_zh(value) -> str | None:
@@ -260,18 +271,33 @@ def _category_display_zh(value) -> str | None:
     return "派对用品"
 
 
-def _conclusion(score: int, missing_data: list[str]) -> str:
+def _conclusion(score: int, missing_data: list[str], rank=None, sales=None, reviews=None) -> str:
+    labels = ["🔴 不建议", "🟡 观察", "🟡 偏弱", "🟢 条件开", "🟢 开", "🟢 强开"]
     if score >= 85 and len(missing_data) <= 1:
-        return "🟢 强开"
-    if score >= 75:
-        return "🟢 开"
-    if score >= 65:
-        return "🟢 条件开"
-    if score >= 50:
-        return "🟡 偏弱"
-    if score >= 35:
-        return "🟡 观察"
-    return "🔴 不建议"
+        base_index = 5
+    elif score >= 75:
+        base_index = 4
+    elif score >= 65:
+        base_index = 3
+    elif score >= 50:
+        base_index = 2
+    elif score >= 35:
+        base_index = 1
+    else:
+        base_index = 0
+
+    cap_index = 5
+    if len(missing_data) >= 2:
+        cap_index = min(cap_index, 1)
+    elif missing_data:
+        cap_index = min(cap_index, 3)
+    if reviews is not None and reviews > 300:
+        cap_index = min(cap_index, 3)
+    elif reviews is not None and reviews > 100:
+        cap_index = min(cap_index, 4)
+    if (sales is not None and sales < 50) or (rank is not None and rank > 100):
+        cap_index = min(cap_index, 2)
+    return labels[min(base_index, cap_index)]
 
 
 def _saleable_window(candidate: dict, listing: dict) -> str:
@@ -346,6 +372,123 @@ def _product_disadvantages(candidate: dict, listing: dict) -> list[str]:
     return _dedupe(explicit + inferred) or ["同质化风险较高；材质、尺寸和耐用性需通过评论与样品验证"]
 
 
+def _demand_signal(rank, sales, history_signal=None) -> str:
+    evidence = []
+    if rank is not None:
+        evidence.append(f"新品榜第{int(rank)}名")
+    if sales is not None:
+        evidence.append(f"预估月销量{int(sales)}")
+    if history_signal:
+        evidence.append(str(history_signal))
+    if rank is None or sales is None:
+        level = "证据不足"
+    elif rank <= 25 and sales >= 200:
+        level = "强"
+    elif rank <= 50 and sales >= 100:
+        level = "中强"
+    elif rank <= 100 or sales >= 50:
+        level = "中等"
+    else:
+        level = "偏弱"
+    return f"市场信号：{'，'.join(evidence) if evidence else '无有效排名和销量'}，需求判断为{level}"
+
+
+def _history_signal_text(listing: dict) -> str | None:
+    signals = set(listing.get("history_signals") or [])
+    evidence = []
+    if "NEW" in signals:
+        first_seen = listing.get("history_first_seen")
+        evidence.append(f"数据库首次出现{('于' + str(first_seen)) if first_seen else ''}")
+    if "REPEAT" in signals:
+        present = listing.get("history_days_present")
+        available = listing.get("history_snapshots_available")
+        consecutive = listing.get("history_consecutive_snapshots")
+        if present is not None and available is not None:
+            text = f"窗口内出现{present}/{available}个快照"
+            if consecutive:
+                text += f"，最近连续{consecutive}次"
+            evidence.append(text)
+    if "RISING" in signals:
+        change = listing.get("history_period_rank_change")
+        consistency = listing.get("history_rank_consistency")
+        text = f"窗口排名净提升{int(change)}名" if change is not None else "窗口排名上升"
+        if consistency is not None:
+            text += f"，上升步占比{float(consistency):.0%}"
+        evidence.append(text)
+    return "；".join(evidence) or None
+
+
+def _competition_signal(reviews, bsr) -> str:
+    evidence = []
+    if reviews is not None:
+        evidence.append(f"Review {int(reviews)}")
+        level = "低" if reviews <= 30 else "中" if reviews <= 100 else "较高" if reviews <= 300 else "高"
+    else:
+        level = "证据不足"
+    if bsr is not None:
+        evidence.append(f"大类BSR {int(bsr)}")
+    return f"竞争门槛：{'，'.join(evidence) if evidence else '无有效Review和BSR'}，门槛判断为{level}"
+
+
+def _freshness_and_price_signal(days, price, currency) -> str:
+    evidence = []
+    if days is not None:
+        freshness = "新品窗口" if days <= 60 else "近期上架" if days <= 120 else "非新品窗口"
+        evidence.append(f"上架约{int(days)}天，{freshness}")
+    else:
+        evidence.append("上架日期缺失")
+    if price is not None:
+        currency_name = {"USD": "美元", "EUR": "欧元"}.get(str(currency or "").upper(), "当地币种")
+        price_fit = "核心价格带" if 5 <= price <= 20 else "邻近价格带" if 3 <= price <= 25 else "偏离当前价格带"
+        evidence.append(f"售价{price:g}{currency_name}，{price_fit}")
+    else:
+        evidence.append("售价缺失")
+    return "新品与价格：" + "，".join(evidence)
+
+
+def _next_step(conclusion: str, missing_data: list[str]) -> str:
+    label = conclusion.replace("🟢 ", "").replace("🟡 ", "").replace("🔴 ", "")
+    if missing_data:
+        return "下一步：先补齐缺失数据，再核验供应链、利润和儿童用品合规"
+    if label in {"强开", "开"}:
+        return "下一步：优先进入供应链、利润、知识产权和儿童用品合规核验"
+    if label == "条件开":
+        return "下一步：先验证差异化与样品质量，再核验利润和合规"
+    if label in {"偏弱", "观察"}:
+        return "下一步：继续观察需求或补充差异化证据，暂不直接进入采购"
+    return "下一步：暂缓，除非获得新的需求、差异化或成本优势证据"
+
+
+def _standard_decision_reason(
+    *,
+    rank,
+    sales,
+    reviews,
+    bsr,
+    days,
+    price,
+    currency,
+    saleable_window: str,
+    product_disadvantages: list[str],
+    missing_data: list[str],
+    conclusion: str,
+    score: int,
+    history_signal=None,
+) -> str:
+    completeness = 5 - len(missing_data)
+    sections = [
+        _demand_signal(rank, sales, history_signal),
+        _competition_signal(reviews, bsr),
+        _freshness_and_price_signal(days, price, currency),
+        f"销售周期：{saleable_window}",
+        "主要风险：" + "、".join(product_disadvantages[:2]),
+        f"数据与评分：{completeness}/5，综合{score}分，结论{conclusion.replace('🟢 ', '').replace('🟡 ', '').replace('🔴 ', '')}"
+        + (f"，缺失{'、'.join(missing_data)}" if missing_data else "，关键字段完整"),
+        _next_step(conclusion, missing_data),
+    ]
+    return "。".join(sections) + "。"
+
+
 def score_candidates(candidates: list[dict], shortlist_limit=20, as_of_date=None) -> dict:
     if isinstance(shortlist_limit, bool) or not isinstance(shortlist_limit, int) or shortlist_limit < 1:
         raise DiscoveryError("shortlist_limit must be an integer >= 1")
@@ -399,14 +542,21 @@ def score_candidates(candidates: list[dict], shortlist_limit=20, as_of_date=None
         product_disadvantages = _product_disadvantages(candidate, listing)
 
         saleable_window = _saleable_window(candidate, listing)
-        conclusion = _conclusion(score, missing_data)
-        decision_reason = "；".join(
-            [saleable_window]
-            + positives
-            + product_advantages[:2]
-            + market_risks
-            + (["产品风险：" + "、".join(product_disadvantages[:2])] if product_disadvantages else [])
-            + (["仍缺：" + "、".join(missing_data)] if missing_data else [])
+        conclusion = _conclusion(score, missing_data, rank, sales, reviews)
+        decision_reason = _standard_decision_reason(
+            rank=rank,
+            sales=sales,
+            reviews=reviews,
+            bsr=_number(listing.get("bsr")),
+            days=days,
+            price=price,
+            currency=listing.get("currency"),
+            saleable_window=saleable_window,
+            product_disadvantages=product_disadvantages,
+            missing_data=missing_data,
+            conclusion=conclusion,
+            score=score,
+            history_signal=_history_signal_text(listing),
         )
         results.append(
             {
@@ -416,6 +566,7 @@ def score_candidates(candidates: list[dict], shortlist_limit=20, as_of_date=None
                 "score": score,
                 "score_components": components,
                 "score_status": "heuristic_v1_not_calibrated",
+                "reason_version": "decision_reason_v2",
                 "strengths": positives,
                 "product_advantages": product_advantages,
                 "product_disadvantages": product_disadvantages,
@@ -423,13 +574,10 @@ def score_candidates(candidates: list[dict], shortlist_limit=20, as_of_date=None
                 "missing_data": missing_data,
                 "development_suggestion": conclusion.replace("🟢 ", "").replace("🟡 ", "").replace("🔴 ", ""),
                 "conclusion": conclusion,
-                "reason": "；".join(
-                    positives
-                    + market_risks
-                    + (["缺少：" + "、".join(missing_data)] if missing_data else [])
-                ),
+                "reason": decision_reason,
                 "decision_reason": decision_reason,
                 "saleable_window": saleable_window,
+                "history_signals": list(listing.get("history_signals") or []),
             }
         )
     results.sort(

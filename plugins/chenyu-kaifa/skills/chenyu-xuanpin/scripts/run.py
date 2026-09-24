@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +15,11 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from discovery_pipeline import DiscoveryError, merge_candidates, score_candidates, table_rows
 from discovery_workbook import WorkbookError, export_discovery_workbook
+from new_releases_history import (
+    HistoryDatabaseError,
+    analyze_new_releases_database,
+    discovery_records_from_history,
+)
 from playwright_collector import BrowserCollectionError, browser_status, collect, collect_sellersprite_by_asin, login_sellersprite
 from strategy_router import StrategyRouteError, list_strategies, resolve_category, resolve_strategy
 
@@ -126,6 +132,8 @@ def _identity_only(records: list[dict], marketplace: str, limit: int) -> list[di
         "new_release_rank",
         "ranking_type",
         "category_node",
+        "image_url",
+        "detail_url",
         "observed_at",
         "source_ref",
         "source_entity_id",
@@ -159,6 +167,10 @@ def _merge_sellersprite(seed_records: list[dict], seller_records: list[dict]) ->
         merged = dict(seed)
         if seller:
             for field, value in seller.items():
+                if field == "image_url":
+                    image_url = str(value or "").lower()
+                    if "sellersprite.com/v3/webapp/static/" in image_url or image_url.endswith("/ai-guide.png"):
+                        continue
                 if field not in {"marketplace", "asin", "new_release_rank", "ranking_type"} and value is not None:
                     merged[field] = value
             merged["enrichment_status"] = "enriched"
@@ -200,7 +212,16 @@ def _enrich_records_from_sellersprite(
     refresh = bool(discovery.get("refresh_sellersprite"))
     headless = bool(discovery.get("headless", True))
     output = list(records)
+    for row in output:
+        image_url = str(row.get("image_url") or "").lower()
+        if "sellersprite.com/v3/webapp/static/" in image_url or image_url.endswith("/ai-guide.png"):
+            row.pop("image_url", None)
     for market in ("US", "DE"):
+        warning_prefix = f"{market} 卖家精灵补数未完整："
+        manifest["warnings"] = [
+            warning for warning in (manifest.get("warnings") or [])
+            if not str(warning).startswith(warning_prefix)
+        ]
         target_asins = []
         for row in output:
             asin = str(row.get("asin") or "").upper()
@@ -247,7 +268,13 @@ def _enrich_records_from_sellersprite(
                     "query_delay_ms": discovery.get("query_delay_ms", 200),
                     "query_poll_ms": discovery.get("query_poll_ms", 200),
                     "empty_grace_ms": discovery.get("empty_grace_ms", 800),
+                    "batch_queries": discovery.get("batch_queries", True),
+                    "batch_size": discovery.get("batch_size", 60),
                     "manual_timeout_seconds": discovery.get("manual_timeout_seconds", 180),
+                    "username": discovery.get("username") or payload.get("username"),
+                    "password": discovery.get("password") or payload.get("password"),
+                    "credentials_path": discovery.get("credentials_path") or payload.get("credentials_path"),
+                    "profile_dir": discovery.get("profile_dir") or payload.get("profile_dir"),
                 }
             )
             query_results.append(result)
@@ -344,6 +371,10 @@ def _save_manifest(manifest: dict, run_dir: Path) -> None:
     _write_json(run_dir / "00-run.json", manifest)
 
 
+def _record_timing(manifest: dict, stage: str, started: float) -> None:
+    manifest.setdefault("timings_ms", {})[stage] = round((time.perf_counter() - started) * 1000)
+
+
 def _stop(manifest: dict, run_dir: Path, status: str, stage: str, blocking_items: list[str]) -> dict:
     manifest.update({"status": status, "current_stage": stage, "blocking_items": blocking_items})
     _save_manifest(manifest, run_dir)
@@ -402,7 +433,35 @@ def _live_strategy_e(task: dict, payload: dict, run_dir: Path, manifest: dict) -
     return records
 
 
+def _history_database_source(task: dict, payload: dict, run_dir: Path, manifest: dict) -> list[dict]:
+    discovery = dict(payload.get("discovery") or {})
+    history = dict(discovery.get("history") or {})
+    if discovery.get("history_db_path"):
+        history.setdefault("db_path", discovery["history_db_path"])
+    if discovery.get("new_releases_db_path"):
+        history.setdefault("db_path", discovery["new_releases_db_path"])
+    if discovery.get("db_category"):
+        history.setdefault("category", discovery["db_category"])
+    history.setdefault("days", discovery.get("history_days", 10))
+    history.setdefault("limit", discovery.get("history_limit", discovery.get("limit_per_marketplace", 100)))
+
+    analysis_payload = {
+        "history": history,
+        "marketplaces": task["strategy_resolution"]["source_marketplaces"],
+        "as_of_date": payload.get("as_of_date"),
+    }
+    report = analyze_new_releases_database(analysis_payload)
+    manifest["artifacts"]["new_releases_history"] = _write_json(
+        run_dir / "04-new-releases-history.json",
+        report,
+    )
+    manifest["warnings"].extend(report.get("warnings") or [])
+    limit = max(1, min(int(history.get("limit", 100)), 1000))
+    return discovery_records_from_history(report, limit=limit)
+
+
 def run_discovery_flow(payload: dict) -> dict:
+    flow_started = time.perf_counter()
     requested_run_dir = payload.get("run_dir")
     saved_task = None
     if requested_run_dir:
@@ -417,27 +476,57 @@ def run_discovery_flow(payload: dict) -> dict:
     )
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest = _manifest(task, run_dir)
+    manifest["timings_ms"] = {}
     manifest["artifacts"]["request"] = _write_json(run_dir / "01-request.json", {"request": task.get("request")})
     manifest["artifacts"]["task"] = _write_json(run_dir / "02-task.json", task)
     manifest["artifacts"]["strategy"] = _write_json(run_dir / "03-strategy-resolution.json", task["strategy_resolution"])
     _save_manifest(manifest, run_dir)
 
+    stage_started = time.perf_counter()
     records, candidates, sources = _load_input_data(payload)
+    _record_timing(manifest, "input_loading", stage_started)
     saved_records_path = run_dir / "07-source-records.json"
-    if not records and not candidates and saved_records_path.exists():
+    discovery = dict(payload.get("discovery") or {})
+    use_history_database = bool(
+        discovery.get("history_db_path")
+        or discovery.get("new_releases_db_path")
+        or discovery.get("source") == "new_releases_db"
+    )
+    if not records and not candidates and use_history_database:
+        stage_started = time.perf_counter()
+        records = _history_database_source(task, payload, run_dir, manifest)
+        _record_timing(manifest, "history_database_analysis", stage_started)
+        if not records:
+            return _stop(
+                manifest,
+                run_dir,
+                "NO_HISTORY_CANDIDATES",
+                "history_database_analysis",
+                ["NEW_REPEAT_OR_RISING_signals"],
+            )
+    refresh_live_e = (
+        bool(discovery.get("refresh"))
+        and task["strategy_resolution"]["strategy_ids"] == ["E"]
+        and discovery.get("collect_live", True)
+    )
+    if not records and not candidates and saved_records_path.exists() and not refresh_live_e:
         records = (_read_json(saved_records_path).get("records") or [])
     if not records and not candidates:
         strategy_ids = task["strategy_resolution"]["strategy_ids"]
         if strategy_ids == ["E"] and (payload.get("discovery") or {}).get("collect_live", True):
             try:
+                stage_started = time.perf_counter()
                 records = _live_strategy_e(task, payload, run_dir, manifest)
+                _record_timing(manifest, "amazon_collection", stage_started)
             except ContractError as exc:
                 return _stop(manifest, run_dir, "AWAITING_CATEGORY_INPUT", "collection", [str(exc)])
         else:
             return _stop(manifest, run_dir, "AWAITING_DISCOVERY_INPUT", "collection", ["discovery_records_or_paths"])
     if records:
         records = _apply_category_context(records, task)
+        stage_started = time.perf_counter()
         records = _enrich_records_from_sellersprite(records, payload, run_dir, manifest)
+        _record_timing(manifest, "sellersprite_enrichment", stage_started)
     for row in records:
         row.setdefault("source_strategy", task["strategy_resolution"]["primary_strategy"])
     if records:
@@ -445,22 +534,29 @@ def run_discovery_flow(payload: dict) -> dict:
             saved_records_path,
             {"records": records, "sources": sources, "count": len(records)},
         )
+    stage_started = time.perf_counter()
     candidates = candidates or merge_candidates(records)
+    _record_timing(manifest, "candidate_merge", stage_started)
     if not candidates:
         return _stop(manifest, run_dir, "NO_CANDIDATES", "candidate_merge", ["usable_marketplace_and_asin"])
     manifest["artifacts"]["candidate_pool"] = _write_json(
         run_dir / "08-candidate-pool.json",
         {"candidates": candidates, "count": len(candidates)},
     )
+    stage_started = time.perf_counter()
     screening = score_candidates(
         candidates,
         int(payload.get("shortlist_limit") or task.get("shortlist_limit") or 20),
         payload.get("as_of_date"),
     )
+    _record_timing(manifest, "scoring", stage_started)
     manifest["artifacts"]["screening"] = _write_json(run_dir / "09-screening.json", screening)
     rows = table_rows(screening)
     manifest["artifacts"]["table_rows"] = _write_json(run_dir / "10-table-rows.json", {"rows": rows})
+    stage_started = time.perf_counter()
     workbook = export_discovery_workbook(payload.get("output_path") or (run_dir / "开品结果.xlsx"), rows)
+    _record_timing(manifest, "workbook_export", stage_started)
+    _record_timing(manifest, "total", flow_started)
     manifest["artifacts"]["workbook"] = workbook["path"]
     manifest.update({"status": "COMPLETE", "current_stage": "delivery", "blocking_items": []})
     _save_manifest(manifest, run_dir)
@@ -475,6 +571,7 @@ def run_discovery_flow(payload: dict) -> dict:
         "workbook": workbook,
         "artifacts": dict(manifest["artifacts"]),
         "warnings": list(manifest["warnings"]),
+        "timings_ms": dict(manifest["timings_ms"]),
         "run_dir": str(run_dir),
     }
 
@@ -488,12 +585,14 @@ def handle(payload: dict) -> dict:
             "ok": True,
             "skill": "chenyu-xuanpin",
             "purpose": "选品、分析评分并生成开品表格",
-            "actions": ["status", "list_strategies", "resolve_request", "run_discovery_flow", "resume_discovery_flow", "enrich_sellersprite", "browser_status", "browser_login_sellersprite"],
+            "actions": ["status", "list_strategies", "resolve_request", "analyze_new_releases_db", "run_discovery_flow", "resume_discovery_flow", "enrich_sellersprite", "browser_status", "browser_login_sellersprite"],
         }
     if action == "list_strategies":
         return {"ok": True, "strategies": list_strategies(load_rules())}
     if action == "resolve_request":
         return {"ok": True, "task": create_task(payload.get("request"), payload.get("task"), payload.get("strategy_selection"))}
+    if action == "analyze_new_releases_db":
+        return analyze_new_releases_database(payload)
     if action in {"run_discovery_flow", "resume_discovery_flow"}:
         return run_discovery_flow(payload)
     if action == "enrich_sellersprite":
@@ -514,7 +613,7 @@ def handle(payload: dict) -> dict:
 def main() -> None:
     try:
         result = handle(json.loads(sys.stdin.buffer.read().decode("utf-8-sig")))
-    except (json.JSONDecodeError, ContractError, DiscoveryError, WorkbookError, StrategyRouteError, BrowserCollectionError, OSError, KeyError, TypeError, ValueError) as exc:
+    except (json.JSONDecodeError, ContractError, DiscoveryError, WorkbookError, StrategyRouteError, BrowserCollectionError, HistoryDatabaseError, OSError, KeyError, TypeError, ValueError) as exc:
         result = {"ok": False, "code": "invalid_input", "message": str(exc)}
     json.dump(result, sys.stdout, ensure_ascii=True, indent=2)
     sys.stdout.write("\n")

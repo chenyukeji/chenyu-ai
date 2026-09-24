@@ -296,9 +296,9 @@ def export_discovery_workbook(
                 relationship_id = f"rId{len(hyperlink_rels) + 1}"
                 hyperlink_rels.append((relationship_id, str(value)))
                 hyperlinks.append((ref, relationship_id))
-        xml_rows.append(f'<row r="{row_number}" ht="105" customHeight="1">{"".join(cells)}</row>')
+        xml_rows.append(f'<row r="{row_number}" ht="120" customHeight="1">{"".join(cells)}</row>')
 
-    widths = [8, 13, 11, 15, 12, 16, 13, 28, 27, 24, 14, 31, 22, 15, 55]
+    widths = [8, 13, 11, 15, 12, 16, 13, 28, 27, 24, 14, 31, 22, 15, 65]
     cols = "".join(
         f'<col min="{index}" max="{index}" width="{width}" customWidth="1"/>'
         for index, width in enumerate(widths, start=1)

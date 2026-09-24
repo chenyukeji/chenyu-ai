@@ -1,7 +1,7 @@
 {
   "name": "chenyu-kaifa",
-  "version": "1.0.0",
-  "description": "Natural-language Amazon product discovery, transparent scoring and ranked Excel output for Chenyu.",
+  "version": "1.0.0+codex.20260923092547",
+  "description": "Natural-language Amazon product discovery with read-only new-releases history analysis, transparent scoring and ranked Excel output for Chenyu.",
   "author": {
     "name": "chenyukeji",
     "url": "https://github.com/chenyukeji"
@@ -26,6 +26,8 @@
       "Natural-language strategy routing",
       "Internal Playwright collection",
       "Amazon ASIN discovery",
+      "Read-only new-releases database analysis",
+      "First-seen, repeat, similar-product-group and rank-trend signals",
       "SellerSprite enrichment",
       "Candidate scoring",
       "Ranked Excel output"

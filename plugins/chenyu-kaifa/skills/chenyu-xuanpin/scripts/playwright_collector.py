@@ -13,7 +13,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 
 class BrowserCollectionError(ValueError):
@@ -44,6 +44,7 @@ DEFAULT_SELLERSPRITE_QUERY_TIMEOUT_MS = 8000
 DEFAULT_SELLERSPRITE_QUERY_DELAY_MS = 200
 DEFAULT_SELLERSPRITE_QUERY_POLL_MS = 200
 DEFAULT_SELLERSPRITE_EMPTY_GRACE_MS = 800
+DEFAULT_SELLERSPRITE_BATCH_SIZE = 60
 ASIN_PATTERN = re.compile(r"(?<![A-Z0-9])B[A-Z0-9]{9}(?![A-Z0-9])", re.I)
 ASIN_VALUE_PATTERN = re.compile(r"^[A-Z0-9]{10}$", re.I)
 DEFAULT_SELLERSPRITE_CREDENTIALS = Path(__file__).resolve().parents[5] / ".chenyu-secrets" / "sellersprite.json"
@@ -584,6 +585,10 @@ def extract_amazon_product(page, payload: dict) -> list[dict]:
     except Exception:
         pass
     title = _first_text(page, ("#productTitle", "h1"))
+    image_selectors = ("#landingImage", "#imgTagWrapperId img", "#main-image-container img")
+    image_url = _first_attribute(page, image_selectors, "data-old-hires") or _first_attribute(
+        page, image_selectors, "src"
+    )
     price_text = _first_text(
         page,
         ("#corePrice_feature_div .a-price .a-offscreen", "#priceblock_ourprice", ".a-price .a-offscreen"),
@@ -617,6 +622,7 @@ def extract_amazon_product(page, payload: dict) -> list[dict]:
             "fulfillment": fulfillment,
             "fulfillment_raw": shipper,
             "feature_bullets": bullets,
+            "image_url": image_url,
             "observed_at": _now_iso(),
             "source_ref": page.url,
             "source_entity_id": asin or page.url,
@@ -798,6 +804,17 @@ def _extract_best_table(page, table_selector: str | None = None) -> dict:
     return page.evaluate(script, {"selector": table_selector})
 
 
+def _usable_sellersprite_image_url(value) -> bool:
+    url = str(value or "").strip()
+    if not url:
+        return False
+    lowered = url.lower()
+    return not (
+        "sellersprite.com/v3/webapp/static/" in lowered
+        or lowered.endswith("/ai-guide.png")
+    )
+
+
 def extract_sellersprite_table(page, payload: dict) -> list[dict]:
     table = _extract_best_table(page, payload.get("table_selector"))
     headers = table.get("headers") or []
@@ -826,8 +843,12 @@ def extract_sellersprite_table(page, payload: dict) -> list[dict]:
             if field and i < len(cells) and cells[i].strip():
                 record[field] = cells[i].strip()
         _parse_sellersprite_combined_fields(record, headers, cells, raw.get("links") or [])
-        if raw.get("imageUrls"):
-            record["image_url"] = raw["imageUrls"][0]
+        image_url = next(
+            (value for value in (raw.get("imageUrls") or []) if _usable_sellersprite_image_url(value)),
+            None,
+        )
+        if image_url:
+            record["image_url"] = image_url
         amazon_links = [link for link in (raw.get("links") or []) if "amazon." in link.lower() and "/dp/" in link.lower()]
         if amazon_links:
             record["detail_url"] = amazon_links[0]
@@ -973,6 +994,68 @@ def _sellersprite_result_is_explicitly_empty(page) -> bool:
         return False
 
 
+def _sellersprite_batch_url(url: str, marketplace: str, asins: list[str], batch_size: int) -> str:
+    """Build the UI URL used by SellerSprite for a multi-ASIN lookup."""
+    parsed = urlparse(url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query.update(
+        {
+            "market": marketplace,
+            "asins": json.dumps(asins, ensure_ascii=True, separators=(",", ":")),
+            "page": "1",
+            "size": str(max(len(asins), min(batch_size, DEFAULT_SELLERSPRITE_BATCH_SIZE))),
+        }
+    )
+    return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+def _query_sellersprite_batch(
+    page,
+    payload: dict,
+    marketplace: str,
+    asins: list[str],
+    query_timeout_ms: int,
+    query_poll_ms: int,
+    empty_grace_ms: int,
+) -> tuple[list[dict], int, str]:
+    """Run one UI batch lookup and return every requested ASIN visible in the table."""
+    started = time.monotonic()
+    target_asins = set(asins)
+    batch_url = _sellersprite_batch_url(page.url, marketplace, asins, len(asins))
+    _goto(page, batch_url)
+    deadline = started + query_timeout_ms / 1000
+    matched_by_asin = {}
+    last_change = started
+    stop_reason = "timeout"
+    while time.monotonic() < deadline:
+        if _challenge_visible(page):
+            stop_reason = "login_or_challenge"
+            break
+        page_records = extract_sellersprite_table(page, {**payload, "marketplace": marketplace})
+        current = {
+            str(record.get("asin") or "").upper(): record
+            for record in page_records
+            if str(record.get("asin") or "").upper() in target_asins
+        }
+        if len(current) != len(matched_by_asin):
+            matched_by_asin = current
+            last_change = time.monotonic()
+        if len(matched_by_asin) == len(target_asins):
+            stop_reason = "batch_matched"
+            break
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        stable_ms = int((time.monotonic() - last_change) * 1000)
+        if elapsed_ms >= empty_grace_ms and _sellersprite_result_is_explicitly_empty(page):
+            stop_reason = "batch_explicit_empty"
+            break
+        if matched_by_asin and elapsed_ms >= empty_grace_ms and stable_ms >= empty_grace_ms:
+            stop_reason = "batch_partial"
+            break
+        page.wait_for_timeout(query_poll_ms)
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    return list(matched_by_asin.values()), elapsed_ms, stop_reason
+
+
 def collect_sellersprite_by_asin(payload: dict) -> dict:
     url = validate_url(payload.get("url") or "https://www.sellersprite.com/v3/competitor-lookup")
     marketplace = str(payload.get("marketplace") or "").upper()
@@ -1012,6 +1095,11 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
     empty_grace_ms = max(
         300,
         min(int(payload.get("empty_grace_ms", DEFAULT_SELLERSPRITE_EMPTY_GRACE_MS)), 5000),
+    )
+    batch_queries = bool(payload.get("batch_queries", True))
+    batch_size = max(
+        1,
+        min(int(payload.get("batch_size", DEFAULT_SELLERSPRITE_BATCH_SIZE)), DEFAULT_SELLERSPRITE_BATCH_SIZE),
     )
     username, password, credential_source = _sellersprite_credentials(payload)
     with sync_playwright() as runtime:
@@ -1067,7 +1155,64 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
             if not search_button.count():
                 raise BrowserCollectionError("SellerSprite ASIN search button was not found")
 
-            for asin in asins:
+            pending_asins = list(asins)
+            if batch_queries and len(asins) > 1:
+                pending_asins = []
+                for offset in range(0, len(asins), batch_size):
+                    batch_asins = asins[offset : offset + batch_size]
+                    batch_records, batch_elapsed_ms, batch_stop_reason = _query_sellersprite_batch(
+                        page,
+                        payload,
+                        marketplace,
+                        batch_asins,
+                        query_timeout_ms,
+                        query_poll_ms,
+                        empty_grace_ms,
+                    )
+                    batch_record_by_asin = {
+                        str(record.get("asin") or "").upper(): record for record in batch_records
+                    }
+                    for asin in batch_asins:
+                        record = batch_record_by_asin.get(asin)
+                        if record:
+                            record["enrichment_source"] = "sellersprite_competitor_lookup"
+                            record["requested_asin"] = asin
+                            records.append(record)
+                            outcomes.append(
+                                {
+                                    "asin": asin,
+                                    "status": "enriched",
+                                    "record_count": 1,
+                                    "elapsed_ms": batch_elapsed_ms,
+                                    "stop_reason": batch_stop_reason,
+                                    "query_mode": "batch",
+                                }
+                            )
+                        else:
+                            pending_asins.append(asin)
+                    if batch_stop_reason == "login_or_challenge":
+                        errors.extend(
+                            {"asin": asin, "code": "LOGIN_OR_CHALLENGE"} for asin in pending_asins
+                        )
+                        outcomes.extend(
+                            {
+                                "asin": asin,
+                                "status": "blocked",
+                                "record_count": 0,
+                                "elapsed_ms": batch_elapsed_ms,
+                                "stop_reason": batch_stop_reason,
+                                "query_mode": "batch",
+                            }
+                            for asin in pending_asins
+                        )
+                        pending_asins = []
+                        break
+                    if query_delay_ms and offset + batch_size < len(asins):
+                        page.wait_for_timeout(query_delay_ms)
+                asin_input = _wait_for_sellersprite_asin_input(page, 5000)
+                search_button = page.get_by_role("button", name=re.compile(r"立即查询|search", re.I)).first
+
+            for asin in pending_asins:
                 asin_input.fill(asin)
                 search_button.click()
                 query_started = time.monotonic()
@@ -1118,6 +1263,7 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                             "record_count": len(matched),
                             "elapsed_ms": elapsed_ms,
                             "stop_reason": stop_reason,
+                            "query_mode": "single_fallback" if batch_queries and len(asins) > 1 else "single",
                         }
                     )
                 else:
@@ -1128,6 +1274,7 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                             "record_count": 0,
                             "elapsed_ms": elapsed_ms,
                             "stop_reason": stop_reason,
+                            "query_mode": "single_fallback" if batch_queries and len(asins) > 1 else "single",
                         }
                     )
                 if query_delay_ms:
@@ -1151,6 +1298,8 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                     "query_timeout_ms": query_timeout_ms,
                     "query_delay_ms": query_delay_ms,
                     "query_poll_ms": query_poll_ms,
+                    "batch_queries": batch_queries,
+                    "batch_size": batch_size,
                 },
                 "counts": {
                     "requested": len(asins),

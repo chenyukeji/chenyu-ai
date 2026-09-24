@@ -2,10 +2,13 @@ import base64
 import importlib.util
 import json
 import re
+import sqlite3
 import sys
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +30,88 @@ pipeline = load_module("chenyu_discovery_pipeline", "scripts/discovery_pipeline.
 workbook = load_module("chenyu_discovery_workbook", "scripts/discovery_workbook.py")
 router = load_module("chenyu_strategy_router", "scripts/strategy_router.py")
 collector = load_module("chenyu_playwright_collector", "scripts/playwright_collector.py")
+history = load_module("chenyu_new_releases_history", "scripts/new_releases_history.py")
+
+
+def build_history_database(path, with_identity=False):
+    connection = sqlite3.connect(path)
+    connection.execute(
+        """
+        CREATE TABLE observations (
+            source_url TEXT NOT NULL,
+            marketplace TEXT NOT NULL,
+            category TEXT NOT NULL,
+            snapshot_date TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            asin TEXT NOT NULL,
+            title TEXT NOT NULL,
+            review_count INTEGER NOT NULL DEFAULT 0,
+            price REAL NOT NULL DEFAULT 0,
+            price_text TEXT NOT NULL DEFAULT '',
+            rating REAL NOT NULL DEFAULT 0,
+            product_url TEXT NOT NULL DEFAULT '',
+            image_url TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY (source_url, snapshot_date, asin)
+        )
+        """
+    )
+    rows = [
+        ("2026-09-01", 30, "B0HISTORY1", "Birthday Balloon Kit"),
+        ("2026-09-02", 20, "B0HISTORY1", "Birthday Balloon Kit"),
+        ("2026-09-03", 10, "B0HISTORY1", "Birthday Balloon Kit"),
+        ("2026-09-02", 5, "B0HISTORY2", "Blue Balloon Set"),
+        ("2026-09-03", 6, "B0HISTORY2", "Blue Balloon Set"),
+        ("2026-09-03", 2, "B0HISTORY3", "Party Sticker Pack"),
+    ]
+    connection.executemany(
+        """
+        INSERT INTO observations (
+            source_url, marketplace, category, snapshot_date, rank, asin, title,
+            review_count, price, price_text, rating, product_url, image_url
+        ) VALUES (?, 'US', 'party-supplies', ?, ?, ?, ?, 4, 9.99, '$9.99', 4.5, ?, ?)
+        """,
+        [
+            (
+                "https://amazon.example/new-releases/party",
+                snapshot_date,
+                rank,
+                asin,
+                title,
+                f"https://www.amazon.com/dp/{asin}",
+                f"https://images.example/{'group-a' if asin in {'B0HISTORY1', 'B0HISTORY2'} else asin}.jpg",
+            )
+            for snapshot_date, rank, asin, title in rows
+        ],
+    )
+    if with_identity:
+        connection.execute(
+            """
+            CREATE TABLE product_seen (
+                marketplace TEXT NOT NULL,
+                asin TEXT NOT NULL,
+                first_seen TEXT NOT NULL,
+                last_seen TEXT NOT NULL,
+                title TEXT NOT NULL DEFAULT '',
+                product_url TEXT NOT NULL DEFAULT '',
+                image_url TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (marketplace, asin)
+            )
+            """
+        )
+        connection.executemany(
+            """
+            INSERT INTO product_seen (
+                marketplace, asin, first_seen, last_seen, title, product_url, image_url
+            ) VALUES ('US', ?, ?, '2026-09-03', '', '', '')
+            """,
+            [
+                ("B0HISTORY1", "2026-08-20"),
+                ("B0HISTORY2", "2026-09-02"),
+                ("B0HISTORY3", "2026-09-03"),
+            ],
+        )
+    connection.commit()
+    connection.close()
 
 
 def fixture_records():
@@ -110,6 +195,25 @@ def test_candidates_do_not_merge_across_marketplaces_by_title():
     assert len(candidates) == 2
 
 
+def test_amazon_identity_records_keep_image_and_product_link_fallbacks():
+    rows = [
+        {
+            "marketplace": "US",
+            "asin": "B0IMAGE001",
+            "new_release_rank": 1,
+            "product_name": "Untrusted source title",
+            "price": 9.99,
+            "image_url": "https://images-na.ssl-images-amazon.com/images/I/example.jpg",
+            "detail_url": "https://www.amazon.com/dp/B0IMAGE001",
+        }
+    ]
+    result = run._identity_only(rows, "US", 20)
+    assert result[0]["image_url"].endswith("example.jpg")
+    assert result[0]["detail_url"].endswith("B0IMAGE001")
+    assert "product_name" not in result[0]
+    assert "price" not in result[0]
+
+
 def test_scoring_is_descending_and_explains_reasons():
     candidates = pipeline.merge_candidates(fixture_records())
     result = pipeline.score_candidates(candidates, shortlist_limit=1, as_of_date="2026-09-20")
@@ -117,7 +221,20 @@ def test_scoring_is_descending_and_explains_reasons():
     assert result["results"][0]["score"] > result["results"][1]["score"]
     assert result["results"][0]["screening_status"] == "SHORTLISTED"
     assert "新品榜第3名" in result["results"][0]["reason"]
+    assert result["results"][0]["reason_version"] == "decision_reason_v2"
+    assert all(
+        label in result["results"][0]["decision_reason"]
+        for label in ("市场信号：", "竞争门槛：", "新品与价格：", "销售周期：", "主要风险：", "数据与评分：", "下一步：")
+    )
     assert result["results"][1]["screening_status"] == "REVIEW_LATER"
+
+
+def test_conclusion_caps_conflicting_risk_and_missing_data_signals():
+    assert pipeline._conclusion(95, [], rank=5, sales=500, reviews=500) == "🟢 条件开"
+    assert pipeline._conclusion(95, [], rank=5, sales=500, reviews=150) == "🟢 开"
+    assert pipeline._conclusion(95, ["售价"], rank=5, sales=500, reviews=10) == "🟢 条件开"
+    assert pipeline._conclusion(95, ["售价", "Review数量"], rank=5, sales=500, reviews=None) == "🟡 观察"
+    assert pipeline._conclusion(95, [], rank=5, sales=20, reviews=10) == "🟡 偏弱"
 
 
 def test_missing_metrics_are_named_instead_of_treated_as_zero():
@@ -324,10 +441,274 @@ def test_sellersprite_resume_skips_cached_unavailable_asins(monkeypatch, tmp_pat
     assert raw["counts"]["skipped_cached_unavailable"] == 1
 
 
+def test_new_releases_database_answers_daily_repeat_similarity_and_rising_questions(tmp_path):
+    db_path = tmp_path / "new_releases.db"
+    build_history_database(db_path)
+    result = history.analyze_new_releases_database(
+        {
+            "db_path": str(db_path),
+            "marketplaces": ["US"],
+            "category": "party-supplies",
+            "as_of_date": "2026-09-03",
+            "days": 3,
+            "limit": 20,
+            "history": {
+                "min_repeat_days": 2,
+                "min_rank_improvement": 5,
+                "min_rising_consistency": 0.6,
+                "min_group_asins": 2,
+            },
+        }
+    )
+    report = result["marketplaces"]["US"]
+    assert report["today"]["count"] == 3
+    assert report["yesterday"]["count"] == 2
+    assert report["first_appearances"]["today_count"] == 1
+    assert {row["asin"] for row in report["continuous_products"]["products"]} == {
+        "B0HISTORY1",
+        "B0HISTORY2",
+    }
+    group = report["similar_product_groups"]["groups"][0]
+    assert group["recent_member_count"] == 2
+    assert set(group["member_asins"]) == {"B0HISTORY1", "B0HISTORY2"}
+    assert group["pair_evidence"][0]["image_similarity"] == 1.0
+    assert group["pair_evidence"][0]["title_similarity"] > 0
+    assert [row["asin"] for row in report["rising_products"]["products"]] == ["B0HISTORY1"]
+    assert report["rising_products"]["products"][0]["rank_history"] == [
+        {"date": "2026-09-01", "rank": 30},
+        {"date": "2026-09-02", "rank": 20},
+        {"date": "2026-09-03", "rank": 10},
+    ]
+    assert report["date_basis"]["first_seen_basis"] == "earliest_retained_observation"
+    assert any("product_seen" in warning for warning in report["warnings"])
+
+
+def test_unmatched_titles_are_not_forced_into_similarity_groups(tmp_path):
+    db_path = tmp_path / "new_releases.db"
+    build_history_database(db_path)
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        """
+        UPDATE observations SET title = CASE asin
+            WHEN 'B0HISTORY1' THEN 'Wooden Maze Board'
+            WHEN 'B0HISTORY2' THEN 'Silicone Baking Mold'
+            ELSE 'Fabric Storage Basket'
+        END
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    result = history.analyze_new_releases_database(
+        {
+            "db_path": str(db_path),
+            "marketplaces": ["US"],
+            "as_of_date": "2026-09-03",
+            "days": 3,
+            "history": {"min_group_asins": 2},
+        }
+    )
+    groups = result["marketplaces"]["US"]["similar_product_groups"]
+    assert groups["status"] == "INSUFFICIENT_IMAGE_EVIDENCE"
+    assert groups["image_comparable_pairs"] == 0
+    assert groups["count"] == 0
+    assert any("没有可同时比较标题和主图" in warning for warning in result["warnings"])
+
+
+def test_visual_difference_blocks_group_even_when_titles_match(tmp_path):
+    from PIL import Image
+
+    db_path = tmp_path / "new_releases.db"
+    build_history_database(db_path)
+    left_path = tmp_path / "left.png"
+    right_path = tmp_path / "right.png"
+    left = Image.new("L", (9, 8))
+    right = Image.new("L", (9, 8))
+    left.putdata([column * 28 for _row in range(8) for column in range(9)])
+    right.putdata([(8 - column) * 28 for _row in range(8) for column in range(9)])
+    left.save(left_path)
+    right.save(right_path)
+
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        "UPDATE observations SET title = 'Matching Party Product', image_url = ? WHERE asin = 'B0HISTORY1'",
+        (left_path.as_uri(),),
+    )
+    connection.execute(
+        "UPDATE observations SET title = 'Matching Party Product', image_url = ? WHERE asin = 'B0HISTORY2'",
+        (right_path.as_uri(),),
+    )
+    connection.commit()
+    connection.close()
+
+    result = history.analyze_new_releases_database(
+        {
+            "db_path": str(db_path),
+            "marketplaces": ["US"],
+            "as_of_date": "2026-09-03",
+            "days": 3,
+            "history": {"min_group_asins": 2},
+        }
+    )
+    groups = result["marketplaces"]["US"]["similar_product_groups"]
+    assert groups["status"] == "NO_SIMILAR_PRODUCT_GROUPS"
+    assert groups["image_comparable_pairs"] >= 1
+    assert groups["count"] == 0
+
+
+def test_database_schema_has_no_type_or_label_column_and_similarity_still_groups(tmp_path):
+    db_path = tmp_path / "new_releases.db"
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        """
+        CREATE TABLE observations (
+            source_url TEXT NOT NULL,
+            marketplace TEXT NOT NULL,
+            category TEXT NOT NULL,
+            snapshot_date TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            asin TEXT NOT NULL,
+            title TEXT NOT NULL,
+            image_url TEXT NOT NULL,
+            PRIMARY KEY (source_url, snapshot_date, asin)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE product_seen (
+            marketplace TEXT NOT NULL,
+            asin TEXT NOT NULL,
+            first_seen TEXT NOT NULL,
+            last_seen TEXT NOT NULL,
+            PRIMARY KEY (marketplace, asin)
+        )
+        """
+    )
+    connection.executemany(
+        """
+        INSERT INTO observations VALUES (
+            'https://amazon.example/new-releases/party', 'US', 'party-supplies',
+            '2026-09-03', ?, ?, ?, 'https://images.example/group-a.jpg'
+        )
+        """,
+        [(1, "B0NO_TYPE1", "Birthday Balloon Kit"), (2, "B0NO_TYPE2", "Blue Balloon Set")],
+    )
+    connection.executemany(
+        "INSERT INTO product_seen VALUES ('US', ?, '2026-09-03', '2026-09-03')",
+        [("B0NO_TYPE1",), ("B0NO_TYPE2",)],
+    )
+    connection.commit()
+    connection.close()
+
+    result = history.analyze_new_releases_database(
+        {"db_path": str(db_path), "marketplaces": ["US"], "as_of_date": "2026-09-03"}
+    )
+    report = result["marketplaces"]["US"]
+    assert report["today"]["count"] == 2
+    assert report["similar_product_groups"]["status"] == "AVAILABLE"
+    group = report["similar_product_groups"]["groups"][0]
+    assert group["recent_member_count"] == 2
+    assert set(group["member_asins"]) == {"B0NO_TYPE1", "B0NO_TYPE2"}
+
+
+def test_database_schema_requires_main_image_for_similarity_analysis(tmp_path):
+    db_path = tmp_path / "new_releases.db"
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        """
+        CREATE TABLE observations (
+            source_url TEXT NOT NULL,
+            marketplace TEXT NOT NULL,
+            category TEXT NOT NULL,
+            snapshot_date TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            asin TEXT NOT NULL,
+            title TEXT NOT NULL,
+            PRIMARY KEY (source_url, snapshot_date, asin)
+        )
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(history.HistoryDatabaseError, match="image_url"):
+        history.analyze_new_releases_database(
+            {"db_path": str(db_path), "marketplaces": ["US"], "as_of_date": "2026-09-03"}
+        )
+
+
+def test_new_releases_database_prefers_identity_table_and_builds_discovery_seeds(tmp_path):
+    db_path = tmp_path / "new_releases.db"
+    build_history_database(db_path, with_identity=True)
+    result = run.handle(
+        {
+            "skill_action": "analyze_new_releases_db",
+            "db_path": str(db_path),
+            "marketplaces": ["US"],
+            "as_of_date": "2026-09-03",
+            "days": 3,
+            "limit": 20,
+            "history": {"min_repeat_days": 2, "min_group_asins": 2},
+        }
+    )
+    report = result["marketplaces"]["US"]
+    assert report["date_basis"]["first_seen_basis"] == "product_seen"
+    assert {row["asin"] for row in report["first_appearances"]["window"]} == {
+        "B0HISTORY2",
+        "B0HISTORY3",
+    }
+    records = history.discovery_records_from_history(result, limit=20)
+    first = records[0]
+    assert first["asin"] == "B0HISTORY1"
+    assert set(first["history_signals"]) == {"REPEAT", "RISING"}
+    assert first["history_consecutive_snapshots"] == 3
+    candidates = pipeline.merge_candidates(records)
+    scored = pipeline.score_candidates(candidates, as_of_date="2026-09-03")
+    rising_scored = next(
+        row for row in scored["results"] if row["primary_listing"]["asin"] == "B0HISTORY1"
+    )
+    assert "窗口排名净提升20名" in rising_scored["decision_reason"]
+
+
+def test_discovery_flow_can_use_history_database_instead_of_live_amazon(monkeypatch, tmp_path):
+    db_path = tmp_path / "new_releases.db"
+    build_history_database(db_path, with_identity=True)
+
+    def fake_workbook(path, rows):
+        return {"path": str(path), "row_count": len(rows), "embedded_image_count": 0}
+
+    monkeypatch.setattr(run, "export_discovery_workbook", fake_workbook)
+    run_dir = tmp_path / "history-run"
+    result = run.handle(
+        {
+            "skill_action": "run_discovery_flow",
+            "request": "从历史新品榜找最近持续出现和排名上升的派对用品",
+            "strategy_selection": {"strategy_ids": ["E"], "source_marketplaces": ["US"]},
+            "run_dir": str(run_dir),
+            "as_of_date": "2026-09-03",
+            "discovery": {
+                "source": "new_releases_db",
+                "history_db_path": str(db_path),
+                "db_category": "party-supplies",
+                "history_days": 3,
+                "history": {"min_repeat_days": 2, "min_group_asins": 2},
+                "sellersprite_enrich": False,
+            },
+        }
+    )
+    assert result["status"] == "COMPLETE"
+    assert result["counts"]["source_records"] == 3
+    assert Path(result["artifacts"]["new_releases_history"]).exists()
+    source = json.loads((run_dir / "07-source-records.json").read_text(encoding="utf-8"))
+    assert any("RISING" in row.get("history_signals", []) for row in source["records"])
+
+
 def test_status_exposes_one_focused_skill_workflow():
     status = run.handle({"skill_action": "status"})
     assert status["skill"] == "chenyu-xuanpin"
     assert status["purpose"] == "选品、分析评分并生成开品表格"
     assert "run_discovery_flow" in status["actions"]
     assert "enrich_sellersprite" in status["actions"]
+    assert "analyze_new_releases_db" in status["actions"]
     assert all("supply" not in action and "economics" not in action for action in status["actions"])
