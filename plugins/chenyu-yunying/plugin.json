@@ -10,7 +10,7 @@
   "interface": {
     "displayName": "晨玙 Amazon 运营",
     "shortDescription": "从开发文档生成符合 2026 规则的欧洲站 Listing 和作图要求。",
-    "longDescription": "统一解析开发 Excel 和竞品研究包，默认生成德国、法国、意大利、西班牙四站本地化 Listing，包含 75 字符 Item Name、125 字符 Item Highlights、每条正文超过 200 字符的五点、详细 HTML 详情及经卖家精灵反查和 Amazon 相关性复核后的增量 Search Terms；同时可生成轻量链接式作图要求。",
+    "longDescription": "统一解析开发 Excel 和竞品研究包，默认生成德国、法国、意大利、西班牙四站本地化 Listing，并为全部字段提供中文翻译；同时按统一运营交付大母版生成含嵌入式参考图片的作图要求，可按需保留 Listing、作图要求或两者。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": ["Competitor research", "Listing writing", "Image brief planning"],
