@@ -58,6 +58,65 @@ class ReliabilityTests(unittest.TestCase):
         field.is_disabled.return_value = False
         self.assertEqual(collector._sellersprite_login_block_reason(page, field), 'sellersprite_login_required')
 
+    def test_show_all_variants_is_disabled_before_query(self):
+        for initially_checked in (False, True):
+            with self.subTest(initially_checked=initially_checked):
+                page = MagicMock()
+                label = page.locator.return_value.filter.return_value.first
+                label.count.return_value = 1
+                label.is_visible.return_value = True
+                checkbox = label.locator.return_value.first
+                checkbox.count.return_value = 1
+                checkbox.is_checked.side_effect = [initially_checked, False]
+                collector._ensure_sellersprite_variants_off(page)
+                self.assertEqual(label.click.call_count, int(initially_checked))
+
+    def test_missing_or_stuck_variants_checkbox_stops_query(self):
+        page = MagicMock()
+        label = page.locator.return_value.filter.return_value.first
+        label.count.return_value = 0
+        with self.assertRaises(collector.BrowserCollectionError):
+            collector._ensure_sellersprite_variants_off(page)
+        label.count.return_value = 1
+        label.is_visible.return_value = True
+        checkbox = label.locator.return_value.first
+        checkbox.count.return_value = 1
+        checkbox.is_checked.return_value = True
+        with self.assertRaises(collector.BrowserCollectionError):
+            collector._ensure_sellersprite_variants_off(page)
+
+    def test_batch_search_uses_page_input_after_disabling_variants(self):
+        page = MagicMock()
+        asin_input = MagicMock()
+        other = 'B0HBQ6N1ZC'
+        with patch.object(collector, '_ensure_sellersprite_variants_off') as disable, \
+             patch.object(collector, '_wait_for_sellersprite_asin_input', return_value=asin_input), \
+             patch.object(collector, '_wait_sellersprite_query', side_effect=lambda *args: args[4]()):
+            collector._query_sellersprite_batch(page, {}, 'US', [ASIN, other], 8000, 200, 800)
+        disable.assert_called_once_with(page)
+        asin_input.fill.assert_called_once_with(f'{ASIN},{other}')
+        page.get_by_role.return_value.first.click.assert_called_once()
+
+    def test_single_search_disables_variants_before_submitting(self):
+        page = MagicMock()
+        asin_input = MagicMock()
+        def query(_page, _payload, _marketplace, _asins, trigger, *_):
+            trigger()
+            return [], 50, 'confirmed_empty'
+        with patch.object(collector, '_require_playwright', return_value=MagicMock()), \
+             patch.object(collector, '_launch_context', return_value=(MagicMock(), page, Path('/tmp/profile'))), \
+             patch.object(collector, '_sellersprite_credentials', return_value=('', '', None)), \
+             patch.object(collector, '_wait_for_sellersprite_session', return_value=None), \
+             patch.object(collector, '_select_sellersprite_market', return_value='美国站'), \
+             patch.object(collector, '_goto'), \
+             patch.object(collector, '_ensure_sellersprite_variants_off') as disable, \
+             patch.object(collector, '_wait_for_sellersprite_asin_input', return_value=asin_input), \
+             patch.object(collector, '_wait_sellersprite_query', side_effect=query):
+            collector.collect_sellersprite_by_asin({'marketplace': 'US', 'asins': [ASIN], 'query_delay_ms': 0})
+        disable.assert_called_once_with(page)
+        asin_input.fill.assert_called_once_with(ASIN)
+        page.get_by_role.return_value.first.click.assert_called_once()
+
     def test_unknown_identity_is_not_authenticated(self):
         with patch.object(collector, '_sellersprite_auth_state', return_value='unknown'):
             self.assertEqual(collector._sellersprite_login_block_reason(MagicMock(), MagicMock()), 'sellersprite_login_unverified')
@@ -221,7 +280,7 @@ class PartialEnrichmentTests(unittest.TestCase):
                 partial = run.run_discovery_flow(args)
             self.assertEqual(partial['status'], 'PARTIAL')
             self.assertTrue(Path(partial['workbook']['path']).is_file())
-            screening = json.loads((root / '09-screening.json').read_text())
+            screening = json.loads((root / '09-screening.json').read_text(encoding='utf-8'))
             self.assertEqual(len(screening['results']), 2)
             def second(_):
                 return {'collection_status': 'complete', 'block_reason': None,
@@ -230,4 +289,4 @@ class PartialEnrichmentTests(unittest.TestCase):
             with patch.object(run, 'collect_sellersprite_by_asin', side_effect=second):
                 completed = run.run_discovery_flow(args)
             self.assertEqual(completed['status'], 'COMPLETE')
-            self.assertFalse(json.loads((root / '00-run.json').read_text()).get('enrichment_incomplete'))
+            self.assertFalse(json.loads((root / '00-run.json').read_text(encoding='utf-8')).get('enrichment_incomplete'))

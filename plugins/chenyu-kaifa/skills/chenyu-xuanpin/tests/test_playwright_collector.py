@@ -3,7 +3,6 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 from unittest import TestCase, mock
-from urllib.parse import parse_qs, urlparse
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "playwright_collector.py"
@@ -17,39 +16,24 @@ class FakePage:
     def __init__(self):
         self.url = "https://www.sellersprite.com/v3/competitor-lookup?monthName=bsr_sales_nearly"
         self.waits = []
+        self.get_by_role = mock.MagicMock()
 
     def wait_for_timeout(self, milliseconds):
         self.waits.append(milliseconds)
 
 
 class SellerSpriteBatchTests(TestCase):
-    def test_batch_url_preserves_existing_query_and_encodes_asins(self):
-        url = collector._sellersprite_batch_url(
-            "https://www.sellersprite.com/v3/competitor-lookup?monthName=bsr_sales_nearly",
-            "US",
-            ["B012345678", "B0ABCDEFGHI"],
-            60,
-        )
-
-        query = parse_qs(urlparse(url).query)
-        self.assertEqual(query["monthName"], ["bsr_sales_nearly"])
-        self.assertEqual(query["market"], ["US"])
-        self.assertEqual(query["asins"], ['["B012345678","B0ABCDEFGHI"]'])
-        self.assertEqual(query["page"], ["1"])
-        self.assertEqual(query["size"], ["60"])
-
     def test_batch_query_returns_all_requested_rows_without_single_fallback(self):
         page = FakePage()
         requested = ["B012345678", "B0ABCDEFGHI"]
         rows = [{"asin": asin, "product_name": asin} for asin in requested]
 
-        def fake_goto(target_page, url):
-            target_page.url = url
-
+        asin_input = mock.MagicMock()
         with (
             mock.patch.object(collector, "_SellerSpriteQueryResponse") as observer,
             mock.patch.object(collector, "_sellersprite_auth_state", return_value="authenticated"),
-            mock.patch.object(collector, "_goto", side_effect=fake_goto),
+            mock.patch.object(collector, "_ensure_sellersprite_variants_off") as disable_variants,
+            mock.patch.object(collector, "_wait_for_sellersprite_asin_input", return_value=asin_input),
             mock.patch.object(collector, "_challenge_visible", return_value=False),
             mock.patch.object(collector, "extract_sellersprite_table", return_value=rows),
         ):
@@ -70,6 +54,9 @@ class SellerSpriteBatchTests(TestCase):
         self.assertGreaterEqual(elapsed_ms, 0)
         self.assertEqual(reason, "matched")
         self.assertEqual(page.waits, [])
+        disable_variants.assert_called_once_with(page)
+        asin_input.fill.assert_called_once_with(",".join(requested))
+        page.get_by_role.return_value.first.click.assert_called_once()
 
     def test_amazon_product_extracts_primary_image(self):
         page = mock.MagicMock()

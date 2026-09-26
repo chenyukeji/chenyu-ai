@@ -12,7 +12,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse, unquote
+from urllib.parse import urljoin, urlparse, unquote
 
 
 class BrowserCollectionError(ValueError):
@@ -43,7 +43,6 @@ DEFAULT_SELLERSPRITE_QUERY_TIMEOUT_MS = 8000
 DEFAULT_SELLERSPRITE_QUERY_DELAY_MS = 200
 DEFAULT_SELLERSPRITE_QUERY_POLL_MS = 200
 DEFAULT_SELLERSPRITE_EMPTY_GRACE_MS = 800
-DEFAULT_SELLERSPRITE_BATCH_SIZE = 60
 ASIN_PATTERN = re.compile(r"(?<![A-Z0-9])B[A-Z0-9]{9}(?![A-Z0-9])", re.I)
 ASIN_VALUE_PATTERN = re.compile(r"^[A-Z0-9]{10}$", re.I)
 SELLERSPRITE_COMPETITOR_HEADERS = (
@@ -1011,20 +1010,20 @@ def _sellersprite_result_is_explicitly_empty(page) -> bool:
         return False
 
 
-def _sellersprite_batch_url(url: str, marketplace: str, asins: list[str], batch_size: int) -> str:
-    """Build the UI URL used by SellerSprite for a multi-ASIN lookup."""
-    parsed = urlparse(url)
-    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
-    query.setdefault("monthName", "bsr_sales_nearly")
-    query.update(
-        {
-            "market": marketplace,
-            "asins": json.dumps(asins, ensure_ascii=True, separators=(",", ":")),
-            "page": "1",
-            "size": str(max(len(asins), min(batch_size, DEFAULT_SELLERSPRITE_BATCH_SIZE))),
-        }
-    )
-    return urlunparse(parsed._replace(query=urlencode(query)))
+def _ensure_sellersprite_variants_off(page) -> None:
+    """Keep the competitor lookup's 'show all variants' option disabled."""
+    label = page.locator("label").filter(
+        has_text=re.compile(r"展示所有变体|show all variants", re.I)
+    ).first
+    if not label.count() or not label.is_visible():
+        raise BrowserCollectionError("SellerSprite show-all-variants control was not found")
+    checkbox = label.locator("input[type='checkbox']").first
+    if not checkbox.count():
+        raise BrowserCollectionError("SellerSprite show-all-variants checkbox was not found")
+    if checkbox.is_checked():
+        label.click()
+    if checkbox.is_checked():
+        raise BrowserCollectionError("SellerSprite show-all-variants checkbox could not be disabled")
 
 
 class _SellerSpriteQueryResponse:
@@ -1116,9 +1115,12 @@ def _wait_sellersprite_query(page, payload, marketplace, asins, trigger, query_t
 
 
 def _query_sellersprite_batch(page, payload, marketplace, asins, query_timeout_ms, query_poll_ms, empty_grace_ms):
-    url = _sellersprite_batch_url(page.url, marketplace, asins, len(asins))
+    def trigger():
+        _ensure_sellersprite_variants_off(page)
+        _wait_for_sellersprite_asin_input(page, 5000).fill(",".join(asins))
+        page.get_by_role("button", name=re.compile(r"立即查询|search", re.I)).first.click()
     return _wait_sellersprite_query(
-        page, payload, marketplace, asins, lambda: _goto(page, url), query_timeout_ms, query_poll_ms,
+        page, payload, marketplace, asins, trigger, query_timeout_ms, query_poll_ms,
     )
 
 
@@ -1165,6 +1167,7 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                             found, elapsed, reason = _query_sellersprite_batch(page, payload, marketplace, group, timeout, poll, 800)
                         else:
                             def trigger():
+                                _ensure_sellersprite_variants_off(page)
                                 _wait_for_sellersprite_asin_input(page, 5000).fill(group[0])
                                 page.get_by_role("button", name=re.compile(r"立即查询|search", re.I)).first.click()
                             found, elapsed, reason = _wait_sellersprite_query(page, payload, marketplace, group, trigger, timeout, poll)
@@ -1201,7 +1204,7 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                         outcomes.append({"asin": record["asin"], "status": "enriched", "record_count": 1, "elapsed_ms": elapsed, "stop_reason": "matched", "query_mode": mode})
                     missing = [a for a in group if a not in matched_asins]
                     if len(group) > 1 and reason in {"partial_match", "query_response_unrecognized", "query_result_mismatch"}:
-                        # Restore normal UI defaults before retrying an unsupported batch URL.
+                        # Restore the lookup page before retrying a rejected batch query.
                         _goto(page, url)
                         block_reason = _wait_for_sellersprite_session(page)
                         if block_reason:
