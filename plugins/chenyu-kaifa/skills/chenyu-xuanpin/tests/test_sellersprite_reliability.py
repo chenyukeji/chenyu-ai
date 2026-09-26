@@ -61,16 +61,18 @@ class ReliabilityTests(unittest.TestCase):
 
     def test_show_all_variants_is_disabled_before_query(self):
         for initially_checked in (False, True):
-            with self.subTest(initially_checked=initially_checked):
-                page = MagicMock()
-                label = page.locator.return_value.filter.return_value.first
-                label.count.return_value = 1
-                label.is_visible.return_value = True
-                checkbox = label.locator.return_value.first
-                checkbox.count.return_value = 1
-                checkbox.is_checked.side_effect = [initially_checked, False]
-                collector._ensure_sellersprite_variants_off(page)
-                self.assertEqual(label.click.call_count, int(initially_checked))
+            for visible in (False, True):
+                with self.subTest(initially_checked=initially_checked, visible=visible):
+                    page = MagicMock()
+                    label = page.locator.return_value.filter.return_value.first
+                    label.count.return_value = 1
+                    label.is_visible.return_value = visible
+                    checkbox = label.locator.return_value.first
+                    checkbox.count.return_value = 1
+                    checkbox.is_checked.side_effect = [initially_checked, False]
+                    collector._ensure_sellersprite_variants_off(page)
+                    self.assertEqual(label.click.call_count, int(initially_checked and visible))
+                    self.assertEqual(checkbox.evaluate.call_count, int(initially_checked and not visible))
 
     def test_missing_or_stuck_variants_checkbox_stops_query(self):
         page = MagicMock()

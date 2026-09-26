@@ -1015,13 +1015,18 @@ def _ensure_sellersprite_variants_off(page) -> None:
     label = page.locator("label").filter(
         has_text=re.compile(r"展示所有变体|show all variants", re.I)
     ).first
-    if not label.count() or not label.is_visible():
+    if not label.count():
         raise BrowserCollectionError("SellerSprite show-all-variants control was not found")
     checkbox = label.locator("input[type='checkbox']").first
     if not checkbox.count():
         raise BrowserCollectionError("SellerSprite show-all-variants checkbox was not found")
     if checkbox.is_checked():
-        label.click()
+        if label.is_visible():
+            label.click()
+        else:
+            # The results toolbar is hidden until the first query, but its
+            # checked checkbox is already mounted and affects that query.
+            checkbox.evaluate("element => element.click()")
     if checkbox.is_checked():
         raise BrowserCollectionError("SellerSprite show-all-variants checkbox could not be disabled")
 
