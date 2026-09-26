@@ -177,3 +177,57 @@ class EnvironmentCredentialsTests(unittest.TestCase):
                     collector._sellersprite_credentials()
                 self.assertNotIn("test-secret", str(raised.exception))
                 self.assertNotIn("test-account", str(raised.exception))
+
+
+class PartialEnrichmentTests(unittest.TestCase):
+    def test_one_result_mismatch_does_not_skip_other_asins(self):
+        other = 'B0HBQ6N1ZC'
+        page = MagicMock()
+        with patch.object(collector, '_require_playwright', return_value=MagicMock()), \
+             patch.object(collector, '_launch_context', return_value=(MagicMock(), page, Path('/tmp/profile'))), \
+             patch.object(collector, '_sellersprite_credentials', return_value=('', '', None)), \
+             patch.object(collector, '_wait_for_sellersprite_session', return_value=None), \
+             patch.object(collector, '_select_sellersprite_market', return_value='德国站'), \
+             patch.object(collector, '_goto'), \
+             patch.object(collector, '_query_sellersprite_batch', return_value=([], 500, 'partial_match')), \
+             patch.object(collector, '_wait_sellersprite_query', side_effect=[([], 500, 'query_result_mismatch'), ([], 500, 'query_result_mismatch'), ([{'asin': other}], 500, 'matched')]) as query:
+            result = collector.collect_sellersprite_by_asin({'marketplace': 'DE', 'asins': [ASIN, other], 'query_delay_ms': 0})
+        self.assertEqual(query.call_count, 3)
+        self.assertEqual(result['collection_status'], 'partial')
+        self.assertIsNone(result['block_reason'])
+        self.assertEqual(result['counts']['enriched'], 1)
+        self.assertEqual({row['asin'] for row in result['records']}, {other})
+        self.assertEqual({(row['asin'], row['status']) for row in result['outcomes']}, {(ASIN, 'query_failed'), (other, 'enriched')})
+
+    def test_partial_workbook_marks_unmatched_asin_and_resume_clears_warning(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            requested = [
+                {'marketplace': 'DE', 'asin': ASIN, 'new_release_rank': 2},
+                {'marketplace': 'DE', 'asin': 'B0HBQ6N1ZC', 'new_release_rank': 3},
+            ]
+            def enriched(asin):
+                return {'marketplace': 'DE', 'asin': asin, 'product_name': 'Fixture product',
+                        'source_available_date': '2026-09-01', 'review_count': 5, 'price': 19.99,
+                        'bsr': 100, 'category_name': 'Fixture', 'estimated_sales': 300}
+            def first(_):
+                return {'collection_status': 'partial', 'block_reason': None,
+                        'records': [enriched(ASIN)],
+                        'outcomes': [{'asin': ASIN, 'status': 'enriched', 'stop_reason': 'matched'},
+                                     {'asin': 'B0HBQ6N1ZC', 'status': 'query_failed', 'stop_reason': 'query_result_mismatch'}]}
+            args = {'request': 'fixture', 'run_dir': str(root), 'output_path': str(root / '开品结果.xlsx'),
+                    'discovery_records': requested, 'as_of_date': '2026-09-24'}
+            with patch.object(run, 'collect_sellersprite_by_asin', side_effect=first):
+                partial = run.run_discovery_flow(args)
+            self.assertEqual(partial['status'], 'PARTIAL')
+            self.assertTrue(Path(partial['workbook']['path']).is_file())
+            screening = json.loads((root / '09-screening.json').read_text())
+            self.assertEqual(len(screening['results']), 2)
+            def second(_):
+                return {'collection_status': 'complete', 'block_reason': None,
+                        'records': [enriched('B0HBQ6N1ZC')],
+                        'outcomes': [{'asin': 'B0HBQ6N1ZC', 'status': 'enriched', 'stop_reason': 'matched'}]}
+            with patch.object(run, 'collect_sellersprite_by_asin', side_effect=second):
+                completed = run.run_discovery_flow(args)
+            self.assertEqual(completed['status'], 'COMPLETE')
+            self.assertFalse(json.loads((root / '00-run.json').read_text()).get('enrichment_incomplete'))

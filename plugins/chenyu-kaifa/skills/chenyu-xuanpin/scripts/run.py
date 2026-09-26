@@ -341,8 +341,9 @@ def _enrich_records_from_sellersprite(
         if block_reasons:
             manifest.setdefault("enrichment_blocking_items", []).extend(block_reasons)
         if raw_payload["collection_status"] != "complete":
+            manifest["enrichment_incomplete"] = True
             manifest["warnings"].append(
-                f"{market} 卖家精灵补数未完整：{raw_payload['counts']['missing']} 个 ASIN 未补齐"
+                f"{market} 卖家精灵补数未完整：{raw_payload['counts']['missing']} 个 ASIN 未补齐，相关商品标记待补数据。"
             )
         if block_reasons:
             break
@@ -526,6 +527,9 @@ def run_discovery_flow(payload: dict) -> dict:
     )
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest = _manifest(task, run_dir)
+    for stale in ("enrichment_blocking_items", "enrichment_incomplete", "blocking_items"):
+        manifest.pop(stale, None)
+    manifest["warnings"] = [warning for warning in manifest.get("warnings", []) if "卖家精灵补数未完整" not in warning]
     manifest["timings_ms"] = {}
     manifest["artifacts"]["request"] = _write_json(run_dir / "01-request.json", {"request": task.get("request")})
     manifest["artifacts"]["task"] = _write_json(run_dir / "02-task.json", task)
@@ -611,6 +615,8 @@ def run_discovery_flow(payload: dict) -> dict:
     )
     _record_timing(manifest, "scoring", stage_started)
     manifest["artifacts"]["screening"] = _write_json(run_dir / "09-screening.json", screening)
+    if manifest.get("enrichment_incomplete") and not any(row.get("score_status") != "insufficient_data" and row.get("missing_data") == [] for row in screening["results"]):
+        return _stop(manifest, run_dir, "AWAITING_ENRICHMENT", "scoring", ["没有足够数据的有效候选，不能交付待补数据表"])
     pending_count = sum(bool(row["missing_data"]) for row in screening["results"])
     if pending_count:
         manifest["warnings"].append(f"{pending_count} 个商品缺少关键评分字段，已标记待补数据，不作选品结论。")
@@ -621,7 +627,7 @@ def run_discovery_flow(payload: dict) -> dict:
     _record_timing(manifest, "workbook_export", stage_started)
     _record_timing(manifest, "total", flow_started)
     manifest["artifacts"]["workbook"] = workbook["path"]
-    delivery_status = "PARTIAL" if any(row["missing_data"] for row in screening["results"]) else "COMPLETE"
+    delivery_status = "PARTIAL" if pending_count or manifest.get("enrichment_incomplete") else "COMPLETE"
     manifest.update({"status": delivery_status, "current_stage": "delivery", "blocking_items": []})
     _save_manifest(manifest, run_dir)
     return {

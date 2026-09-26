@@ -1210,6 +1210,10 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                         queue[0:0] = [[a] for a in missing]
                     elif reason == "confirmed_empty":
                         outcomes.extend({"asin": a, "status": "not_found", "record_count": 0, "elapsed_ms": elapsed, "stop_reason": reason, "query_mode": mode, "empty_verified": True, "auth_verified": True, "observed_at": _now_iso()} for a in missing)
+                    elif missing and len(group) == 1 and reason == "query_result_mismatch":
+                        # This ASIN received an unrelated default list even after a reset.
+                        # Keep it pending and continue querying the other ASINs.
+                        outcomes.extend({"asin": a, "status": "query_failed", "record_count": 0, "elapsed_ms": elapsed, "stop_reason": reason, "query_mode": mode} for a in missing)
                     elif missing:
                         block_reason = reason
                         outcomes.extend({"asin": a, "status": "query_failed", "record_count": 0, "elapsed_ms": elapsed, "stop_reason": reason, "query_mode": mode} for a in missing)
