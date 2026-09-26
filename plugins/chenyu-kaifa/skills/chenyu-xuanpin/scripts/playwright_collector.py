@@ -1,7 +1,6 @@
 """Visible-browser collectors for SellerSprite and Amazon pages.
 
-The collector uses dedicated Playwright profiles. Credentials may be supplied
-for one process after explicit authorization, but are never written to output.
+The collector uses dedicated Playwright profiles. Credentials are read from local process environment variables and never written to output.
 """
 from __future__ import annotations
 
@@ -47,7 +46,6 @@ DEFAULT_SELLERSPRITE_EMPTY_GRACE_MS = 800
 DEFAULT_SELLERSPRITE_BATCH_SIZE = 60
 ASIN_PATTERN = re.compile(r"(?<![A-Z0-9])B[A-Z0-9]{9}(?![A-Z0-9])", re.I)
 ASIN_VALUE_PATTERN = re.compile(r"^[A-Z0-9]{10}$", re.I)
-DEFAULT_SELLERSPRITE_CREDENTIALS = Path(__file__).resolve().parents[5] / ".chenyu-secrets" / "sellersprite.json"
 SELLERSPRITE_COMPETITOR_HEADERS = (
     "选择",
     "#",
@@ -162,22 +160,12 @@ def default_profile_dir(source: str) -> Path:
     return base.resolve() / _safe_profile_name(source)
 
 
-def _sellersprite_credentials(payload: dict) -> tuple[str, str, str | None]:
-    username = str(payload.get("username") or "").strip()
-    password = str(payload.get("password") or "")
-    if username and password:
-        return username, password, "process_input"
-    configured = payload.get("credentials_path") or os.environ.get("CHENYU_SELLERSPRITE_CREDENTIALS")
-    path = Path(configured).expanduser().resolve() if configured else DEFAULT_SELLERSPRITE_CREDENTIALS
-    if not path.exists():
-        return username, password, None
-    try:
-        saved = json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise BrowserCollectionError(f"SellerSprite credentials file is invalid: {path}") from exc
-    username = username or str(saved.get("username") or "").strip()
-    password = password or str(saved.get("password") or "")
-    return username, password, "local_credentials_file"
+def _sellersprite_credentials() -> tuple[str, str, str | None]:
+    username = os.environ.get("CHENYU_SELLERSPRITE_USERNAME", "").strip()
+    password = os.environ.get("CHENYU_SELLERSPRITE_PASSWORD", "")
+    if bool(username) != bool(password):
+        raise BrowserCollectionError("请同时配置 CHENYU_SELLERSPRITE_USERNAME 和 CHENYU_SELLERSPRITE_PASSWORD")
+    return username, password, "environment" if username and password else None
 
 
 def _display_preferences(payload: dict) -> dict:
@@ -1147,7 +1135,7 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
     delay = max(0, min(int(payload.get("query_delay_ms", 200)), 5000))
     batch_size = max(1, min(int(payload.get("batch_size", 60)), 60))
     batch_queries = bool(payload.get("batch_queries", True))
-    username, password, credential_source = _sellersprite_credentials(payload)
+    username, password, credential_source = _sellersprite_credentials()
     records, outcomes = [], []
     block_reason = None
     selected_market = None
@@ -1384,10 +1372,10 @@ def _login_sellersprite_in_page(page, username: str, password: str, destination:
 
 
 def login_sellersprite(payload: dict) -> dict:
-    """Log in with transient or explicitly configured local credentials."""
-    username, password, credential_source = _sellersprite_credentials(payload)
+    """Log in with credentials from the local process environment."""
+    username, password, credential_source = _sellersprite_credentials()
     if not username or not password:
-        raise BrowserCollectionError("SellerSprite username and password are required")
+        raise BrowserCollectionError("请配置 CHENYU_SELLERSPRITE_USERNAME 和 CHENYU_SELLERSPRITE_PASSWORD 环境变量")
     login_url = validate_url(payload.get("url") or "https://www.sellersprite.com/cn/w/user/login")
     destination = validate_url(
         payload.get("destination_url") or "https://www.sellersprite.com/v3/competitor-lookup"

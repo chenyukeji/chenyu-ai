@@ -287,9 +287,6 @@ def _enrich_records_from_sellersprite(
                     "batch_queries": discovery.get("batch_queries", True),
                     "batch_size": discovery.get("batch_size", 60),
                     "manual_timeout_seconds": discovery.get("manual_timeout_seconds", 180),
-                    "username": discovery.get("username") or payload.get("username"),
-                    "password": discovery.get("password") or payload.get("password"),
-                    "credentials_path": discovery.get("credentials_path") or payload.get("credentials_path"),
                     "profile_dir": discovery.get("profile_dir") or payload.get("profile_dir"),
                 }
             )

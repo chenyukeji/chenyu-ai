@@ -154,3 +154,21 @@ class ReliabilityTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EnvironmentCredentialsTests(unittest.TestCase):
+    def test_complete_environment_is_used(self):
+        with patch.dict(collector.os.environ, {"CHENYU_SELLERSPRITE_USERNAME": "test-account", "CHENYU_SELLERSPRITE_PASSWORD": "test-secret"}, clear=True):
+            self.assertEqual(collector._sellersprite_credentials(), ("test-account", "test-secret", "environment"))
+
+    def test_absent_environment_allows_existing_session(self):
+        with patch.dict(collector.os.environ, {}, clear=True):
+            self.assertEqual(collector._sellersprite_credentials(), ("", "", None))
+
+    def test_incomplete_environment_fails_without_exposing_value(self):
+        for env in ({"CHENYU_SELLERSPRITE_USERNAME": "test-account"}, {"CHENYU_SELLERSPRITE_PASSWORD": "test-secret"}):
+            with self.subTest(keys=list(env)), patch.dict(collector.os.environ, env, clear=True):
+                with self.assertRaises(collector.BrowserCollectionError) as raised:
+                    collector._sellersprite_credentials()
+                self.assertNotIn("test-secret", str(raised.exception))
+                self.assertNotIn("test-account", str(raised.exception))

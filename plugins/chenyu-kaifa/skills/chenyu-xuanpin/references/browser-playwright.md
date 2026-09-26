@@ -13,16 +13,15 @@
 
 ## 登录
 
-本地凭据默认读取仓库根目录 `.chenyu-secrets/sellersprite.json`。文件结构：
+账号配置只从本地进程环境变量读取：
 
-```json
-{
-  "username": "账号",
-  "password": "密码"
-}
-```
+- `CHENYU_SELLERSPRITE_USERNAME`：卖家精灵账号。
+- `CHENYU_SELLERSPRITE_PASSWORD`：卖家精灵密码。
+- `CHENYU_BROWSER_DATA_DIR`：持久浏览器会话的根目录，服务端应配置在任务临时目录之外。
 
-凭据只用于本地 Playwright 登录，不写入运行结果。出现验证码或滑块时停止自动采集，并使用可见浏览器完成验证。
+无人值守服务通过 systemd `EnvironmentFile` 加载仓库外、权限为 `0600` 的本地文件。配置由服务传递给插件进程；不要把密码写入任务 JSON、提示词、运行产物、源码或日志，也不要输出完整环境变量。插件不读取旧 JSON 凭据文件或任务里的用户名密码。未配置账号时仍可复用有效会话；部分配置缺失时明确报错。
+
+凭据只用于本地 Playwright 登录。出现验证码或滑块时停止自动采集，交由用户完成验证。
 
 ## 输出与续跑
 
