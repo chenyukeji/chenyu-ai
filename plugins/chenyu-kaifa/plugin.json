@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-kaifa",
-  "version": "1.0.0",
+  "version": "1.0.0+codex.20260926074632",
   "description": "Natural-language Amazon product discovery, transparent scoring and ranked Excel output for Chenyu.",
   "author": {"name": "chenyukeji", "url": "https://github.com/chenyukeji"},
   "homepage": "https://github.com/chenyukeji/chenyu-ai",

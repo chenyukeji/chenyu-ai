@@ -27,6 +27,7 @@ This repository packages role-based Amazon workflows as portable plugins for com
 - Treat the GitHub `main` branch as the single source of truth for plugin source, rules, tests, manifests, and the repository marketplace.
 - Before changing a plugin, fetch the current remote branch and reconcile it with the local checkout without discarding unrelated work.
 - After changing a plugin, update its Codex cachebuster in `.codex-plugin/plugin.json`, validate the affected Skill and plugin, run relevant tests, commit the source change, and push it to GitHub before considering the work complete.
+- Keep the version in root `plugin.json` equal to the cachebuster version in `.codex-plugin/plugin.json`; Codex may read the root manifest when choosing an installed cache path.
 - Reinstall or refresh local plugin caches only from the same committed source that was pushed to GitHub. Do not leave an installed plugin ahead of or behind the repository source.
 - After verifying the new installation, completely remove obsolete installed cache versions and old copied plugin or Skill backups. Keep only the current installed version and the Git-tracked source; do not reuse an old copy for later updates.
 - Verify after pushing that local `HEAD`, its upstream branch, and the remote branch resolve to the same commit. If pushing or verification fails, report the repository as unsynchronized instead of claiming completion.

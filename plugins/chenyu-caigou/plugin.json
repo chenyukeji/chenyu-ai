@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-caigou",
-  "version": "0.1.0",
+  "version": "0.1.0+codex.20260926074632",
   "description": "Amazon supplier comparison, procurement planning, and supply tracking workflows for Chenyu.",
   "author": {"name": "chenyukeji", "url": "https://github.com/chenyukeji"},
   "homepage": "https://github.com/chenyukeji/chenyu-ai",
