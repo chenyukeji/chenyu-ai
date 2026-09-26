@@ -176,6 +176,34 @@ class ListingTests(unittest.TestCase):
         ]
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
 
+        original_terms = listing['search_terms']
+        data['competitors'].append({
+            'id': 'C2', 'marketplace': 'DE', 'product_group': 'P2',
+            'status': 'complete', 'asin': 'B012345679',
+            'title': 'Tischschmuck aus Papier für Feiern',
+        })
+        extra = {
+            'marketplace': 'DE', 'variant_id': 'V1',
+            'phrase': 'tischschmuck', 'source_asin': 'B012345679',
+            'source_tool': 'same_category_title_terms', 'source_field': 'title',
+            'source_marketplace': 'DE', 'organic_results_checked': 20,
+            'relevant_results': 16, 'relevance_band': 'high',
+            'decision': 'adopt', 'local_volume_claimed': False,
+        }
+        data['search_term_audits'].append(extra)
+        listing['search_terms'] += ' tischschmuck'
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        extra['source_asin'] = 'B012345699'
+        self.assertTrue(any('title-term audit source_asin' in error for error in
+                            package_validator.validate(data)['errors']))
+        extra['source_asin'] = 'B012345679'
+        extra['source_field'] = 'bullet_1'
+        self.assertTrue(any('must use source_field=title' in error for error in
+                            package_validator.validate(data)['errors']))
+        data['search_term_audits'].pop()
+        data['competitors'].pop()
+        listing['search_terms'] = original_terms
+
         data['search_term_audits'] = data['search_term_audits'][:1]
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])

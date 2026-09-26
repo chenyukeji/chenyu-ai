@@ -338,15 +338,17 @@ def validate(data):
         if not ASIN.fullmatch(source_asin):
             errors.append(f'search term audit {key[0]}/{key[1]} requires a valid source_asin')
         source_tool = audit.get('source_tool')
-        if source_tool not in ('sellersprite_reverse_asin', 'reference_title_terms'):
+        if source_tool not in ('sellersprite_reverse_asin', 'reference_title_terms',
+                               'same_category_title_terms'):
             errors.append(
                 f'search term audit {key[0]}/{key[1]} source_tool must be '
-                'sellersprite_reverse_asin or reference_title_terms'
+                'sellersprite_reverse_asin, reference_title_terms, or '
+                'same_category_title_terms'
             )
-        if (source_tool == 'reference_title_terms'
+        if (source_tool in ('reference_title_terms', 'same_category_title_terms')
                 and audit.get('source_field') != 'title'):
             errors.append(
-                f'search term audit {key[0]}/{key[1]} from reference_title_terms '
+                f'search term audit {key[0]}/{key[1]} from {source_tool} '
                 'must use source_field=title'
             )
         checked = audit.get('organic_results_checked')
@@ -821,10 +823,11 @@ def validate(data):
                                 f'{market}/{variant_id} SellerSprite audit source_asin must '
                                 'match primary_reference_asin'
                             )
-                        if (audit.get('source_tool') == 'reference_title_terms'
+                        if (audit.get('source_tool') in (
+                                'reference_title_terms', 'same_category_title_terms')
                                 and audit_asin not in competitor_asins):
                             errors.append(
-                                f'{market}/{variant_id} reference-title audit source_asin must '
+                                f'{market}/{variant_id} title-term audit source_asin must '
                                 'match a competitor record'
                             )
                     adopted_tokens = {
