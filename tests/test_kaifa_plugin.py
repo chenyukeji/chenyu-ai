@@ -184,7 +184,7 @@ def test_party_supplies_resolves_us_and_de_new_release_nodes():
     task = run.create_task("针对玩具类目的派对用品找新品")
     category = task["category_resolution"]
     assert category["status"] == "resolved"
-    assert set(category["amazon_new_releases"]) == {"US", "DE"}
+    assert set(category["categories"][0]["amazon_new_releases"]) == {"US", "DE"}
 
 
 def test_candidates_do_not_merge_across_marketplaces_by_title():

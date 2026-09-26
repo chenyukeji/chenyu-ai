@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 
@@ -139,33 +138,43 @@ def resolve_strategy(request: str | None, task: dict, selection: dict | None, ru
 
 def resolve_category(request: str | None, task: dict) -> dict:
     request = str(request or "").strip()
-    explicit = task.get("category_or_need")
-    searchable = " ".join(str(value) for value in (explicit, request) if value).casefold()
-    for preset in load_category_presets():
-        if any(keyword.casefold() in searchable for keyword in preset["keywords"]):
-            return {
-                "status": "resolved",
-                "selection_source": "preset",
-                "preset_id": preset["preset_id"],
-                "category_original": explicit or request,
-                "category_normalized": preset["category_normalized"],
-                "amazon_new_releases": dict(preset["amazon_new_releases"]),
-            }
-    if explicit:
-        return {
-            "status": "unmapped",
-            "selection_source": "explicit_text",
-            "category_original": explicit,
-            "category_normalized": explicit,
-            "amazon_new_releases": {},
-        }
-    cleaned = re.sub(r"^(请|帮我|麻烦)?(看看|找一下|开发一批|开发)?", "", request).strip()
+    if "amazon_new_releases" in task or "category_or_need" in task:
+        raise StrategyRouteError("类目参数已更新，请使用 task.categories 重新提交")
+    presets = load_category_presets()
+    categories = task.get("categories")
+    source = "custom"
+    if categories is None:
+        matches = [preset for preset in presets if any(
+            keyword.casefold() in request.casefold() for keyword in preset["keywords"]
+        )]
+        if matches:
+            categories = [{"name": item["category_normalized"],
+                           "amazon_new_releases": item["amazon_new_releases"]} for item in matches]
+            source = "preset"
+        else:
+            categories = [{"name": request, "amazon_new_releases": {}}] if request else []
+            source = "request_text"
+    if not isinstance(categories, list) or not categories:
+        raise StrategyRouteError("请提供类目名称或非空的 task.categories")
+    resolved = []
+    for item in categories:
+        if not isinstance(item, dict) or not isinstance(item.get("name"), str) or not item["name"].strip():
+            raise StrategyRouteError("task.categories 每项必须有非空 name")
+        name = item["name"].strip()
+        urls = item.get("amazon_new_releases")
+        if urls is None:
+            preset = next((preset for preset in presets if name.casefold() in
+                           [preset["category_normalized"].casefold(), *(word.casefold() for word in preset["keywords"])]), None)
+            urls = dict(preset["amazon_new_releases"]) if preset else {}
+        if not isinstance(urls, dict):
+            raise StrategyRouteError("amazon_new_releases 必须是站点到 URL 的映射")
+        resolved.append({"name": name, "amazon_new_releases": urls})
     return {
-        "status": "unmapped" if cleaned else "missing",
-        "selection_source": "request_text" if cleaned else "missing",
-        "category_original": cleaned or None,
-        "category_normalized": cleaned or None,
-        "amazon_new_releases": {},
+        "status": "resolved" if all(c["amazon_new_releases"] for c in resolved) else "unmapped",
+        "selection_source": source,
+        "category_original": request,
+        "category_normalized": "、".join(c["name"] for c in resolved),
+        "categories": resolved,
     }
 
 

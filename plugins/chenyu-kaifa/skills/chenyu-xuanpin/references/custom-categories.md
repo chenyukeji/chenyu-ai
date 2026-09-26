@@ -1,0 +1,47 @@
+# 自定义类目与榜单入口
+
+预设只用于常见请求的快捷匹配。任意用户定义的产品类目都可进入实时选品；无需修改 `category-presets.json` 或重装插件。历史数据库分析仍使用 [只读数据库契约](new-releases-db.md)，不需要新品榜 URL。
+
+## 从自然语言到采集输入
+
+1. 保留用户的产品范围、排除条件和站点选择。把多个独立类目分成 `task.categories` 条目，每项有 `name`；不要把整句请求直接当作 Amazon 节点名。美德同时采集仍是未指定站点时的默认值。
+2. 用户提供了准确入口时优先使用。否则先查预设，再使用可用的网页搜索或浏览器，按类目英文/德文名称查找 Amazon 对应站点的新品榜。核对页面标题、面包屑和 URL 所在站点；仅有畅销榜、搜索页或无法确认的数字节点时，不拼接或猜测新品榜 URL。搜索引擎打不开页面时可使用现有浏览器读取公开目录；遇验证码/访问限制如实停止。
+3. 在任务目录保存入口核实依据（类目、站点、URL、页面标题或目录链接、核实时间），然后把入口作为结构化参数传给 `run.py`。不要只在文字回复里承诺已经补充链接。
+4. 先运行 `resolve_request` 检查自定义类目是否传入，再以相同 `task` 调用 `run_discovery_flow`。若返回 `AWAITING_CATEGORY_INPUT`，按 `blocking_items` 补充缺失入口，以相同 `run_dir` 调用 `resume_discovery_flow` 并传入完整更新后的 `task.categories`。只有执行后的流程产物才算续跑完成。
+
+## 参数
+
+`task.categories` 是非空数组，各条目包含：
+
+- `name`：任意非空类目名称，不是预设 ID。
+- `amazon_new_releases`：站点到一个 URL 或 URL 数组的映射。每个请求的站点都须有入口；一个类目映射到多个细分榜单时可传数组。
+
+显式 `task.categories` 优先于请求文本中的预设关键词。未填写入口的已知类目可使用预设兜底；未知类目需要先执行上述入口查找。多个类目任一站点缺失时，返回具体缺失项，不悄悄忽略该类目。
+
+以下是参数结构示意，尖括号内容需要替换为实际核实的 URL，不能原样执行：
+
+```json
+{
+  "skill_action": "run_discovery_flow",
+  "request": "针对厨房庭院给出开品结果",
+  "task": {
+    "categories": [
+      {"name": "厨房用品", "amazon_new_releases": {"US": "<已核实的美国厨房新品榜>", "DE": "<已核实的德国厨房新品榜>"}},
+      {"name": "庭院园艺", "amazon_new_releases": {"US": "<已核实的美国庭院新品榜>", "DE": "<已核实的德国庭院新品榜>"}}
+    ]
+  },
+  "discovery": {"headless": true, "limit_per_marketplace": 100}
+}
+```
+
+单类目和多类目统一使用 `task.categories`。旧的 `task.category_or_need`、`task.amazon_new_releases` 和 `discovery.amazon_new_releases` 输入已移除，调用会明确报错，不自动转换。仅网址格式、站点及新品榜路径由程序校验；是否准确对应产品范围仍须在调用前核实。
+
+本流程格式为 `discovery-v3`。旧版运行目录不能续跑，须创建新任务；不读取旧任务和旧候选缓存。
+
+## 多入口采集与续跑
+
+各入口独立采集并保留 `04-category-sources.json` 和分来源记录。同站点同 ASIN 去重，保留已采集的多个来源引用；不同站点不合并。`limit_per_marketplace` 仍是每站去重后的上限（1–100），在多个来源间轮流选取，避免只保留第一个类目。各类目原始记录可追溯。
+
+采集缓存按类目、站点、URL、页数和数量配置隔离。修改类目或入口续跑时，重建对应候选来源，不复用旧类目候选；已有同来源采集和卖家精灵数据仍可复用。`discovery.refresh=true` 强制重新采集。
+
+未找到入口时返回 `AWAITING_CATEGORY_INPUT`，表示等待类目信息，不表示没有市场机会。缺少真实采集或补数结果时，不能生成空 Excel 冒充完成。

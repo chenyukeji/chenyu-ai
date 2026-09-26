@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+from itertools import zip_longest
 import re
 import sys
 import time
@@ -22,9 +24,10 @@ from new_releases_history import (
 )
 from playwright_collector import BrowserCollectionError, browser_status, collect, collect_sellersprite_by_asin, login_sellersprite
 from strategy_router import StrategyRouteError, list_strategies, resolve_category, resolve_strategy
+from category_sources import CategoryInputError, resolve_sources
 
 RULES_PATH = Path(__file__).resolve().parents[1] / "references" / "runtime-rules.json"
-FLOW_VERSION = "discovery-v2"
+FLOW_VERSION = "discovery-v3"
 SELLERSPRITE_FIELDS = (
     "source_available_date",
     "review_count",
@@ -99,6 +102,7 @@ def create_task(request=None, task=None, strategy_selection=None) -> dict:
     category = resolve_category(request, task)
     category_name = category.get("category_normalized") or category.get("category_original")
     return {
+        "flow_version": FLOW_VERSION,
         "task_id": task.get("task_id") or f"discovery-{uuid.uuid4().hex[:12]}",
         "request": request,
         "category_or_need": category_name,
@@ -409,43 +413,61 @@ def _live_strategy_e(task: dict, payload: dict, run_dir: Path, manifest: dict) -
     discovery = dict(payload.get("discovery") or {})
     limit = max(1, min(int(discovery.get("limit_per_marketplace", 100)), 100))
     headless = bool(discovery.get("headless", True))
-    urls = dict(task["category_resolution"].get("amazon_new_releases") or {})
-    urls.update(discovery.get("amazon_new_releases") or {})
-    records = []
-    missing_urls = [market for market in task["strategy_resolution"]["source_marketplaces"] if not urls.get(market)]
-    if missing_urls:
-        raise ContractError("missing Amazon new-releases URL for: " + ",".join(missing_urls))
-
-    for market in task["strategy_resolution"]["source_marketplaces"]:
-        amazon_path = run_dir / f"04-amazon-{market.lower()}-asins.json"
+    sources = resolve_sources(task["category_resolution"], task["strategy_resolution"]["source_marketplaces"])
+    manifest["artifacts"]["category_sources"] = _write_json(run_dir / "04-category-sources.json", sources)
+    batches = {}
+    for source in sources:
+        market = source["marketplace"]
+        cache_input = {**source, "max_pages": discovery.get("max_pages", 1), "limit": limit}
+        digest = hashlib.sha256(json.dumps(cache_input, sort_keys=True).encode()).hexdigest()[:16]
+        amazon_path = run_dir / f"04-amazon-{market.lower()}-{digest}-asins.json"
+        seed_records = []
         if amazon_path.exists() and not discovery.get("refresh"):
             amazon_result = _read_json(amazon_path)
             seed_records = amazon_result.get("records") or []
-        else:
-            amazon_result = collect(
-                {
-                    "source": "amazon_public",
-                    "url": urls[market],
-                    "extractor": "amazon_ranked_list",
-                    "marketplace": market,
-                    "query": task.get("category_or_need"),
-                    "max_pages": discovery.get("max_pages", 1),
-                    "headless": headless,
-                }
-            )
+        if not seed_records:
+            amazon_result = collect({
+                "source": "amazon_public", "url": source["url"],
+                "extractor": "amazon_ranked_list", "marketplace": market,
+                "query": source["category"], "max_pages": discovery.get("max_pages", 1),
+                "headless": headless,
+            })
             seed_records = _identity_only(amazon_result.get("records") or [], market, limit)
+            for row in seed_records:
+                row.setdefault("category_name", source["category"])
+                row.setdefault("source_ref", source["url"])
             amazon_result = {
-                "collection_status": amazon_result.get("collection_status"),
+                "source": source, "collection_status": amazon_result.get("collection_status"),
                 "source_metadata": amazon_result.get("source_metadata"),
-                "errors": amazon_result.get("errors") or [],
-                "records": seed_records,
+                "errors": amazon_result.get("errors") or [], "records": seed_records,
                 "counts": {"records": len(seed_records)},
             }
-            manifest["artifacts"][f"amazon_{market.lower()}"] = _write_json(amazon_path, amazon_result)
+            _write_json(amazon_path, amazon_result)
+        manifest["artifacts"][f"amazon_{market.lower()}_{digest}"] = str(amazon_path.resolve())
         if not seed_records:
-            manifest["warnings"].append(f"{market} Amazon 新品榜没有得到 ASIN")
-            continue
-        records.extend(seed_records)
+            manifest["warnings"].append(f"{market} / {source['category']} Amazon 新品榜没有得到 ASIN")
+        batches.setdefault(market, []).append(seed_records)
+    records = []
+    for market, category_batches in batches.items():
+        # Round robin retains multiple categories within the existing per-market limit.
+        selected = {}
+        for group in zip_longest(*category_batches):
+            for row in group:
+                if row is None:
+                    continue
+                asin = row["asin"]
+                if asin not in selected and len(selected) < limit:
+                    selected[asin] = dict(row)
+                if asin in selected:
+                    refs = selected[asin].setdefault("source_refs", [])
+                    if row.get("source_ref") and row["source_ref"] not in refs:
+                        refs.append(row["source_ref"])
+        market_records = list(selected.values())
+        manifest["artifacts"][f"amazon_{market.lower()}"] = _write_json(
+            run_dir / f"04-amazon-{market.lower()}-asins.json",
+            {"records": market_records, "counts": {"records": len(market_records)}},
+        )
+        records.extend(market_records)
     return records
 
 
@@ -484,7 +506,22 @@ def run_discovery_flow(payload: dict) -> dict:
         saved_path = Path(requested_run_dir).expanduser().resolve() / "02-task.json"
         if saved_path.exists():
             saved_task = _read_json(saved_path)
-    task = saved_task or create_task(payload.get("request"), payload.get("task"), payload.get("strategy_selection"))
+    task_updates = payload.get("task") or {}
+    if "amazon_new_releases" in (payload.get("discovery") or {}):
+        raise ContractError("旧版 discovery.amazon_new_releases 已移除，请使用 task.categories 重新提交")
+    if saved_task:
+        if saved_task.get("flow_version") != FLOW_VERSION:
+            raise ContractError("此目录是旧版选品任务，请用新的 run_dir 重新提交；不读取旧类目配置或候选缓存")
+        if task_updates or payload.get("strategy_selection"):
+            updated = {"task_id": saved_task["task_id"], "shortlist_limit": saved_task["shortlist_limit"],
+                       "categories": saved_task["category_resolution"]["categories"], **task_updates}
+            task = create_task(saved_task.get("request"), updated,
+                               payload.get("strategy_selection") or saved_task["strategy_resolution"])
+            task["created_at"] = saved_task["created_at"]
+        else:
+            task = saved_task
+    else:
+        task = create_task(payload.get("request"), task_updates, payload.get("strategy_selection"))
     run_dir = (
         Path(requested_run_dir).expanduser().resolve()
         if requested_run_dir
@@ -503,6 +540,12 @@ def run_discovery_flow(payload: dict) -> dict:
     _record_timing(manifest, "input_loading", stage_started)
     saved_records_path = run_dir / "07-source-records.json"
     discovery = dict(payload.get("discovery") or {})
+    source_scope = {
+        "category_resolution": task["category_resolution"],
+        "marketplaces": task["strategy_resolution"]["source_marketplaces"],
+        "discovery": {key: value for key, value in discovery.items()
+                      if key not in {"refresh", "refresh_sellersprite", "sellersprite_enrich"}},
+    }
     use_history_database = bool(
         discovery.get("history_db_path")
         or discovery.get("new_releases_db_path")
@@ -526,7 +569,9 @@ def run_discovery_flow(payload: dict) -> dict:
         and discovery.get("collect_live", True)
     )
     if not records and not candidates and saved_records_path.exists() and not refresh_live_e:
-        records = (_read_json(saved_records_path).get("records") or [])
+        saved_records = _read_json(saved_records_path)
+        if saved_records.get("source_scope") == source_scope:
+            records = saved_records.get("records") or []
     if not records and not candidates:
         strategy_ids = task["strategy_resolution"]["strategy_ids"]
         if strategy_ids == ["E"] and (payload.get("discovery") or {}).get("collect_live", True):
@@ -534,7 +579,7 @@ def run_discovery_flow(payload: dict) -> dict:
                 stage_started = time.perf_counter()
                 records = _live_strategy_e(task, payload, run_dir, manifest)
                 _record_timing(manifest, "amazon_collection", stage_started)
-            except ContractError as exc:
+            except (ContractError, CategoryInputError) as exc:
                 return _stop(manifest, run_dir, "AWAITING_CATEGORY_INPUT", "collection", [str(exc)])
         else:
             return _stop(manifest, run_dir, "AWAITING_DISCOVERY_INPUT", "collection", ["discovery_records_or_paths"])
@@ -548,7 +593,7 @@ def run_discovery_flow(payload: dict) -> dict:
     if records:
         manifest["artifacts"]["source_records"] = _write_json(
             saved_records_path,
-            {"records": records, "sources": sources, "count": len(records)},
+            {"records": records, "sources": sources, "count": len(records), "source_scope": source_scope},
         )
     if manifest.get("enrichment_blocking_items"):
         return _stop(manifest, run_dir, "AWAITING_ENRICHMENT", "sellersprite_enrichment", manifest["enrichment_blocking_items"])
@@ -635,7 +680,7 @@ def handle(payload: dict) -> dict:
 def main() -> None:
     try:
         result = handle(json.loads(sys.stdin.buffer.read().decode("utf-8-sig")))
-    except (json.JSONDecodeError, ContractError, DiscoveryError, WorkbookError, StrategyRouteError, BrowserCollectionError, HistoryDatabaseError, OSError, KeyError, TypeError, ValueError) as exc:
+    except (json.JSONDecodeError, ContractError, CategoryInputError, DiscoveryError, WorkbookError, StrategyRouteError, BrowserCollectionError, HistoryDatabaseError, OSError, KeyError, TypeError, ValueError) as exc:
         result = {"ok": False, "code": "invalid_input", "message": str(exc)}
     json.dump(result, sys.stdout, ensure_ascii=True, indent=2)
     sys.stdout.write("\n")
