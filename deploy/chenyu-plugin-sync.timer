@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Chenyu AI plugin releases at midnight
+
+[Timer]
+OnCalendar=*-*-* 00:00:00
+AccuracySec=1min
+Persistent=true
+Unit=chenyu-plugin-sync.service
+
+[Install]
+WantedBy=timers.target
