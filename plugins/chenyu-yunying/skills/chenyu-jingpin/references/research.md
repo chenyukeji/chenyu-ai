@@ -21,7 +21,8 @@
 - `research_status`：overall、目标站点、生成时间、完整/部分/失败数量和具体缺口。
 - `competitors`：原始与最终 URL、站点、ASIN、product_group、来源单元格、文字字段、description_source、选中变体、images、image_summary 和快照校验值。
 - `keyword_evidence`：marketplace、language、phrase、aliases、type、出现的独立 product_group、字段位置和原文证据。这里只记录证据，不决定自有产品采用。
-- `visual_evidence`：competitor_id、image local_path、role、客观信息类型、构图类别及可借鉴范围；不包含品牌故事和其他 ASIN。
+- `visual_evidence`：按每条有效参考链接的当前变体图册逐图建立候选，记录 competitor_id、image local_path、role、客观信息类型、构图类别及可借鉴范围；不包含品牌故事和其他 ASIN。只排除重复、无关或归属不明图片，并记录原因，不因下游暂时只需几张就提前截断候选池。
+- `visual_coverage`：按原始链接及去重后站点-ASIN 列出主图/图册/A+ 的发现数、成功读取数、可用候选数、排除数与原因、读取失败或未检查的范围。下游据此判断是否真的评估了所有参考链接，而不以最终嵌入数量代替图册覆盖度。
 - `exclusions`：竞品品牌、店铺、型号、无关链接、无法验证内容及排除原因。
 
 Listing 下游用 keyword_evidence 和文字字段建立自有事实映射；作图要求下游用 visual_evidence 规划信息层级。两者必须引用同一 competitor_id/local_path，不各自重新抓取。真实研究包保存在任务输出目录，不作为 Skill 示例或测试数据提交。
