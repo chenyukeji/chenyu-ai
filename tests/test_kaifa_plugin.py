@@ -671,7 +671,7 @@ def test_new_releases_database_prefers_identity_table_and_builds_discovery_seeds
     assert "窗口排名净提升20名" in rising_scored["decision_reason"]
 
 
-def test_discovery_flow_can_use_history_database_instead_of_live_amazon(monkeypatch, tmp_path):
+def test_discovery_flow_can_use_current_history_database_interface(monkeypatch, tmp_path):
     db_path = tmp_path / "new_releases.db"
     build_history_database(db_path, with_identity=True)
 
@@ -689,10 +689,13 @@ def test_discovery_flow_can_use_history_database_instead_of_live_amazon(monkeypa
             "as_of_date": "2026-09-03",
             "discovery": {
                 "source": "new_releases_db",
-                "history_db_path": str(db_path),
-                "db_category": "party-supplies",
-                "history_days": 3,
-                "history": {"min_repeat_days": 2, "min_group_asins": 2},
+                "history": {
+                    "db_path": str(db_path),
+                    "category": "party-supplies",
+                    "days": 3,
+                    "min_repeat_days": 2,
+                    "min_group_asins": 2,
+                },
                 "sellersprite_enrich": False,
             },
         }

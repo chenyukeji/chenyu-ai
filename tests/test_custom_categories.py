@@ -12,7 +12,6 @@ spec = importlib.util.spec_from_file_location('custom_category_run', SCRIPTS / '
 run = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(run)
 from category_sources import CategoryInputError, normalize_url, resolve_sources
-from strategy_router import StrategyRouteError
 
 
 def category(name, suffix):
@@ -36,20 +35,20 @@ def test_explicit_arbitrary_categories_override_request_presets():
     assert task['flow_version'] == 'discovery-v3'
 
 
-@pytest.mark.parametrize('old', [{'category_or_need': '厨房'}, {'amazon_new_releases': {}}])
-def test_old_task_parameters_are_rejected(old):
-    with pytest.raises(StrategyRouteError, match='task.categories'):
-        run.create_task('厨房', old)
+@pytest.mark.parametrize('unsupported', [{'category_or_need': '厨房'}, {'amazon_new_releases': {}}])
+def test_unsupported_task_fields_are_rejected(unsupported):
+    with pytest.raises(run.ContractError, match='unsupported task fields'):
+        run.create_task('厨房', unsupported)
 
 
-def test_old_discovery_parameter_and_run_directory_are_rejected(tmp_path):
-    with pytest.raises(run.ContractError, match='旧版 discovery'):
+def test_unsupported_discovery_field_and_incompatible_run_directory_are_rejected(tmp_path):
+    with pytest.raises(run.ContractError, match='unsupported discovery fields'):
         run.run_discovery_flow({'request': '厨房', 'run_dir': str(tmp_path), 'discovery': {'amazon_new_releases': {}}})
-    old = {'task_id': 'old', 'category_resolution': {'amazon_new_releases': {}}}
-    (tmp_path / '02-task.json').write_text(json.dumps(old))
-    with pytest.raises(run.ContractError, match='旧版选品任务'):
+    incompatible = {'task_id': 'old', 'category_resolution': {'amazon_new_releases': {}}}
+    (tmp_path / '02-task.json').write_text(json.dumps(incompatible))
+    with pytest.raises(run.ContractError, match='run_dir flow_version does not match'):
         run.run_discovery_flow({'run_dir': str(tmp_path)})
-    assert json.loads((tmp_path / '02-task.json').read_text()) == old
+    assert json.loads((tmp_path / '02-task.json').read_text()) == incompatible
 
 
 @pytest.mark.parametrize('url', [
