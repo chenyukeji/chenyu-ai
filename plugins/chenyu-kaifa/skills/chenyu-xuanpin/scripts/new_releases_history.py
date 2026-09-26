@@ -185,14 +185,10 @@ def _image_similarity(
 
 def resolve_database_path(payload: dict | None = None) -> Path:
     payload = dict(payload or {})
-    history = dict(payload.get("history") or payload.get("new_releases_db") or {})
-    discovery = dict(payload.get("discovery") or {})
+    history = dict(payload.get("history") or {})
     explicit = (
         payload.get("db_path")
         or history.get("db_path")
-        or history.get("path")
-        or discovery.get("history_db_path")
-        or discovery.get("new_releases_db_path")
         or os.environ.get("CHENYU_NEW_RELEASES_DB")
     )
     if explicit:
@@ -201,23 +197,6 @@ def resolve_database_path(payload: dict | None = None) -> Path:
             raise HistoryDatabaseError(f"new_releases.db not found: {path}")
         return path
 
-    roots: list[Path] = []
-    for base in (Path.cwd().resolve(), Path(__file__).resolve().parent):
-        for root in (base, *base.parents):
-            if root not in roots:
-                roots.append(root)
-    candidates: list[Path] = []
-    for root in roots:
-        candidates.extend(
-            (
-                root / "data" / "new_releases.db",
-                root / "amazon-new-release-collector" / "data" / "new_releases.db",
-                root.parent / "amazon-new-release-collector" / "data" / "new_releases.db",
-            )
-        )
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate.resolve()
     raise HistoryDatabaseError(
         "new_releases.db not found; pass db_path or set CHENYU_NEW_RELEASES_DB"
     )
@@ -816,7 +795,7 @@ def _market_report(
 
 def analyze_new_releases_database(payload: dict | None = None) -> dict[str, Any]:
     payload = dict(payload or {})
-    history = dict(payload.get("history") or payload.get("new_releases_db") or {})
+    history = dict(payload.get("history") or {})
     path = resolve_database_path(payload)
     days = _positive_int(payload.get("days", history.get("days")), 10, "days", 90)
     recent_days = _positive_int(history.get("recent_days"), 3, "recent_days", days)

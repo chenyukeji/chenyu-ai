@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import playwright_collector as collector
 import discovery_pipeline as pipeline
+import new_releases_history as history_db
 import run
 
 ASIN = 'B0HCBQ5SDF'
@@ -164,17 +165,40 @@ class ReliabilityTests(unittest.TestCase):
         self.assertTrue(run._cacheable_empty(outcome))
         self.assertFalse(run._cacheable_empty({**outcome, 'auth_verified': False}))
         self.assertFalse(run._cacheable_empty({**outcome, 'observed_at': (datetime.now(timezone.utc)-timedelta(days=2)).isoformat()}))
-        self.assertFalse(run._cacheable_empty({'status': 'not_found_or_unavailable'}))
+        self.assertFalse(run._cacheable_empty({'status': 'query_failed'}))
 
-    def test_legacy_bad_cache_is_queried_again(self):
+    def test_current_schema_rejects_unknown_task_and_discovery_fields(self):
+        with self.assertRaisesRegex(run.ContractError, 'unsupported input fields'):
+            run.run_discovery_flow({'request': '派对用品新品', 'unexpected': 'value'})
+        with self.assertRaisesRegex(run.ContractError, 'unsupported task fields'):
+            run.create_task('派对用品新品', {'unexpected': 'value'})
+        with self.assertRaisesRegex(run.ContractError, 'unsupported discovery fields'):
+            run.run_discovery_flow({'request': '派对用品新品', 'discovery': {'unexpected': 'value'}})
+
+    def test_history_flow_passes_canonical_history_settings(self):
+        with tempfile.TemporaryDirectory() as folder, \
+             patch.object(run, 'analyze_new_releases_database', return_value={'warnings': []}) as analyze, \
+             patch.object(run, 'discovery_records_from_history', return_value=[]) as candidates:
+            manifest = {'artifacts': {}, 'warnings': []}
+            run._history_database_source(
+                {'strategy_resolution': {'source_marketplaces': ['US']}},
+                {'discovery': {'source': 'new_releases_db', 'history': {'db_path': 'data/new_releases.db', 'days': 7}}},
+                Path(folder), manifest,
+            )
+        settings = analyze.call_args.args[0]['history']
+        self.assertEqual(settings['db_path'], 'data/new_releases.db')
+        self.assertEqual(settings['days'], 7)
+        self.assertEqual(settings['limit'], 100)
+        candidates.assert_called_once()
+
+    def test_database_location_requires_current_explicit_setting(self):
+        with patch.dict(history_db.os.environ, {}, clear=True):
+            with self.assertRaises(history_db.HistoryDatabaseError):
+                history_db.resolve_database_path({})
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            (root/'05-sellersprite-de-raw.json').write_text(json.dumps({'records': [], 'outcomes': [{'asin': ASIN, 'status': 'not_found_or_unavailable'}]}))
-            with patch.object(run, 'collect_sellersprite_by_asin', return_value={'records': [], 'outcomes': [], 'collection_status': 'blocked', 'block_reason': 'sellersprite_login_required'}) as query:
-                manifest = {'artifacts': {}, 'warnings': []}
-                run._enrich_records_from_sellersprite([{'marketplace':'DE','asin':ASIN}], {}, root, manifest)
-                query.assert_called_once()
-                self.assertIn('sellersprite_login_required', manifest['enrichment_blocking_items'])
+            database = Path(folder) / 'new_releases.db'
+            database.touch()
+            self.assertEqual(history_db.resolve_database_path({'history': {'db_path': str(database)}}), database.resolve())
 
     def test_unsupported_batch_resets_page_before_single_queries(self):
         page = MagicMock()

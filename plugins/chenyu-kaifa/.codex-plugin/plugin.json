@@ -1,6 +1,6 @@
 {
   "name": "chenyu-kaifa",
-  "version": "1.0.0+codex.20260926061556",
+  "version": "1.0.0+codex.20260926063214",
   "description": "Natural-language Amazon product discovery with read-only new-releases history analysis, transparent scoring and ranked Excel output for Chenyu.",
   "author": {
     "name": "chenyukeji",

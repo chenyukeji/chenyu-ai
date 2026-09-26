@@ -98,7 +98,6 @@ def resolve_strategy(request: str | None, task: dict, selection: dict | None, ru
     configured_markets = (
         selection.get("source_marketplaces")
         or task.get("source_marketplaces")
-        or task.get("discovery_marketplaces")
     )
     if configured_markets:
         if not isinstance(configured_markets, list):
@@ -138,8 +137,6 @@ def resolve_strategy(request: str | None, task: dict, selection: dict | None, ru
 
 def resolve_category(request: str | None, task: dict) -> dict:
     request = str(request or "").strip()
-    if "amazon_new_releases" in task or "category_or_need" in task:
-        raise StrategyRouteError("类目参数已更新，请使用 task.categories 重新提交")
     presets = load_category_presets()
     categories = task.get("categories")
     source = "custom"

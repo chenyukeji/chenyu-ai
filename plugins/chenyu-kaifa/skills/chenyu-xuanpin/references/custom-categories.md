@@ -34,9 +34,9 @@
 }
 ```
 
-单类目和多类目统一使用 `task.categories`。旧的 `task.category_or_need`、`task.amazon_new_releases` 和 `discovery.amazon_new_releases` 输入已移除，调用会明确报错，不自动转换。仅网址格式、站点及新品榜路径由程序校验；是否准确对应产品范围仍须在调用前核实。
+单类目和多类目统一使用 `task.categories`。不支持的 `task` 或 `discovery` 字段会直接报错。仅网址格式、站点及新品榜路径由程序校验；是否准确对应产品范围仍须在调用前核实。
 
-本流程格式为 `discovery-v3`。旧版运行目录不能续跑，须创建新任务；不读取旧任务和旧候选缓存。
+本流程格式为 `discovery-v3`。续跑目录必须与当前流程格式一致。
 
 ## 多入口采集与续跑
 

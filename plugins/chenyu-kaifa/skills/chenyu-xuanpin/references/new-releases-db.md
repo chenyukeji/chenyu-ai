@@ -138,7 +138,7 @@ ON observations(marketplace, category, snapshot_date, rank);
 }
 ```
 
-也可设置环境变量 `CHENYU_NEW_RELEASES_DB`，避免每次传路径。
+必须传入 `db_path` 或设置环境变量 `CHENYU_NEW_RELEASES_DB`；插件不会自动扫描目录猜测数据库位置。
 
 用历史信号进入完整开品流程：
 
@@ -148,10 +148,10 @@ ON observations(marketplace, category, snapshot_date, rank);
   "request": "从过去10天新品榜找持续出现和排名上升的派对用品",
   "discovery": {
     "source": "new_releases_db",
-    "history_db_path": "D:/data/new_releases.db",
-    "db_category": "party-supplies",
-    "history_days": 10,
     "history": {
+      "db_path": "D:/data/new_releases.db",
+      "category": "party-supplies",
+      "days": 10,
       "min_repeat_days": 3,
       "min_rank_improvement": 5
     }

@@ -28,6 +28,18 @@ from category_sources import CategoryInputError, resolve_sources
 
 RULES_PATH = Path(__file__).resolve().parents[1] / "references" / "runtime-rules.json"
 FLOW_VERSION = "discovery-v3"
+RUN_INPUT_KEYS = {
+    "skill_action", "request", "task", "strategy_selection", "run_dir",
+    "discovery_records", "candidates", "discovery_paths", "discovery",
+    "profile_dir", "as_of_date", "shortlist_limit", "output_path",
+}
+TASK_INPUT_KEYS = {"task_id", "shortlist_limit", "categories", "strategy_ids", "source_marketplaces"}
+DISCOVERY_INPUT_KEYS = {
+    "source", "history", "collect_live", "refresh", "refresh_sellersprite",
+    "sellersprite_enrich", "headless", "limit_per_marketplace", "max_pages",
+    "query_timeout_ms", "query_delay_ms", "query_poll_ms", "empty_grace_ms",
+    "batch_queries", "batch_size", "manual_timeout_seconds", "profile_dir",
+}
 SELLERSPRITE_FIELDS = (
     "source_available_date",
     "review_count",
@@ -83,7 +95,7 @@ def _folder_component(value) -> str:
 
 def _default_run_dir(task: dict) -> Path:
     run_date = datetime.now(timezone.utc).astimezone().date().isoformat()
-    product_name = _folder_component(task.get("category_or_need") or task.get("request"))
+    product_name = _folder_component(task["category_resolution"].get("category_normalized") or task.get("request"))
     parent = _find_chenyu_ai_root() / "outputs" / "chenyu-kaifa" / "product-discovery"
     base_name = f"{run_date}_{product_name}"
     candidate = parent / base_name
@@ -98,14 +110,15 @@ def _default_run_dir(task: dict) -> Path:
 def create_task(request=None, task=None, strategy_selection=None) -> dict:
     rules = load_rules()
     task = dict(task or {})
+    unknown = sorted(set(task) - TASK_INPUT_KEYS)
+    if unknown:
+        raise ContractError("unsupported task fields: " + ", ".join(unknown))
     strategy = resolve_strategy(request, task, strategy_selection, rules)
     category = resolve_category(request, task)
-    category_name = category.get("category_normalized") or category.get("category_original")
     return {
         "flow_version": FLOW_VERSION,
         "task_id": task.get("task_id") or f"discovery-{uuid.uuid4().hex[:12]}",
         "request": request,
-        "category_or_need": category_name,
         "category_resolution": category,
         "strategy_resolution": strategy,
         "shortlist_limit": int(task.get("shortlist_limit", 20)),
@@ -198,7 +211,7 @@ def _missing_sellersprite_fields(row: dict) -> list[str]:
 
 def _apply_category_context(records: list[dict], task: dict) -> list[dict]:
     category = task.get("category_resolution") or {}
-    category_name = category.get("category_normalized") or task.get("category_or_need")
+    category_name = category.get("category_normalized")
     if not category_name:
         return records
     for row in records:
@@ -351,13 +364,10 @@ def _enrich_records_from_sellersprite(
 
 
 def _load_input_data(payload: dict) -> tuple[list[dict], list[dict], list[str]]:
-    discovery = dict(payload.get("discovery") or {})
-    records = list(payload.get("discovery_records") or discovery.get("records") or [])
-    candidates = list(payload.get("candidates") or discovery.get("candidates") or [])
+    records = list(payload.get("discovery_records") or [])
+    candidates = list(payload.get("candidates") or [])
     sources = []
-    paths = list(payload.get("discovery_paths") or discovery.get("paths") or [])
-    if payload.get("discovery_path"):
-        paths.append(payload["discovery_path"])
+    paths = list(payload.get("discovery_paths") or [])
     for value in paths:
         path = Path(value).expanduser().resolve()
         source_records, source_candidates = _content_records(_read_json(path))
@@ -472,14 +482,8 @@ def _live_strategy_e(task: dict, payload: dict, run_dir: Path, manifest: dict) -
 def _history_database_source(task: dict, payload: dict, run_dir: Path, manifest: dict) -> list[dict]:
     discovery = dict(payload.get("discovery") or {})
     history = dict(discovery.get("history") or {})
-    if discovery.get("history_db_path"):
-        history.setdefault("db_path", discovery["history_db_path"])
-    if discovery.get("new_releases_db_path"):
-        history.setdefault("db_path", discovery["new_releases_db_path"])
-    if discovery.get("db_category"):
-        history.setdefault("category", discovery["db_category"])
-    history.setdefault("days", discovery.get("history_days", 10))
-    history.setdefault("limit", discovery.get("history_limit", discovery.get("limit_per_marketplace", 100)))
+    history.setdefault("days", 10)
+    history.setdefault("limit", 100)
 
     analysis_payload = {
         "history": history,
@@ -498,6 +502,9 @@ def _history_database_source(task: dict, payload: dict, run_dir: Path, manifest:
 
 def run_discovery_flow(payload: dict) -> dict:
     flow_started = time.perf_counter()
+    unknown_input = sorted(set(payload) - RUN_INPUT_KEYS)
+    if unknown_input:
+        raise ContractError("unsupported input fields: " + ", ".join(unknown_input))
     requested_run_dir = payload.get("run_dir")
     saved_task = None
     if requested_run_dir:
@@ -505,11 +512,13 @@ def run_discovery_flow(payload: dict) -> dict:
         if saved_path.exists():
             saved_task = _read_json(saved_path)
     task_updates = payload.get("task") or {}
-    if "amazon_new_releases" in (payload.get("discovery") or {}):
-        raise ContractError("旧版 discovery.amazon_new_releases 已移除，请使用 task.categories 重新提交")
+    discovery = dict(payload.get("discovery") or {})
+    unknown_discovery = sorted(set(discovery) - DISCOVERY_INPUT_KEYS)
+    if unknown_discovery:
+        raise ContractError("unsupported discovery fields: " + ", ".join(unknown_discovery))
     if saved_task:
         if saved_task.get("flow_version") != FLOW_VERSION:
-            raise ContractError("此目录是旧版选品任务，请用新的 run_dir 重新提交；不读取旧类目配置或候选缓存")
+            raise ContractError("run_dir flow_version does not match current workflow")
         if task_updates or payload.get("strategy_selection"):
             updated = {"task_id": saved_task["task_id"], "shortlist_limit": saved_task["shortlist_limit"],
                        "categories": saved_task["category_resolution"]["categories"], **task_updates}
@@ -540,18 +549,13 @@ def run_discovery_flow(payload: dict) -> dict:
     records, candidates, sources = _load_input_data(payload)
     _record_timing(manifest, "input_loading", stage_started)
     saved_records_path = run_dir / "07-source-records.json"
-    discovery = dict(payload.get("discovery") or {})
     source_scope = {
         "category_resolution": task["category_resolution"],
         "marketplaces": task["strategy_resolution"]["source_marketplaces"],
         "discovery": {key: value for key, value in discovery.items()
                       if key not in {"refresh", "refresh_sellersprite", "sellersprite_enrich"}},
     }
-    use_history_database = bool(
-        discovery.get("history_db_path")
-        or discovery.get("new_releases_db_path")
-        or discovery.get("source") == "new_releases_db"
-    )
+    use_history_database = discovery.get("source") == "new_releases_db"
     if not records and not candidates and use_history_database:
         stage_started = time.perf_counter()
         records = _history_database_source(task, payload, run_dir, manifest)
