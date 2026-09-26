@@ -87,6 +87,11 @@ class ReliabilityTests(unittest.TestCase):
                 _, _, reason = self.query(FakePage(response=Response(code=code, status=status)))
                 self.assertEqual(reason, expected)
 
+    def test_api_success_with_unrelated_asins_is_result_mismatch(self):
+        page = FakePage(response=Response({'items': [{'asin': 'B001NCAP2C'}], 'total': 1}))
+        _, _, reason = self.query(page)
+        self.assertEqual(reason, 'query_result_mismatch')
+
     def test_data_present_but_parser_empty_is_parse_error(self):
         _, _, reason = self.query(FakePage(response=Response({'items': [{'asin': ASIN}], 'total': 1})))
         self.assertEqual(reason, 'query_parse_error')

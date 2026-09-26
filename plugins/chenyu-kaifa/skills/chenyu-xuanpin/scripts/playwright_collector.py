@@ -1065,8 +1065,13 @@ class _SellerSpriteQueryResponse:
             if not isinstance(data, dict) or not isinstance(data.get("items"), list):
                 self.error = "query_response_unrecognized"
                 return
+            items = data["items"]
+            returned_asins = {str(item.get("asin") or "").upper() for item in items if isinstance(item, dict)}
+            if returned_asins and not returned_asins.intersection(self.asins):
+                self.error = "query_result_mismatch"
+                return
             self.completed = True
-            self.empty = data.get("total") == 0 and not data["items"]
+            self.empty = data.get("total") == 0 and not items
         except Exception:
             self.error = "query_response_unrecognized"
 
@@ -1165,6 +1170,21 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                             found, elapsed, reason = _wait_sellersprite_query(page, payload, marketplace, group, trigger, timeout, poll)
                     except Exception:
                         found, elapsed, reason = [], 0, "query_browser_error"
+                    if len(group) == 1 and reason in {"query_result_mismatch", "query_parse_error"}:
+                        # A successful HTTP response may contain a stale default list. Retry once
+                        # after restoring the lookup page; never attribute unrelated rows to this ASIN.
+                        _goto(page, url)
+                        session_problem = _wait_for_sellersprite_session(page)
+                        if session_problem:
+                            reason = session_problem
+                        else:
+                            selected_market = _select_sellersprite_market(page, marketplace)
+                            try:
+                                found, elapsed, reason = _wait_sellersprite_query(
+                                    page, payload, marketplace, group, trigger, timeout, poll,
+                                )
+                            except Exception:
+                                found, elapsed, reason = [], 0, "query_browser_error"
                     if reason in {"sellersprite_login_required", "authentication_or_permission_required"} and not refreshed and username and password:
                         refreshed = True
                         auth = _login_sellersprite_in_page(page, username, password, url, int(payload.get("manual_timeout_seconds", 30)))
@@ -1180,7 +1200,7 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                         records.append(record)
                         outcomes.append({"asin": record["asin"], "status": "enriched", "record_count": 1, "elapsed_ms": elapsed, "stop_reason": "matched", "query_mode": mode})
                     missing = [a for a in group if a not in matched_asins]
-                    if len(group) > 1 and reason in {"partial_match", "query_response_unrecognized"}:
+                    if len(group) > 1 and reason in {"partial_match", "query_response_unrecognized", "query_result_mismatch"}:
                         # Restore normal UI defaults before retrying an unsupported batch URL.
                         _goto(page, url)
                         block_reason = _wait_for_sellersprite_session(page)
