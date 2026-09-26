@@ -29,7 +29,7 @@ IMPLEMENTATION_STATUS = {
     "F": "planned",
     "H": "planned",
     "I": "planned",
-    "J": "import_ready",
+    "J": "available",
 }
 
 
@@ -85,6 +85,11 @@ def resolve_strategy(request: str | None, task: dict, selection: dict | None, ru
                 matches.append((min(positions), strategy_id))
         matches.sort()
         strategy_ids = [strategy_id for _, strategy_id in matches]
+        if "J" in strategy_ids and "E" in strategy_ids and not any(
+            signal in lowered for signal in ("新品榜", "new releases", "new release")
+        ):
+            strategy_ids.remove("E")
+            reason_codes.append("FBM_RECENT_OVERRIDES_GENERIC_NEW_PRODUCT_WORD")
         if strategy_ids:
             source = "inferred"
             confidence = "high" if len(strategy_ids) == 1 else "medium"

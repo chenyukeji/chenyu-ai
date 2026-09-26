@@ -23,11 +23,13 @@ from new_releases_history import (
     discovery_records_from_history,
 )
 from playwright_collector import BrowserCollectionError, browser_status, collect, collect_sellersprite_by_asin, login_sellersprite
+from sellersprite_j import collect_recent_fbm
+from strategy_j import qualify_recent_fbm, score_recent_fbm, table_rows_recent_fbm
 from strategy_router import StrategyRouteError, list_strategies, resolve_category, resolve_strategy
 from category_sources import CategoryInputError, resolve_sources
 
 RULES_PATH = Path(__file__).resolve().parents[1] / "references" / "runtime-rules.json"
-FLOW_VERSION = "discovery-v3"
+FLOW_VERSION = "discovery-v4"
 RUN_INPUT_KEYS = {
     "skill_action", "request", "task", "strategy_selection", "run_dir",
     "discovery_records", "candidates", "discovery_paths", "discovery",
@@ -39,6 +41,7 @@ DISCOVERY_INPUT_KEYS = {
     "sellersprite_enrich", "headless", "limit_per_marketplace", "max_pages",
     "query_timeout_ms", "query_delay_ms", "query_poll_ms", "empty_grace_ms",
     "batch_queries", "batch_size", "manual_timeout_seconds", "profile_dir",
+    "j_min_monthly_sales", "j_keyword",
 }
 SELLERSPRITE_FIELDS = (
     "source_available_date",
@@ -479,6 +482,48 @@ def _live_strategy_e(task: dict, payload: dict, run_dir: Path, manifest: dict) -
     return records
 
 
+def _live_strategy_j(task: dict, payload: dict, run_dir: Path, manifest: dict) -> list[dict]:
+    discovery = dict(payload.get("discovery") or {})
+    records = []
+    for market in task["strategy_resolution"]["source_marketplaces"]:
+        query = {
+            "marketplace": market,
+            "min_monthly_sales": discovery.get("j_min_monthly_sales", 100),
+            "keyword": discovery.get("j_keyword"),
+            "max_pages": discovery.get("max_pages", 3),
+            "headless": discovery.get("headless", True),
+            "profile_dir": discovery.get("profile_dir") or payload.get("profile_dir"),
+        }
+        digest = hashlib.sha256(json.dumps({
+            key: query[key] for key in ("marketplace", "min_monthly_sales", "keyword", "max_pages")
+        }, sort_keys=True).encode()).hexdigest()[:12]
+        path = run_dir / f"04-sellersprite-j-{market.lower()}-{digest}.json"
+        cached = _read_json(path) if path.exists() and not discovery.get("refresh") else {}
+        if cached.get("collection_status") in {"complete", "partial"}:
+            result = cached
+        else:
+            try:
+                result = collect_recent_fbm(query)
+            except Exception as exc:
+                result = {
+                    "collection_status": "blocked",
+                    "block_reason": f"j_product_research_{type(exc).__name__}: {str(exc)[:180]}",
+                    "records": [],
+                }
+            _write_json(path, result)
+        manifest["artifacts"][f"sellersprite_j_{market.lower()}"] = str(path.resolve())
+        if result.get("collection_status") == "blocked":
+            manifest.setdefault("enrichment_blocking_items", []).append(
+                f"{market}: {result.get('block_reason') or 'SellerSprite product research blocked'}"
+            )
+            break
+        if result.get("collection_status") != "complete":
+            manifest["enrichment_incomplete"] = True
+            manifest["warnings"].append(f"{market} 卖家精灵选产品仅采集到部分可见结果，覆盖范围有限。")
+        records.extend(result.get("records") or [])
+    return records
+
+
 def _history_database_source(task: dict, payload: dict, run_dir: Path, manifest: dict) -> list[dict]:
     discovery = dict(payload.get("discovery") or {})
     history = dict(discovery.get("history") or {})
@@ -552,10 +597,13 @@ def run_discovery_flow(payload: dict) -> dict:
     source_scope = {
         "category_resolution": task["category_resolution"],
         "marketplaces": task["strategy_resolution"]["source_marketplaces"],
+        "strategies": task["strategy_resolution"]["strategy_ids"],
         "discovery": {key: value for key, value in discovery.items()
                       if key not in {"refresh", "refresh_sellersprite", "sellersprite_enrich"}},
     }
     use_history_database = discovery.get("source") == "new_releases_db"
+    if use_history_database and task["strategy_resolution"]["strategy_ids"] == ["J"]:
+        raise ContractError("J 从卖家精灵选产品采集，不使用新品榜历史数据库")
     if not records and not candidates and use_history_database:
         stage_started = time.perf_counter()
         records = _history_database_source(task, payload, run_dir, manifest)
@@ -568,15 +616,79 @@ def run_discovery_flow(payload: dict) -> dict:
                 "history_database_analysis",
                 ["NEW_REPEAT_OR_RISING_signals"],
             )
-    refresh_live_e = (
+    refresh_live = (
         bool(discovery.get("refresh"))
-        and task["strategy_resolution"]["strategy_ids"] == ["E"]
+        and task["strategy_resolution"]["strategy_ids"] in (["E"], ["J"])
         and discovery.get("collect_live", True)
     )
-    if not records and not candidates and saved_records_path.exists() and not refresh_live_e:
+    if not records and not candidates and saved_records_path.exists() and not refresh_live:
         saved_records = _read_json(saved_records_path)
         if saved_records.get("source_scope") == source_scope:
             records = saved_records.get("records") or []
+    strategy_ids = task["strategy_resolution"]["strategy_ids"]
+    if not records and not candidates and strategy_ids == ["J"] and discovery.get("collect_live", True):
+        stage_started = time.perf_counter()
+        records = _live_strategy_j(task, payload, run_dir, manifest)
+        _record_timing(manifest, "sellersprite_j_collection", stage_started)
+    if strategy_ids == ["J"] and manifest.get("enrichment_blocking_items"):
+        if not records:
+            return _stop(manifest, run_dir, "AWAITING_ENRICHMENT", "sellersprite_j_collection",
+                         manifest["enrichment_blocking_items"])
+        manifest["enrichment_incomplete"] = True
+        manifest["warnings"].append(
+            "部分站点卖家精灵采集受阻，仅交付已核实的站点候选：" +
+            "、".join(manifest["enrichment_blocking_items"])
+        )
+    if strategy_ids == ["J"]:
+        if not records and not candidates and not discovery.get("collect_live", True):
+            return _stop(manifest, run_dir, "AWAITING_DISCOVERY_INPUT", "j_candidate_input",
+                         ["J 已关闭实时采集，请提供卖家精灵产品记录"])
+        if candidates and not records:
+            return _stop(manifest, run_dir, "AWAITING_DISCOVERY_INPUT", "j_candidate_input",
+                         ["J 需要含站点、ASIN、上架日期、FBM 和月销量的产品记录"])
+        if records:
+            manifest["artifacts"]["source_records"] = _write_json(
+                saved_records_path, {"records": records, "sources": sources,
+                                     "count": len(records), "source_scope": source_scope}
+            )
+        eligibility = qualify_recent_fbm(
+            records, as_of_date=payload.get("as_of_date"),
+            min_monthly_sales=int(discovery.get("j_min_monthly_sales", 100)),
+        )
+        manifest["artifacts"]["j_eligibility"] = _write_json(
+            run_dir / "08-j-eligibility.json", eligibility
+        )
+        qualified = eligibility["accepted"]
+        if not qualified:
+            return _stop(manifest, run_dir, "NO_QUALIFIED_J_CANDIDATES", "j_eligibility",
+                         ["没有经上架时间、FBM 和预估月销量三项证实的候选"])
+        manifest["artifacts"]["candidate_pool"] = _write_json(
+            run_dir / "08-candidate-pool.json",
+            {"candidates": qualified, "count": len(qualified), "strategy": "J"},
+        )
+        screening = score_recent_fbm(
+            qualified, records, as_of_date=payload.get("as_of_date"),
+            shortlist_limit=int(payload.get("shortlist_limit") or task.get("shortlist_limit") or 20),
+        )
+        manifest["artifacts"]["screening"] = _write_json(run_dir / "09-screening.json", screening)
+        rows = table_rows_recent_fbm(screening)
+        manifest["artifacts"]["table_rows"] = _write_json(run_dir / "10-table-rows.json", {"rows": rows})
+        workbook = export_discovery_workbook(
+            payload.get("output_path") or (run_dir / "开品结果.xlsx"), rows
+        )
+        manifest["artifacts"]["workbook"] = workbook["path"]
+        status = "PARTIAL" if manifest.get("enrichment_incomplete") else "COMPLETE"
+        manifest.update({"status": status, "current_stage": "delivery", "blocking_items": []})
+        _record_timing(manifest, "total", flow_started)
+        _save_manifest(manifest, run_dir)
+        return {"ok": True, "run_id": manifest["run_id"], "status": status,
+                "strategy_resolution": task["strategy_resolution"],
+                "category_resolution": task["category_resolution"],
+                "counts": {**eligibility["counts"], **screening["counts"]},
+                "score_method": screening["method"], "workbook": workbook,
+                "artifacts": dict(manifest["artifacts"]),
+                "warnings": list(manifest["warnings"]),
+                "timings_ms": dict(manifest["timings_ms"]), "run_dir": str(run_dir)}
     if not records and not candidates:
         strategy_ids = task["strategy_resolution"]["strategy_ids"]
         if strategy_ids == ["E"] and (payload.get("discovery") or {}).get("collect_live", True):

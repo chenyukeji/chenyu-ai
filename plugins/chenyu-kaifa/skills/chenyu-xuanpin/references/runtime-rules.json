@@ -14,7 +14,7 @@
     "F": {"name": "现货组合与单品比较", "role": "candidate_discovery", "phase": "planned"},
     "H": {"name": "历史旺季提前备货", "role": "candidate_discovery", "phase": "planned"},
     "I": {"name": "店铺相邻产品扩品", "role": "candidate_discovery", "phase": "planned"},
-    "J": {"name": "近60天FBM机会", "role": "candidate_discovery", "phase": "import_ready"}
+    "J": {"name": "近60天FBM机会", "role": "candidate_discovery", "phase": "available"}
   },
   "scoring": {
     "method": "new_product_discovery_score_v1",

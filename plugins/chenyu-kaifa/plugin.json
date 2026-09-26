@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-kaifa",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Natural-language Amazon product discovery, transparent scoring and ranked Excel output for Chenyu.",
   "author": {"name": "chenyukeji", "url": "https://github.com/chenyukeji"},
   "homepage": "https://github.com/chenyukeji/chenyu-ai",
@@ -11,10 +11,10 @@
   "interface": {
     "displayName": "晨玙 Amazon 开发",
     "shortDescription": "自动找品、补数并生成中文开品结论表。",
-    "longDescription": "根据自然语言自动识别找品策略；未说明时默认抓取 Amazon 美国站和德国站新品榜 ASIN，并用卖家精灵补充数据，生成透明评分和按得分降序的开品 Excel。",
+    "longDescription": "根据自然语言自动识别找品策略；未说明时默认分析 Amazon 美德新品榜；指定 J 时独立使用卖家精灵选产品筛查近60天 FBM 热销商品，逐项核验低价、季节性、站外流量、功能创新和变体证据，并生成开品 Excel。",
     "developerName": "晨玙科技",
     "category": "Productivity",
-    "capabilities": ["Natural-language strategy routing", "Internal Playwright collection", "Amazon ASIN discovery", "SellerSprite enrichment", "Candidate scoring", "Ranked Excel output"],
+    "capabilities": ["Natural-language strategy routing", "Internal Playwright collection", "Amazon ASIN discovery", "SellerSprite enrichment", "Recent FBM product research", "Candidate scoring", "Ranked Excel output"],
     "defaultPrompt": "根据我的要求找产品，用卖家精灵补数，并生成按内部得分降序、包含中文结论和理由的 Excel。"
   }
 }

@@ -761,7 +761,7 @@ def _parse_sellersprite_combined_fields(record: dict, headers: list[str], cells:
 
 
 def _extract_best_table(page, table_selector: str | None = None) -> dict:
-    script = """
+    script = r"""
     ({selector}) => {
       const roots = selector
         ? Array.from(document.querySelectorAll(selector))
@@ -779,7 +779,10 @@ def _extract_best_table(page, table_selector: str | None = None) -> dict:
             .filter(visible).map(el => (el.innerText || el.textContent || '').trim());
           const links = Array.from(row.querySelectorAll('a[href]')).map(a => a.href);
           const imageUrls = Array.from(row.querySelectorAll('img[src]')).map(img => img.currentSrc || img.src).filter(Boolean);
-          return {cells, links, imageUrls};
+          const backgroundUrls = Array.from(row.querySelectorAll('[style*="background"]'))
+            .map(el => (el.style.backgroundImage || el.style.background || '').match(/url\(["']?(.*?)["']?\)/)?.[1])
+            .filter(Boolean);
+          return {cells, links, imageUrls: [...imageUrls, ...backgroundUrls]};
         }).filter(row => row.cells.some(Boolean));
         if (!headers.length && rows.length) headers = rows[0].cells.map((_, i) => `column_${i + 1}`);
         return {tableIndex, headers, rows, score: headers.length * 10 + rows.length};
@@ -797,7 +800,7 @@ def _usable_sellersprite_image_url(value) -> bool:
         return False
     lowered = url.lower()
     return not (
-        "sellersprite.com/v3/webapp/static/" in lowered
+        "/v3/webapp/static/" in lowered
         or lowered.endswith("/ai-guide.png")
     )
 

@@ -17,6 +17,7 @@ HEADERS = [
     "站点", "上架日期", "Review数量", "售价（当地币种）", "大品类排名", "所在品类", "预估月销量",
     "产品优点&特征", "缺点", "生命周期", "ASIN", "亚马逊产品链接", "图片", "结论", "理由",
 ]
+J_HEADERS = HEADERS + ["产品名称（原文）", "FBM资格证据", "近期火爆原因"]
 
 
 class WorkbookError(ValueError):
@@ -52,9 +53,9 @@ def _cell(ref: str, value, style=2) -> str:
 
 def _conclusion_style(value) -> int:
     text = str(value or "")
-    if "强开" in text or text.endswith("开") or "条件开" in text:
+    if "优先调研" in text or "强开" in text or text.endswith("开") or "条件开" in text:
         return 4
-    if "偏弱" in text or "观察" in text or "待补数据" in text:
+    if "继续核验" in text or "偏弱" in text or "观察" in text or "待补数据" in text:
         return 5
     if "不建议" in text:
         return 6
@@ -267,6 +268,7 @@ def export_discovery_workbook(
     if not isinstance(rows, list):
         raise WorkbookError("rows must be a list")
     rows = sorted(rows, key=lambda row: -float(row.get("得分") or 0))
+    headers = J_HEADERS if any("近期火爆原因" in row for row in rows) else HEADERS
     output = Path(output_path).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     cache_source = reuse_workbook_path or (output if output.exists() else None)
@@ -280,12 +282,12 @@ def export_discovery_workbook(
     hyperlink_rels = []
     hyperlinks = []
     xml_rows = []
-    header_cells = "".join(_cell(f"{_column_name(i)}1", header, 1) for i, header in enumerate(HEADERS, start=1))
+    header_cells = "".join(_cell(f"{_column_name(i)}1", header, 1) for i, header in enumerate(headers, start=1))
     xml_rows.append(f'<row r="1" ht="32" customHeight="1">{header_cells}</row>')
     for row_index, row in enumerate(rows):
         row_number = row_index + 2
         cells = []
-        for column_number, header in enumerate(HEADERS, start=1):
+        for column_number, header in enumerate(headers, start=1):
             ref = f"{_column_name(column_number)}{row_number}"
             value = row.get(header)
             if header == "图片":
@@ -299,6 +301,8 @@ def export_discovery_workbook(
         xml_rows.append(f'<row r="{row_number}" ht="120" customHeight="1">{"".join(cells)}</row>')
 
     widths = [8, 13, 11, 15, 12, 16, 13, 28, 27, 24, 14, 31, 22, 15, 65]
+    if headers is J_HEADERS:
+        widths.extend([45, 35, 95])
     cols = "".join(
         f'<col min="{index}" max="{index}" width="{width}" customWidth="1"/>'
         for index, width in enumerate(widths, start=1)
@@ -329,7 +333,7 @@ def export_discovery_workbook(
   <sheetFormatPr defaultRowHeight="18"/>
   <cols>{cols}</cols>
   <sheetData>{''.join(xml_rows)}</sheetData>
-  <autoFilter ref="A1:O{last_row}"/>
+  <autoFilter ref="A1:{_column_name(len(headers))}{last_row}"/>
   {hyperlink_xml}
   <pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>
   {drawing_tag}

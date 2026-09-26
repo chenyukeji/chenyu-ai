@@ -32,7 +32,7 @@ def test_explicit_arbitrary_categories_override_request_presets():
     assert len(sources) == 4
     assert {s['category'] for s in sources} == {'自定义厨房细分类目', '庭院园艺'}
     assert all('fixture-' in s['url'] for s in sources)
-    assert task['flow_version'] == 'discovery-v3'
+    assert task['flow_version'] == 'discovery-v4'
 
 
 @pytest.mark.parametrize('unsupported', [{'category_or_need': '厨房'}, {'amazon_new_releases': {}}])
