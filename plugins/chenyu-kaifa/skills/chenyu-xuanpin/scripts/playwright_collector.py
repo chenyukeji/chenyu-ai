@@ -887,6 +887,17 @@ def _sellersprite_auth_state(page) -> str:
     return "unknown"
 
 
+def _wait_for_sellersprite_identity(page, timeout_ms=12000) -> str:
+    """Check account identity on SellerSprite pages without requiring an ASIN field."""
+    deadline = time.monotonic() + timeout_ms / 1000
+    while time.monotonic() < deadline:
+        state = _sellersprite_auth_state(page)
+        if state != "unknown":
+            return state
+        page.wait_for_timeout(200)
+    return "unknown"
+
+
 def _sellersprite_login_block_reason(page, asin_input) -> str | None:
     state = _sellersprite_auth_state(page)
     if state == "guest":
@@ -1358,7 +1369,16 @@ def login(payload: dict) -> dict:
             context.close()
 
 
-def _login_sellersprite_in_page(page, username: str, password: str, destination: str, timeout_seconds: int) -> dict:
+def _login_sellersprite_in_page(page, username: str, password: str, destination: str,
+                                timeout_seconds: int, *, require_asin_query: bool = True) -> dict:
+    def session_reason() -> str | None:
+        if require_asin_query:
+            return _wait_for_sellersprite_session(page)
+        state = _wait_for_sellersprite_identity(page)
+        if state == "authenticated":
+            return None
+        return "sellersprite_login_required" if state == "guest" else "sellersprite_login_unverified"
+
     login_url = "https://www.sellersprite.com/cn/w/user/login"
     _goto(page, login_url)
     page.wait_for_timeout(800)
@@ -1367,8 +1387,7 @@ def _login_sellersprite_in_page(page, username: str, password: str, destination:
     submit = page.get_by_role("button", name=re.compile(r"立即登录|log\s*in|sign\s*in", re.I)).first
     if not account_input.count() or not password_input.count() or not submit.count():
         _goto(page, destination)
-        asin_input = _wait_for_sellersprite_asin_input(page, 12000)
-        if _wait_for_sellersprite_session(page) is None:
+        if session_reason() is None:
             return {"login_status": "verified", "current_url": page.url}
         raise BrowserCollectionError(f"SellerSprite password-login form was not found at {page.url}")
     account_input.fill(username)
@@ -1394,14 +1413,14 @@ def _login_sellersprite_in_page(page, username: str, password: str, destination:
         return {"login_status": "blocked", "block_reason": "browser_closed_before_login_completed"}
 
     _goto(page, destination)
-    asin_input = _wait_for_sellersprite_asin_input(page, 12000)
-    verified = _wait_for_sellersprite_session(page) is None
+    reason = session_reason()
+    verified = reason is None
     result = {"login_status": "verified" if verified else "blocked", "current_url": page.url}
     if not verified:
         result["block_reason"] = (
             "sellersprite_security_challenge_requires_user"
             if challenge_seen
-            else _sellersprite_login_block_reason(page, asin_input)
+            else reason
         )
     return result
 

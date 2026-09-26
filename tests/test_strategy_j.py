@@ -3,6 +3,7 @@ import json
 import sys
 import zipfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 from xml.etree import ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,6 +11,7 @@ SCRIPTS = ROOT / "plugins/chenyu-kaifa/skills/chenyu-xuanpin/scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import run
+import sellersprite_j
 from strategy_j import qualify_recent_fbm, score_recent_fbm
 
 
@@ -152,3 +154,52 @@ def test_j_collection_failure_keeps_blocking_evidence(monkeypatch, tmp_path):
     assert result["status"] == "AWAITING_ENRICHMENT"
     assert "j_product_research_RuntimeError" in result["blocking_items"][0]
     assert Path(result["artifacts"]["sellersprite_j_us"]).exists()
+
+
+
+def test_j_attempts_environment_login_before_searching_when_session_is_guest():
+    page = MagicMock()
+    context = MagicMock()
+    runtime = MagicMock()
+    manager = MagicMock()
+    manager.__enter__.return_value = runtime
+    with patch.object(sellersprite_j, "_sellersprite_credentials",
+                      return_value=("test-account", "test-secret", "environment")), \
+         patch.object(sellersprite_j, "_require_playwright", return_value=lambda: manager), \
+         patch.object(sellersprite_j, "_launch_context",
+                      return_value=(context, page, Path("/tmp/test-profile"))), \
+         patch.object(sellersprite_j, "_goto"), \
+         patch.object(sellersprite_j, "_challenge_visible", return_value=False), \
+         patch.object(sellersprite_j, "_wait_for_sellersprite_identity", return_value="guest"), \
+         patch.object(sellersprite_j, "_login_sellersprite_in_page",
+                      return_value={"login_status": "blocked",
+                                    "block_reason": "sellersprite_security_challenge_requires_user"}) as login:
+        result = sellersprite_j.collect_recent_fbm({"marketplace": "US"})
+    assert result["collection_status"] == "blocked"
+    assert result["block_reason"] == "sellersprite_security_challenge_requires_user"
+    assert result["records"] == []
+    assert login.call_args.kwargs["require_asin_query"] is False
+    page.get_by_text.assert_not_called()
+    assert "test-secret" not in str(result)
+
+
+def test_j_recollects_partial_cache_after_login_becomes_available(monkeypatch, tmp_path):
+    calls = []
+    def fake_research(payload):
+        calls.append(payload["marketplace"])
+        return {"collection_status": "partial" if len(calls) == 1 else "complete",
+                "records": [row("B0JGOOD001")]}
+    monkeypatch.setattr(run, "collect_recent_fbm", fake_research)
+    payload = {
+        "skill_action": "run_discovery_flow",
+        "request": "近60天 FBM 机会",
+        "strategy_selection": {"strategy_ids": ["J"], "source_marketplaces": ["US"]},
+        "run_dir": str(tmp_path / "internal"),
+        "output_path": str(tmp_path / "out" / "开品结果.xlsx"),
+        "as_of_date": "2026-09-26",
+    }
+    first = run.handle(payload)
+    second = run.handle(payload)
+    assert first["status"] == "PARTIAL"
+    assert second["status"] == "COMPLETE"
+    assert calls == ["US", "US"]

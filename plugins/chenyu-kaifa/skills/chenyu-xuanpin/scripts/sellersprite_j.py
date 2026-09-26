@@ -5,7 +5,8 @@ from urllib.parse import parse_qs, urlparse
 
 from playwright_collector import (
     BrowserCollectionError, MAX_PAGES, _challenge_visible, _goto, _launch_context,
-    _now_iso, _require_playwright, extract_sellersprite_table,
+    _login_sellersprite_in_page, _now_iso, _require_playwright, _sellersprite_auth_state,
+    _sellersprite_credentials, _wait_for_sellersprite_identity, extract_sellersprite_table,
 )
 
 PRODUCT_RESEARCH_URL = "https://www.sellersprite.com/v3/product-research"
@@ -27,6 +28,7 @@ def collect_recent_fbm(payload: dict) -> dict:
     keyword = str(payload.get("keyword") or "").strip()
     if min_sales < 1 or len(keyword) > 100:
         raise BrowserCollectionError("J 的销量阈值或关键词不合法")
+    username, password, credential_source = _sellersprite_credentials()
     sync_playwright = _require_playwright()
     with sync_playwright() as runtime:
         context, page, profile = _launch_context(
@@ -36,6 +38,21 @@ def collect_recent_fbm(payload: dict) -> dict:
             _goto(page, PRODUCT_RESEARCH_URL)
             if _challenge_visible(page):
                 return {"collection_status": "blocked", "block_reason": "sellersprite_challenge",
+                        "records": [], "profile_dir": str(profile)}
+            identity = _wait_for_sellersprite_identity(page)
+            if identity != "authenticated" and username and password:
+                auth = _login_sellersprite_in_page(
+                    page, username, password, PRODUCT_RESEARCH_URL,
+                    int(payload.get("manual_timeout_seconds", 30)), require_asin_query=False,
+                )
+                if auth.get("login_status") != "verified":
+                    return {"collection_status": "blocked",
+                            "block_reason": auth.get("block_reason") or "sellersprite_login_unverified",
+                            "records": [], "profile_dir": str(profile)}
+                identity = _wait_for_sellersprite_identity(page)
+            if username and password and identity != "authenticated":
+                return {"collection_status": "blocked",
+                        "block_reason": "sellersprite_login_unverified",
                         "records": [], "profile_dir": str(profile)}
             market_button = page.get_by_text("选择站点", exact=True).locator("..").get_by_role(
                 "button", name=MARKET_LABELS[market]
@@ -94,7 +111,10 @@ def collect_recent_fbm(payload: dict) -> dict:
                 next_button.click()
                 page.wait_for_function("previous => location.href !== previous",
                                        arg=previous, timeout=12000)
-            guest = "未登录" in page.locator("body").inner_text()[:1000]
+            guest = _sellersprite_auth_state(page) != "authenticated"
+            if guest and credential_source:
+                return {"collection_status": "blocked", "block_reason": "sellersprite_session_lost",
+                        "records": [], "profile_dir": str(profile)}
             return {
                 "collection_status": "partial" if guest or has_more else "complete",
                 "records": records,
@@ -106,6 +126,7 @@ def collect_recent_fbm(payload: dict) -> dict:
                     "filters": {"listing_age_days": 60, "fulfillment": "FBM",
                                 "min_monthly_sales": min_sales, "keyword": keyword or None},
                     "guest_view": guest,
+                    "credential_source": credential_source,
                 },
                 "profile_dir": str(profile),
             }

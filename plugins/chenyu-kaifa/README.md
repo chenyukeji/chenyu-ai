@@ -2,7 +2,7 @@
 
 插件名称为 `chenyu-kaifa`，当前只包含一个选品 Skill：`chenyu-xuanpin`。
 
-当前版本：`1.1.0`。已完成的能力和后续待办见 [STATUS.md](STATUS.md)。
+当前版本：`1.1.1`。已完成的能力和后续待办见 [STATUS.md](STATUS.md)。
 
 输入自然语言选品要求后，插件自动识别找品策略。用户没有说明策略时默认使用 E，从 Amazon 美国站和德国站新品榜获取 ASIN，再通过卖家精灵按 ASIN 补充数据，分析评分并生成按得分降序的 `开品结果.xlsx`。
 
@@ -59,7 +59,7 @@ python -m pip install -r requirements-browser.txt
 python -m playwright install chromium
 ```
 
-卖家精灵账号由本地环境变量 `CHENYU_SELLERSPRITE_USERNAME` 和 `CHENYU_SELLERSPRITE_PASSWORD` 提供；不要写入源码或任务文件。
+卖家精灵账号由本地环境变量 `CHENYU_SELLERSPRITE_USERNAME` 和 `CHENYU_SELLERSPRITE_PASSWORD` 提供；不要写入源码或任务文件。 J 会先检查账号身份；若当前会话是游客且两个变量可用，会在同一浏览器会话中自动登录并核验，再开始筛选。已缓存的部分采集结果会重新采集，避免恢复登录后仍沿用游客结果。
 
 卖家精灵单条 ASIN 查询默认最多等待 8 秒；正常命中、查询请求完成但无匹配，或页面明确返回空结果时都会立即进入下一条。每条查询在原始结果中记录实际耗时和结束原因，普通续跑会跳过已经确认查不到的 ASIN。
 

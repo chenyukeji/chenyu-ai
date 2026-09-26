@@ -499,7 +499,7 @@ def _live_strategy_j(task: dict, payload: dict, run_dir: Path, manifest: dict) -
         }, sort_keys=True).encode()).hexdigest()[:12]
         path = run_dir / f"04-sellersprite-j-{market.lower()}-{digest}.json"
         cached = _read_json(path) if path.exists() and not discovery.get("refresh") else {}
-        if cached.get("collection_status") in {"complete", "partial"}:
+        if cached.get("collection_status") == "complete":
             result = cached
         else:
             try:
