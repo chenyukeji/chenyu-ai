@@ -1,7 +1,7 @@
 {
   "name": "chenyu-kaifa",
-  "version": "1.1.1",
-  "description": "Natural-language Amazon product discovery with read-only new-releases history analysis, transparent scoring and ranked Excel output for Chenyu.",
+  "version": "1.1.2",
+  "description": "Amazon product discovery plus one-product-per-workbook development documentation for Chenyu.",
   "author": {
     "name": "chenyukeji",
     "url": "https://github.com/chenyukeji"
@@ -18,8 +18,8 @@
   "skills": "skills",
   "interface": {
     "displayName": "晨玙 Amazon 开发",
-    "shortDescription": "自动找品、补数并生成中文开品结论表。",
-    "longDescription": "根据自然语言自动识别找品策略；未说明时默认分析 Amazon 美德新品榜；指定 J 时独立使用卖家精灵选产品筛查近60天 FBM 热销商品，逐项核验低价、季节性、站外流量、功能创新和变体证据，并生成开品 Excel。",
+    "shortDescription": "自动找品，并按每个产品生成独立开发 Excel。",
+    "longDescription": "根据自然语言识别找品策略并生成开品结果；也可把已确认产品、竞品、供应商、变体和图片整理成每个产品一个文件的三表开发 Excel，供运营继续生成 Listing 和作图要求。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": [
@@ -31,8 +31,10 @@
       "SellerSprite enrichment",
       "Recent FBM product research",
       "Candidate scoring",
-      "Ranked Excel output"
+      "Ranked Excel output",
+      "One-product-per-workbook development documentation",
+      "Embedded product and supplier images"
     ],
-    "defaultPrompt": "根据我的要求找产品，用卖家精灵补数，并生成按内部得分降序、包含中文结论和理由的 Excel。"
+    "defaultPrompt": "根据我的要求找产品，或把已确认产品整理成每个产品一个文件的开发 Excel。"
   }
 }

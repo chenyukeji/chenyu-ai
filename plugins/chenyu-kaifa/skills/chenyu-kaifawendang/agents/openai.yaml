@@ -1,0 +1,6 @@
+interface:
+  display_name: "晨玙 Amazon 开发文档"
+  short_description: "按每个产品生成独立的三表开发 Excel。"
+  default_prompt: "使用 $chenyu-kaifawendang，把我提供的产品资料按每个产品一个文件生成开发 Excel。"
+policy:
+  allow_implicit_invocation: true

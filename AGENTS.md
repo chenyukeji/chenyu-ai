@@ -13,6 +13,7 @@ This repository packages role-based Amazon workflows as portable plugins for com
 - Image brief planning belongs to `plugins/chenyu-yunying/skills/chenyu-zuotuyaoqiu`.
 - Advertising skill chenyu-guanggao is planned, not implemented.
 - Amazon product-discovery requests enter `plugins/chenyu-kaifa/skills/chenyu-xuanpin`.
+- One-product-per-workbook Amazon development documents belong to `plugins/chenyu-kaifa/skills/chenyu-kaifawendang`.
 - Supplier comparison, procurement planning, and supply tracking belong to `plugins/chenyu-caigou/skills/chenyu-caigou`.
 
 ## Packaging

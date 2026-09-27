@@ -1,8 +1,13 @@
 # 晨玙 Amazon 开发插件
 
-插件名称为 `chenyu-kaifa`，当前只包含一个选品 Skill：`chenyu-xuanpin`。
+插件名称为 `chenyu-kaifa`，当前包含两个专业 Skill：
 
-当前版本：`1.1.1`。已完成的能力和后续待办见 [STATUS.md](STATUS.md)。
+| Skill | 用途 | 主要输出 |
+| --- | --- | --- |
+| `chenyu-xuanpin` | 找品、补数、评分和开品判断 | 按得分降序的开品结果 Excel |
+| `chenyu-kaifawendang` | 把已确认产品、竞品、供应商、变体和图片整理成开发文档 | 每个产品一个三表开发 Excel |
+
+当前版本：`1.1.2`。已完成的能力和后续待办见 [STATUS.md](STATUS.md)。
 
 输入自然语言选品要求后，插件自动识别找品策略。用户没有说明策略时默认使用 E，从 Amazon 美国站和德国站新品榜获取 ASIN，再通过卖家精灵按 ASIN 补充数据，分析评分并生成按得分降序的 `开品结果.xlsx`。
 
@@ -50,6 +55,18 @@ E 的 Excel 列结构参考业务现有开品表，包含站点、上架日期�
 
 默认任务目录为 `outputs/chenyu-kaifa/product-discovery/YYYY-MM-DD_产品简称/`。同一天同名的新任务追加 `_02`、`_03`；续跑时显式传入原 `run_dir`，不覆盖其他运行结果。详细规则见 [输出目录规范](references/output-paths.md)。
 
+## 产品开发文档
+
+`chenyu-kaifawendang` 负责把已经选定或确认的产品资料整理成公司现有开发文档格式。一次输入多个产品时，每个产品独立生成一个工作簿；同一产品的颜色、尺寸、数量和图案变体保留在该产品文件的详情表中。
+
+每个开发工作簿固定包含：
+
+1. `参考产品信息调研`：站点、价格、排名、销量、ASIN、Amazon 链接和嵌入参考图。
+2. `产品确认`：产品图、成本、重量、交期、供应商、采购链接、首单数量和变体情况。
+3. `产品简称`：各变体的价格/克重、供应商产品名称或图片、内容清单、产品属性和自有产品图。
+
+开发文档使用插件内的去业务数据母版，产品图和供应商图直接嵌入 Excel。默认输出目录为 `outputs/chenyu-kaifa/product-development/YYYY-MM-DD_批次简称/`，同一批次的多个产品文件放在同一目录，但不合并成一个工作簿。
+
 ## 浏览器
 
 采集使用插件内部 Python/Playwright，不使用 Browser/Playwright MCP。依赖安装：
@@ -65,4 +82,4 @@ python -m playwright install chromium
 
 ## 当前边界
 
-当前只做选品与分析，不处理供应商报价、利润、采购、试销、Listing 或广告。
+`chenyu-xuanpin` 只做选品与分析。`chenyu-kaifawendang` 可以整理用户已提供的供应商报价、采购数量和产品资料，但不负责供应商比较、议价、采购决策、利润核算、下单、试销、Listing、作图要求或广告。
