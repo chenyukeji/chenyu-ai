@@ -43,7 +43,7 @@ python3 scripts/extract_brief.py INPUT.xlsx --out RUN_DIR/extracted
 - 产品颜色只约束产品本身，禁止把“粉色款”“蓝色产品”“配色相似”等产品事实扩展成背景色、环境光、渐变、光晕或装饰元素。参考图中的彩色背景对主图只可作为构图线索，不能继承。
 - 主图prompt必须逐字包含等价硬约束：`seamless pure white background (#FFFFFF); no tint, gradient, texture, glow, scenery, border, or decorative background; product color applies only to the product, never to the background or lighting`。不能用`blush white`、`soft pink-white`、`warm white`等近似措辞代替纯白。
 - 若作图单同时把一张图标为“主图”又明确要求彩色/场景背景，保留冲突记录并按最新用户指令处理。要使用彩色背景时，将其明确重分类为`infographic_detail`或`lifestyle_scene`，不得仍标记或宣称为主图。用户没有最新确认时，主图的纯白背景优先。
-- 主图生成后单独验收背景：查看四角、产品轮廓外侧和大片空白区域；发现色偏、渐变、阴影铺满背景、场景、边框或装饰即为`fail`，必须定向返修，不能以“接近白色”通过。
+- 主图生成后单独验收背景：查看四角、产品轮廓外侧和大片空白区域；发现可见色偏、渐变、阴影铺满背景、场景、边框或装饰仍为`fail`，必须定向返修。生成目标仍是精确 `#FFFFFF`；若唯一差异是不可见的近白像素，四角各 30×30 区域与最外侧 2 像素均满足 RGB 每通道不低于 250、同一像素通道差不超过 3，且肉眼检查确认主体外大片留白无可见色偏或渐变，则该背景要求记为 `pass` 并记录实测范围，不因 RGB 253–255 与 255 的微小差异反复返修或把整单标记失败。此容差不代替其他产品、文字、尺寸和画面检查。
 
 素材不足先用全部已提供内容判断是否真的影响任务；可继续的任务继续，最后集中指出具体缺口。不要要求用户重新上传已可读取的素材，也不要为普通构图选择反复确认。
 
