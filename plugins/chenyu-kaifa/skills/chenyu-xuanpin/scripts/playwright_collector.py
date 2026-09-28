@@ -205,6 +205,43 @@ def _apply_display_preferences(context, payload: dict) -> dict:
     return preferences
 
 
+def _sellersprite_cookie(cookie: dict) -> bool:
+    domain = str(cookie.get("domain", "")).lstrip(".").lower()
+    return domain == "sellersprite.com" or domain.endswith(".sellersprite.com")
+
+
+def _restore_sellersprite_session(context, path: Path) -> None:
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+        account = os.environ.get("CHENYU_SELLERSPRITE_USERNAME", "").strip()
+        if account and state.get("account") != account:
+            return
+        cookies = [cookie for cookie in state.get("cookies", [])
+                   if _sellersprite_cookie(cookie)
+                   and (cookie.get("expires", -1) <= 0 or cookie["expires"] > time.time())]
+    except (OSError, ValueError, TypeError, AttributeError, KeyError):
+        return
+    if cookies:
+        context.add_cookies(cookies)
+
+
+def _save_sellersprite_session(context) -> None:
+    path = getattr(context, "_chenyu_sellersprite_session_path", None)
+    if not isinstance(path, Path):
+        return
+    state = {"account": os.environ.get("CHENYU_SELLERSPRITE_USERNAME", "").strip(),
+             "cookies": [cookie for cookie in context.cookies() if _sellersprite_cookie(cookie)]}
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.chmod(temporary, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(state, stream, ensure_ascii=False)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def _launch_context(runtime, payload: dict):
     source = str(payload.get("source") or "browser")
     profile = Path(payload.get("profile_dir") or default_profile_dir(source)).expanduser().resolve()
@@ -218,6 +255,11 @@ def _launch_context(runtime, payload: dict):
         viewport={"width": max(800, min(width, 2560)), "height": max(600, min(height, 1600))},
         accept_downloads=False,
     )
+    session_path = profile / "sellersprite-session.json"
+    context._chenyu_sellersprite_session_path = session_path
+    host = (urlparse(validate_url(payload.get("url"))).hostname or "").lower()
+    if host == "sellersprite.com" or host.endswith(".sellersprite.com"):
+        _restore_sellersprite_session(context, session_path)
     _apply_display_preferences(context, payload)
     page = context.pages[0] if context.pages else context.new_page()
     page.set_default_timeout(int(payload.get("action_timeout_ms", 10000)))
@@ -1389,6 +1431,7 @@ def _login_sellersprite_in_page(page, username: str, password: str, destination:
     if not account_input.count() or not password_input.count() or not submit.count():
         _goto(page, destination)
         if session_reason() is None:
+            _save_sellersprite_session(page.context)
             return {"login_status": "verified", "current_url": page.url}
         raise BrowserCollectionError(f"SellerSprite password-login form was not found at {page.url}")
     account_input.fill(username)
@@ -1416,6 +1459,8 @@ def _login_sellersprite_in_page(page, username: str, password: str, destination:
     _goto(page, destination)
     reason = session_reason()
     verified = reason is None
+    if verified:
+        _save_sellersprite_session(page.context)
     result = {"login_status": "verified" if verified else "blocked", "current_url": page.url}
     if not verified:
         result["block_reason"] = (
