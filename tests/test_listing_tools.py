@@ -24,6 +24,17 @@ package_validator = module('validate_listing_package')
 
 class ListingTests(unittest.TestCase):
     @staticmethod
+    def primary_bullet_outline():
+        return [
+            {
+                'source_index': index,
+                'source_topic': f'Reference topic {index}',
+                'own_fact_ids': ['F1'],
+            }
+            for index in range(1, 6)
+        ]
+
+    @staticmethod
     def listing_package():
         return {
             'targets': ['DE'],
@@ -167,6 +178,7 @@ class ListingTests(unittest.TestCase):
         listing['description_reference'] = '参考 B012345678 第1-5点'
         listing['search_terms_reference'] = '参考 B012345678 标题及五点'
         listing['primary_reference_asin'] = 'B012345678'
+        listing['primary_reference_bullet_outline'] = self.primary_bullet_outline()
         data['search_term_audits'] = [
             {
                 'marketplace': 'DE', 'variant_id': 'V1',
@@ -273,6 +285,33 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('translations must be an object' in error
                             for error in result['errors']))
 
+    def test_primary_reference_requires_five_ordered_bullet_topics_and_confirmed_facts(self):
+        data = copy.deepcopy(self.listing_package())
+        listing = data['listings'][0]
+        listing['primary_reference_asin'] = 'B012345678'
+        errors = []
+        fact_by_id = {fact['id']: fact for fact in data['facts']}
+        package_validator.validate_primary_bullet_outline(
+            errors, 'DE', 'V1', listing, fact_by_id
+        )
+        self.assertTrue(any('must contain five ordered source topics' in error
+                            for error in errors))
+
+        listing['primary_reference_bullet_outline'] = self.primary_bullet_outline()
+        listing['bullet_references'] = [f'参考 B012345678 第{i}点' for i in range(1, 6)]
+        errors = []
+        package_validator.validate_primary_bullet_outline(
+            errors, 'DE', 'V1', listing, fact_by_id
+        )
+        self.assertEqual(errors, [])
+
+        data['facts'][0]['status'] = 'unconfirmed'
+        errors = []
+        package_validator.validate_primary_bullet_outline(
+            errors, 'DE', 'V1', listing, {data['facts'][0]['id']: data['facts'][0]}
+        )
+        self.assertTrue(any('uses non-confirmed fact F1' in error for error in errors))
+
     def test_fitment_products_require_confirmed_compatibility_in_front_end_copy(self):
         data = copy.deepcopy(self.listing_package())
         listing = data['listings'][0]
@@ -341,6 +380,7 @@ class ListingTests(unittest.TestCase):
             'description_reference': '参考 B012345678',
             'search_terms_reference': '参考 B012345678 标题及卖家精灵反查',
             'primary_reference_asin': 'B012345678',
+            'primary_reference_bullet_outline': self.primary_bullet_outline(),
         })
         data['search_term_audits'] = [
             {

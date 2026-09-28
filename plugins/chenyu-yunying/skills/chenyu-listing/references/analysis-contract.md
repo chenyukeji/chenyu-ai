@@ -112,6 +112,13 @@
       "front_end_attributes": ["Rot", "120 cm"],
       "buyer_visible_variant_terms": [],
       "primary_reference_asin": "B012345678",
+      "primary_reference_bullet_outline": [
+        {"source_index": 1, "source_topic": "...", "own_fact_ids": ["F1"]},
+        {"source_index": 2, "source_topic": "...", "own_fact_ids": ["F2"]},
+        {"source_index": 3, "source_topic": "...", "own_fact_ids": ["F1"]},
+        {"source_index": 4, "source_topic": "...", "own_fact_ids": ["F2"]},
+        {"source_index": 5, "source_topic": "...", "own_fact_ids": ["F1"]}
+      ],
       "search_terms": "christbaum teppich unterlage",
       "search_terms_reference": "参考 B012345678 卖家精灵反查、参考标题及 Amazon DE 前20个自然结果",
       "claim_fact_ids": ["F1", "F2"],
@@ -148,6 +155,7 @@
 - `item_highlights` 与 `item_highlights_reference` 必填。
 - `front_end_attributes` 收录未直接写在文案对象中的已填前台属性，Search Terms 去重时一并计算。
 - `buyer_visible_variant_terms` 默认空数组。只有用户明确确认属于买家公开名称的变体词才可加入；没有进入此清单的 `Design A/B/C` 等内部编号不得出现在买家可见字段。
+- 设置 `primary_reference_asin` 时，`primary_reference_bullet_outline` 必须正好五项并按 `source_index=1..5` 排列。每项保存首链接对应点位的 `source_topic` 和用于改写的已确认 `own_fact_ids`；每条 `bullet_references` 必须引用该主要 ASIN。未取得首链接完整五点时不得伪造提纲或自行另拟五点结构。
 - 适配型产品设置 `compatibility_required=true`。`primary_compatibility_term` 保存必须进入 Item Name 的主要系列/型号/替换件号；`compatibility_terms` 保存必须由 Item Name＋Item Highlights 完整覆盖的已确认兼容标识。中文标题＋Item Highlights 也必须覆盖同一清单。非适配型产品保留 `false` 和空值。
 - `translations` 必填，逐字段保存完整中文翻译。它只翻译目标语言买家文案，不得混入事实状态、资料来源、包装核算、竞品差异或审核过程；五点必须正好五条。生成 Excel 前，目标语言和此对象必须一起通过校验。
 - Item Name、Item Highlights、五点和详情可以重复核心词、关键事实、尺寸和场景，不设跨字段机械去重错误。
@@ -169,6 +177,6 @@ python scripts/validate_listing_package.py listing-package.json --out package-re
 python scripts/analyze_listing.py listing-package.json --out listing-analysis.json
 ```
 
-`validate_listing_package.py` 检查站点/变体覆盖、事实与同款证据、75/125 字符限制、2–4 个核心标题词、数量与关键差异位置、适配型产品的主要/完整兼容标识覆盖、内部变体编号泄漏、五点数量/格式/正文长度、HTML 详情结构、Search Terms 增量词、卖家精灵与参考标题来源审计（含额外同类标题），以及已采用增量词是否全部写入。它同时拒绝目标语言和中文翻译中的证据状态、资料来源、参考产品、竞品差异和其他内部审核叙述。`ready_for_delivery=false` 时不得将文案标为已完成审核。
+`validate_listing_package.py` 检查站点/变体覆盖、事实与同款证据、75/125 字符限制、2–4 个核心标题词、数量与关键差异位置、适配型产品的主要/完整兼容标识覆盖、首链接五点提纲及逐点自有事实映射、内部变体编号泄漏、五点数量/格式/正文长度、HTML 详情结构、Search Terms 增量词、卖家精灵与参考标题来源审计（含额外同类标题），以及已采用增量词是否全部写入。它同时拒绝目标语言和中文翻译中的证据状态、资料来源、参考产品、竞品差异和其他内部审核叙述。`ready_for_delivery=false` 时不得将文案标为已完成审核。
 
 `analyze_listing.py` 输出竞品独立商品组频次、字段覆盖、Item Name/Item Highlights/五点/Search Terms 长度，以及与竞品连续 8 词重合的人工复核提示。重合提示不等于抄袭判定，也不会禁止同款事实在多个前台字段自然重复。

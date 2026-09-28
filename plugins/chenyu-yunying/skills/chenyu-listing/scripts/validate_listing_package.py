@@ -197,6 +197,8 @@ INTERNAL_PROCESS_PATTERNS = {
         re.compile(r'\b(?:produit|image|photo|article) de référence\b', re.I),
         re.compile(r'\b(?:dimensions?|poids).{0,100}\bconcerne(?:nt)?\s+'
                    r'(?:uniquement\s+)?l[’\']emballage\b', re.I),
+        re.compile(r'\b(?:et non de deux pancartes|non sur un éventuel emballage|'
+                   r'à vérifier séparément)\b', re.I),
     ),
     'IT': (
         re.compile(r'\b(?:contenuto|composizione|materiale|dati|informazioni)\s+'
@@ -227,6 +229,7 @@ CHINESE_INTERNAL_PROCESS_PATTERNS = (
     re.compile(r'(?:开发文档|供应商(?:资料|报价)|内部(?:核对|审核|记录|流程))'),
     re.compile(r'(?:同款竞品|竞品(?:图|图片|链接|产品)|参考(?:产品|商品|图片|链接))'),
     re.compile(r'(?:自有产品|自有套装|与(?:标题|图片|文案)一致)'),
+    re.compile(r'(?:不是两块独立的公告牌|而不是包装外尺寸|需要另行确认)'),
 )
 
 
@@ -427,6 +430,64 @@ def validate_compatibility_copy(errors, market, variant_id, listing, title,
                 f'{market}/{variant_id} Chinese title and item_highlights omit confirmed '
                 'compatibility terms: ' + ', '.join(missing_translation)
             )
+
+
+def validate_primary_bullet_outline(errors, market, variant_id, listing, fact_by_id):
+    """Require a five-topic source outline before mirroring a primary reference."""
+    primary_asin = str(listing.get('primary_reference_asin', '')).strip()
+    if not primary_asin:
+        return
+    outline = listing.get('primary_reference_bullet_outline', [])
+    if not isinstance(outline, list) or len(outline) != 5:
+        errors.append(
+            f'{market}/{variant_id} primary_reference_bullet_outline must contain five '
+            'ordered source topics before drafting bullets'
+        )
+        return
+    for index, item in enumerate(outline, 1):
+        if not isinstance(item, dict):
+            errors.append(
+                f'{market}/{variant_id} primary reference bullet outline {index} '
+                'must be an object'
+            )
+            continue
+        if item.get('source_index') != index:
+            errors.append(
+                f'{market}/{variant_id} primary reference bullet outline {index} '
+                f'must use source_index={index}'
+            )
+        if not str(item.get('source_topic', '')).strip():
+            errors.append(
+                f'{market}/{variant_id} primary reference bullet outline {index} '
+                'requires a non-empty source_topic'
+            )
+        fact_ids = item.get('own_fact_ids', [])
+        if not isinstance(fact_ids, list) or not fact_ids:
+            errors.append(
+                f'{market}/{variant_id} primary reference bullet outline {index} '
+                'requires confirmed own_fact_ids'
+            )
+            continue
+        for fact_id in fact_ids:
+            fact = fact_by_id.get(fact_id)
+            if not fact:
+                errors.append(
+                    f'{market}/{variant_id} primary reference bullet outline {index} '
+                    f'references unknown fact {fact_id}'
+                )
+            elif fact.get('status') != 'confirmed':
+                errors.append(
+                    f'{market}/{variant_id} primary reference bullet outline {index} '
+                    f'uses non-confirmed fact {fact_id}'
+                )
+    bullet_references = listing.get('bullet_references', [])
+    if isinstance(bullet_references, list) and len(bullet_references) == 5:
+        for index, reference in enumerate(bullet_references, 1):
+            if primary_asin.casefold() not in str(reference).casefold():
+                errors.append(
+                    f'{market}/{variant_id} bullet reference {index} must cite primary '
+                    f'reference ASIN {primary_asin} when its five-point structure is mirrored'
+                )
 
 
 def validate(data):
@@ -695,6 +756,9 @@ def validate(data):
                         f'{market}/{variant_id} bullet_references must contain five non-empty sources'
                     )
             validate_buyer_copy(errors, market, variant_id, buyer_bullet_texts)
+        validate_primary_bullet_outline(
+            errors, market, variant_id, listing, fact_by_id
+        )
         title_keywords = listing.get('title_keywords', [])
         normalized_title_keywords = [
             unicodedata.normalize('NFC', str(item).strip()).casefold()
