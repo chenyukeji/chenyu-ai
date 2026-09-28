@@ -51,11 +51,11 @@ class ListingTests(unittest.TestCase):
                                               'Innenraum, einzeln platzierbar oder mit vorhandener '
                                               'Festdeko kombinierbar'),
                           'bullets': [
-                              '📦【Klarer Lieferumfang】Der Lieferumfang ist auf die gewählte Variante abgestimmt und nennt die enthaltenen Dekorationsteile eindeutig. So lässt sich die geplante Anordnung vor dem Dekorieren besser einschätzen, während zusätzlich abgebildete Szenenartikel nicht mit dem Inhalt verwechselt werden.',
-                              '🧩【Bestätigtes Papiermaterial】Die Dekoration besteht aus Papier und lässt sich dadurch gut in vorhandene saisonale Arrangements integrieren. Materialangaben bleiben in Titel, Beschreibung und Produktdetails einheitlich, ohne daraus unbestätigte Eigenschaften wie Wasserfestigkeit oder besondere Haltbarkeit abzuleiten.',
-                              '✨【Flexibel kombinierbar】Die einzelnen Elemente können als ruhiger Akzent verwendet oder mit bereits vorhandener Tisch- und Raumdekoration kombiniert werden. Dadurch entsteht eine zusammenhängende Gestaltung, ohne dass zusätzliche, nicht enthaltene Accessoires als Bestandteil des Sets dargestellt werden.',
-                              '🎉【Für festliche Arrangements】Die Gestaltung eignet sich für bestätigte Feiern und saisonale Innenraumdekorationen. Sie kann je nach Platzangebot auf geeigneten Flächen arrangiert werden und ergänzt unterschiedliche festliche Stilrichtungen, ohne einen bestimmten Aufbau vorzuschreiben.',
-                              '💡【Sachgerechter Umgang】Verwenden Sie ausschließlich die im Lieferumfang genannten Teile und behandeln Sie die Papieroberfläche entsprechend dem bestätigten Material. Lagern Sie die Dekoration trocken und geschützt, damit Form und Erscheinungsbild zwischen den Einsätzen erhalten bleiben.',
+                              '📦【Dekoration für kleine Flächen】Die Dekorationselemente setzen auf Tisch, Regal oder Fensterbank einen klaren saisonalen Akzent. Jedes Element kann einzeln platziert oder zusammen mit vorhandener Festdekoration verwendet werden. So lässt sich der verfügbare Platz flexibel nutzen, ohne eine feste Anordnung vorauszusetzen.',
+                              '🧩【Leichtes Papiermaterial】Die Dekoration besteht aus Papier und lässt sich unkompliziert an einem trockenen Platz im Innenraum aufstellen. Das leichte Material erleichtert das Umstellen zwischen Tisch, Regal und Fensterbank. Die klaren Formen bleiben dabei gut sichtbar und ergänzen unterschiedliche saisonale Dekorationsstile.',
+                              '✨【Flexibel kombinierbar】Die einzelnen Elemente können als ruhiger Akzent verwendet oder mit bereits vorhandener Tisch- und Raumdekoration kombiniert werden. Sie lassen sich nebeneinander verteilen oder an verschiedenen Stellen des Raums platzieren. Dadurch kann die Dekoration an kleine und größere freie Flächen angepasst werden.',
+                              '🎉【Für festliche Arrangements】Die Gestaltung eignet sich für Feiern und saisonale Innenraumdekorationen. Auf Esstisch, Kommode oder Regal ergänzt sie bestehende Arrangements, ohne einen bestimmten Aufbau zu verlangen. Nach dem Anlass lassen sich die leichten Elemente abnehmen und für den nächsten Einsatz an einem trockenen Ort aufbewahren.',
+                              '💡【Einfach aufstellen und lagern】Die Papierdekoration wird auf einer trockenen, ebenen Fläche platziert und kann bei Bedarf an einen anderen Ort versetzt werden. Für die Aufbewahrung sollte sie vor Feuchtigkeit und starkem Druck geschützt liegen. So bleiben Form und bedruckte Oberfläche zwischen mehreren saisonalen Einsätzen erhalten.',
                           ],
                           'description': ('<p>Eine Dekoration aus Papier für festliche Arrangements. '
                                           'Sie lässt sich einzeln oder zusammen mit vorhandenen Dekorationen einsetzen.</p>'
@@ -67,7 +67,22 @@ class ListingTests(unittest.TestCase):
                                           '<p><b>Lieferumfang:</b><br>1 × Dekoration</p>'),
                           'search_terms': 'dekoartikel schmuckanhänger festbedarf',
                           'front_end_attributes': [],
-                          'claim_fact_ids': ['F1']}],
+                          'claim_fact_ids': ['F1'],
+                          'translations': {
+                              'title': '适用于庆典和节日的纸质装饰与派对装饰',
+                              'item_highlights': ('纸质材质造型清晰，适合桌面、置物架和室内空间，'
+                                                  '可单独摆放或与现有节日装饰搭配'),
+                              'bullets': [
+                                  '📦【适合小空间装饰】可摆放在桌面、置物架或窗台。',
+                                  '🧩【轻巧纸质材质】适合干燥的室内位置。',
+                                  '✨【灵活搭配】可单独使用或搭配现有节日装饰。',
+                                  '🎉【适合节庆布置】适用于庆典和季节性室内装饰。',
+                                  '💡【便于摆放收纳】请置于干燥平面并避免受潮挤压。',
+                              ],
+                              'description': ('纸质装饰适合节庆布置，可用于桌面、置物架和窗台。'
+                                              '材质：纸；颜色：白色；尺寸：10厘米；包装：1件装饰。'),
+                              'search_terms': '装饰品 挂饰 派对用品',
+                          }}],
         }
 
     def test_xlsx_evidence(self):
@@ -223,6 +238,40 @@ class ListingTests(unittest.TestCase):
 
         data['listings'][0]['buyer_visible_variant_terms'] = ['Design A']
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+
+    def test_buyer_copy_rejects_internal_confirmation_and_reference_language(self):
+        errors = []
+        package_validator.validate_buyer_copy(
+            errors,
+            'FR',
+            'V1',
+            [
+                ('bullet 1', '【Contenu confirmé】Le kit contient des fils et des aiguilles.'),
+                ('bullet 2', ('Les dimensions indiquées concernent l’emballage. '
+                              'La pochette du produit de référence ne fait pas partie du kit.')),
+            ],
+        )
+        self.assertEqual(
+            sum('contains internal confirmation' in error for error in errors), 2
+        )
+
+    def test_listing_package_rejects_internal_process_language_in_chinese_translation(self):
+        data = copy.deepcopy(self.listing_package())
+        data['listings'][0]['translations']['bullets'][0] = (
+            '📦【已确认的套装内容】包装资料记录了尺寸；自有套装不包含竞品图中的收纳包。'
+        )
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('Chinese translation bullet 1 contains internal' in error
+                            for error in result['errors']))
+
+    def test_listing_package_requires_complete_chinese_translations(self):
+        data = copy.deepcopy(self.listing_package())
+        del data['listings'][0]['translations']
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('translations must be an object' in error
+                            for error in result['errors']))
 
     def test_listing_package_requires_all_adopted_incremental_tokens(self):
         data = copy.deepcopy(self.listing_package())

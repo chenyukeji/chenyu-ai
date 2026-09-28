@@ -179,6 +179,55 @@ BLANKET_PROP_DISCLAIMER_PATTERNS = {
         r'(?:not included|not supplied)\b', re.I
     ),),
 }
+INTERNAL_PROCESS_PATTERNS = {
+    'DE': (
+        re.compile(r'\b(?:bestätigt(?:e|er|es|en|em)?|nicht bestätigte?)\s+'
+                   r'(?:Lieferumfang|Packungsinhalt|Material|Produktdaten|Angaben)\b', re.I),
+        re.compile(r'\b(?:laut|gemäß)\s+(?:den\s+)?(?:Unterlagen|Produktdaten|'
+                   r'Verpackungsangaben|Dokumentation)\b', re.I),
+        re.compile(r'\b(?:Referenzprodukt|Referenzbild|Wettbewerberprodukt|'
+                   r'Konkurrenzprodukt|interne Prüfung)\b', re.I),
+        re.compile(r'\bgewählte Variante\b', re.I),
+    ),
+    'FR': (
+        re.compile(r'\b(?:contenu|composition|matériau|données?|informations?)\s+'
+                   r'(?:confirmé(?:e|s|es)?|non confirmé(?:e|s|es)?)\b', re.I),
+        re.compile(r'\b(?:selon|d[’\']après)\s+(?:les\s+)?(?:documents?|données?|'
+                   r'informations?|fiches?|indications? d[’\']emballage)\b', re.I),
+        re.compile(r'\b(?:produit|image|photo|article) de référence\b', re.I),
+        re.compile(r'\b(?:dimensions?|poids).{0,100}\bconcerne(?:nt)?\s+'
+                   r'(?:uniquement\s+)?l[’\']emballage\b', re.I),
+    ),
+    'IT': (
+        re.compile(r'\b(?:contenuto|composizione|materiale|dati|informazioni)\s+'
+                   r'(?:confermat[oaie]|non confermat[oaie])\b', re.I),
+        re.compile(r'\b(?:secondo|in base a)\s+(?:i\s+|le\s+)?(?:documenti|dati|'
+                   r'informazioni|specifiche della confezione)\b', re.I),
+        re.compile(r'\b(?:prodotto|immagine|foto|articolo) di riferimento\b', re.I),
+    ),
+    'ES': (
+        re.compile(r'\b(?:contenido|composición|material|datos|información)\s+'
+                   r'(?:confirmad[oa]s?|no confirmad[oa]s?)\b', re.I),
+        re.compile(r'\b(?:según|de acuerdo con)\s+(?:los\s+|las\s+)?(?:documentos|'
+                   r'datos|información|especificaciones del embalaje)\b', re.I),
+        re.compile(r'\b(?:producto|imagen|foto|artículo) de referencia\b', re.I),
+    ),
+    'UK': (
+        re.compile(r'\b(?:confirmed|unconfirmed)\s+(?:contents?|composition|material|'
+                   r'product data|information)\b', re.I),
+        re.compile(r'\b(?:according to|based on)\s+(?:the\s+)?(?:documents?|product data|'
+                   r'packaging records?|packaging information)\b', re.I),
+        re.compile(r'\b(?:reference product|reference image|competitor product|'
+                   r'internal review)\b', re.I),
+    ),
+}
+CHINESE_INTERNAL_PROCESS_PATTERNS = (
+    re.compile(r'(?:已确认|待确认|未确认|未经确认)(?:的)?(?:套装|内容|组成|材质|数据|信息)?'),
+    re.compile(r'(?:资料显示|根据.{0,12}资料|包装(?:资料|记录|数据)(?:记录|显示)?)'),
+    re.compile(r'(?:开发文档|供应商(?:资料|报价)|内部(?:核对|审核|记录|流程))'),
+    re.compile(r'(?:同款竞品|竞品(?:图|图片|链接|产品)|参考(?:产品|商品|图片|链接))'),
+    re.compile(r'(?:自有产品|自有套装|与(?:标题|图片|文案)一致)'),
+)
 
 
 def words(text):
@@ -257,6 +306,14 @@ def validate_buyer_copy(errors, market, variant_id, labeled_texts):
                     'evidence-backed notice is required'
                 )
                 break
+        for pattern in INTERNAL_PROCESS_PATTERNS.get(market, ()):
+            if pattern.search(text):
+                errors.append(
+                    f'{market}/{variant_id} {label} contains internal confirmation, '
+                    'source-review, or reference-product language; keep that reasoning '
+                    'in fact and reference records, not buyer-facing copy'
+                )
+                break
         for sentence in normalized_sentences(text):
             if sentence in seen_sentences:
                 errors.append(
@@ -265,6 +322,41 @@ def validate_buyer_copy(errors, market, variant_id, labeled_texts):
                 )
             else:
                 seen_sentences[sentence] = label
+
+
+def validate_chinese_translations(errors, market, variant_id, translations):
+    """Require complete Chinese translations and reject internal workflow narration."""
+    if not isinstance(translations, dict):
+        errors.append(f'{market}/{variant_id} translations must be an object')
+        return
+    required = ('title', 'item_highlights', 'description', 'search_terms')
+    for field in required:
+        if not str(translations.get(field, '')).strip():
+            errors.append(f'{market}/{variant_id} Chinese translation for {field} is empty')
+    bullets = translations.get('bullets', [])
+    if (not isinstance(bullets, list) or len(bullets) != 5
+            or any(not str(item).strip() for item in bullets)):
+        errors.append(
+            f'{market}/{variant_id} Chinese translations must contain five non-empty bullets'
+        )
+        bullets = []
+    labeled_texts = [
+        ('title', translations.get('title', '')),
+        ('item_highlights', translations.get('item_highlights', '')),
+        *[(f'bullet {index}', value) for index, value in enumerate(bullets, 1)],
+        ('description', visible_html(translations.get('description', ''))),
+        ('search_terms', translations.get('search_terms', '')),
+    ]
+    for label, value in labeled_texts:
+        text = str(value)
+        for pattern in CHINESE_INTERNAL_PROCESS_PATTERNS:
+            if pattern.search(text):
+                errors.append(
+                    f'{market}/{variant_id} Chinese translation {label} contains internal '
+                    'confirmation, source-review, competitor-reference, or seller workflow '
+                    'language; translate only the buyer-facing product claim'
+                )
+                break
 
 
 def validate(data):
@@ -478,6 +570,10 @@ def validate(data):
                     f'{market}/{variant_id} item_highlights length {len(item_highlights)} is below '
                     f'the {ITEM_HIGHLIGHTS_TARGET_MINIMUM}-{ITEM_HIGHLIGHTS_LIMIT} editorial target'
                 )
+        validate_buyer_copy(
+            errors, market, variant_id,
+            [('title', title), ('item_highlights', item_highlights)],
+        )
         if competitors:
             title_reference = str(listing.get('title_reference', '')).strip()
             if not title_reference:
@@ -657,6 +753,9 @@ def validate(data):
         description_text = visible_html(description)
         validate_buyer_copy(
             errors, market, variant_id, [('description', description_text)]
+        )
+        validate_chinese_translations(
+            errors, market, variant_id, listing.get('translations')
         )
         heading_matches = [re.search(r'(?mi)^\s*' + re.escape(heading) + r'\s*:',
                                      description_text)
