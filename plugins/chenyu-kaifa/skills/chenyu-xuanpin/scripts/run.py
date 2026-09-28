@@ -24,7 +24,10 @@ from new_releases_history import (
 )
 from playwright_collector import BrowserCollectionError, browser_status, collect, collect_sellersprite_by_asin, login_sellersprite
 from sellersprite_j import collect_recent_fbm
-from strategy_j import qualify_recent_fbm, score_recent_fbm, table_rows_recent_fbm
+from strategy_j import (
+    ai_analysis_requests, apply_ai_analyses, qualify_recent_fbm,
+    score_recent_fbm, table_rows_recent_fbm,
+)
 from strategy_router import StrategyRouteError, list_strategies, resolve_category, resolve_strategy
 from category_sources import CategoryInputError, resolve_sources
 
@@ -33,7 +36,7 @@ FLOW_VERSION = "discovery-v4"
 RUN_INPUT_KEYS = {
     "skill_action", "request", "task", "strategy_selection", "run_dir",
     "discovery_records", "candidates", "discovery_paths", "discovery",
-    "profile_dir", "as_of_date", "shortlist_limit", "output_path",
+    "profile_dir", "as_of_date", "shortlist_limit", "output_path", "j_ai_analyses",
 }
 TASK_INPUT_KEYS = {"task_id", "shortlist_limit", "categories", "strategy_ids", "source_marketplaces"}
 DISCOVERY_INPUT_KEYS = {
@@ -41,7 +44,7 @@ DISCOVERY_INPUT_KEYS = {
     "sellersprite_enrich", "headless", "limit_per_marketplace", "max_pages",
     "query_timeout_ms", "query_delay_ms", "query_poll_ms", "empty_grace_ms",
     "batch_queries", "batch_size", "manual_timeout_seconds", "profile_dir",
-    "j_min_monthly_sales", "j_keyword",
+    "j_min_monthly_sales", "j_keyword", "j_enrich_details",
 }
 SELLERSPRITE_FIELDS = (
     "source_available_date",
@@ -524,6 +527,67 @@ def _live_strategy_j(task: dict, payload: dict, run_dir: Path, manifest: dict) -
     return records
 
 
+def _enrich_j_shortlist_details(screening: dict, payload: dict, run_dir: Path, manifest: dict) -> None:
+    """Add visible Amazon feature bullets without replacing SellerSprite screening facts."""
+    discovery = dict(payload.get("discovery") or {})
+    if discovery.get("j_enrich_details", True) is False:
+        return
+    outcomes = []
+    for scored in screening["results"][:screening["counts"]["shortlisted"]]:
+        row = scored["primary_listing"]
+        if row.get("feature_bullets") or row.get("product_advantages"):
+            continue
+        site, asin = row["marketplace"], row["asin"]
+        domain = "amazon.de" if site == "DE" else "amazon.com"
+        url = f"https://www.{domain}/dp/{asin}"
+        path = run_dir / f"08-j-product-detail-{site.lower()}-{asin}.json"
+        if path.exists() and not discovery.get("refresh"):
+            result = _read_json(path)
+        else:
+            try:
+                result = collect({
+                    "source": "amazon_public",
+                    "url": url,
+                    "extractor": "amazon_product",
+                    "marketplace": site,
+                    "max_pages": 1,
+                    "headless": discovery.get("headless", True),
+                })
+            except Exception as exc:
+                result = {
+                    "collection_status": "blocked",
+                    "block_reason": f"product_detail_{type(exc).__name__}: {str(exc)[:180]}",
+                    "records": [],
+                }
+            _write_json(path, result)
+        detail = next(
+            (item for item in result.get("records") or []
+             if str(item.get("asin") or "").upper() == asin),
+            None,
+        )
+        bullets = [str(value).strip() for value in (detail or {}).get("feature_bullets") or []
+                   if str(value).strip()]
+        if bullets:
+            row["feature_bullets"] = bullets[:10]
+            row["detail_source_ref"] = detail.get("source_ref") or url
+        outcomes.append({
+            "candidate_id": scored["candidate_id"],
+            "status": "enriched" if bullets else "unavailable",
+            "source_path": str(path.resolve()),
+        })
+    if outcomes:
+        manifest["artifacts"]["j_product_details"] = _write_json(
+            run_dir / "08-j-product-details.json", {"outcomes": outcomes}
+        )
+        unavailable = sum(item["status"] == "unavailable" for item in outcomes)
+        if unavailable:
+            warning = (
+                f"{unavailable} 个 J 候选未取得商品详情要点；AI 仅能根据已核实标题和指标分析，并须标注推断。"
+            )
+            if warning not in manifest["warnings"]:
+                manifest["warnings"].append(warning)
+
+
 def _history_database_source(task: dict, payload: dict, run_dir: Path, manifest: dict) -> list[dict]:
     discovery = dict(payload.get("discovery") or {})
     history = dict(discovery.get("history") or {})
@@ -670,7 +734,34 @@ def run_discovery_flow(payload: dict) -> dict:
             qualified, records, as_of_date=payload.get("as_of_date"),
             shortlist_limit=int(payload.get("shortlist_limit") or task.get("shortlist_limit") or 20),
         )
+        _enrich_j_shortlist_details(screening, payload, run_dir, manifest)
+        requests = ai_analysis_requests(screening)
+        manifest["artifacts"]["j_ai_analysis_requests"] = _write_json(
+            run_dir / "09-j-ai-analysis-requests.json", {"requests": requests}
+        )
+        analyses = payload.get("j_ai_analyses")
+        if analyses is None:
+            pending = [item["candidate_id"] for item in requests]
+        else:
+            pending = apply_ai_analyses(screening, analyses)
         manifest["artifacts"]["screening"] = _write_json(run_dir / "09-screening.json", screening)
+        if pending:
+            result = _stop(
+                manifest, run_dir, "AWAITING_AI_ANALYSIS", "j_ai_analysis",
+                [f"需要 AI 分析的 J 候选：{', '.join(pending)}"],
+            )
+            result["analysis_requests"] = [
+                item for item in requests if item["candidate_id"] in pending
+            ]
+            result["analysis_input_format"] = (
+                "用同一 run_dir 续跑，并提交 j_ai_analyses 数组；每项包含 "
+                "marketplace、asin、analysis；来源品类为空时还须包含 category_name。"
+                "analysis 用简短中文合并有证据的商品特点、不足和机会判断。"
+            )
+            return result
+        manifest["artifacts"]["j_ai_analyses"] = _write_json(
+            run_dir / "10-j-ai-analyses.json", {"analyses": analyses}
+        )
         rows = table_rows_recent_fbm(screening)
         manifest["artifacts"]["table_rows"] = _write_json(run_dir / "10-table-rows.json", {"rows": rows})
         workbook = export_discovery_workbook(

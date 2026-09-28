@@ -1,6 +1,6 @@
 {
   "name": "chenyu-kaifa",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "Amazon product discovery plus one-product-per-workbook development documentation for Chenyu.",
   "author": {
     "name": "chenyukeji",
@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "晨玙 Amazon 开发",
     "shortDescription": "自动找品，并按每个产品生成独立开发 Excel。",
-    "longDescription": "根据自然语言识别找品策略并生成开品结果；也可把已确认产品、竞品、供应商、变体和图片整理成每个产品一个文件的三表开发 Excel，供运营继续生成 Listing 和作图要求。",
+    "longDescription": "根据自然语言识别找品策略；J 策略筛查近60天 FBM 热销商品，结合详情将商品特点、不足和近期机会合成一段简短 AI 分析；也可把已确认产品、竞品、供应商、变体和图片整理为每个产品一个文件的三表开发 Excel。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": [

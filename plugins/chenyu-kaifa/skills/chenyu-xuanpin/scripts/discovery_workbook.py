@@ -17,7 +17,10 @@ HEADERS = [
     "站点", "上架日期", "Review数量", "售价（当地币种）", "大品类排名", "所在品类", "预估月销量",
     "产品优点&特征", "缺点", "生命周期", "ASIN", "亚马逊产品链接", "图片", "结论", "理由",
 ]
-J_HEADERS = HEADERS + ["产品名称（原文）", "FBM资格证据", "近期火爆原因"]
+J_HEADERS = [
+    header for header in HEADERS
+    if header not in {"产品优点&特征", "缺点", "理由"}
+] + ["AI分析", "产品名称（原文）", "FBM资格证据"]
 
 
 class WorkbookError(ValueError):
@@ -147,11 +150,21 @@ def _embedded_images_by_product(workbook_path: str | Path | None) -> dict[tuple[
             )
             image_targets = _relationship_targets(package, drawing_rels_path)
 
+            header_columns = {}
+            for cell in sheet_root.findall(f".//{{{SHEET_NS}}}row[@r='1']/{{{SHEET_NS}}}c"):
+                ref = cell.get("r") or ""
+                match = re.fullmatch(r"([A-Z]+)1", ref)
+                if match:
+                    header_columns[_cell_value(cell)] = match.group(1)
+            site_column = header_columns.get("站点")
+            asin_column = header_columns.get("ASIN")
+            if not site_column or not asin_column:
+                return {}
             row_values: dict[int, dict[str, str]] = {}
             for cell in sheet_root.findall(f".//{{{SHEET_NS}}}c"):
                 ref = cell.get("r") or ""
                 match = re.fullmatch(r"([A-Z]+)(\d+)", ref)
-                if not match or match.group(1) not in {"A", "K"}:
+                if not match or match.group(1) not in {site_column, asin_column}:
                     continue
                 row_values.setdefault(int(match.group(2)), {})[match.group(1)] = _cell_value(cell)
 
@@ -164,8 +177,8 @@ def _embedded_images_by_product(workbook_path: str | Path | None) -> dict[tuple[
                     continue
                 excel_row = int(row_node.text) + 1
                 identity = row_values.get(excel_row, {})
-                site = str(identity.get("A") or "").strip().upper()
-                asin = str(identity.get("K") or "").strip().upper()
+                site = str(identity.get(site_column) or "").strip().upper()
+                asin = str(identity.get(asin_column) or "").strip().upper()
                 relationship_id = blip.get(f"{{{RID_NS}}}embed")
                 image_target = image_targets.get(relationship_id)
                 if not site or not asin or not image_target:
@@ -227,7 +240,7 @@ def _collect_images(
     }
 
 
-def _drawing_parts(rows: list[dict], embedded: dict[int, dict]) -> tuple[str, str, list[tuple[str, bytes]]]:
+def _drawing_parts(rows: list[dict], embedded: dict[int, dict], image_column: int) -> tuple[str, str, list[tuple[str, bytes]]]:
     anchors = []
     relationships = []
     media = []
@@ -238,7 +251,7 @@ def _drawing_parts(rows: list[dict], embedded: dict[int, dict]) -> tuple[str, st
         title = str(rows[row_index].get("产品名称") or rows[row_index].get("ASIN") or f"产品图{image_number}")
         anchors.append(
             f'''<xdr:oneCellAnchor>
-  <xdr:from><xdr:col>12</xdr:col><xdr:colOff>95250</xdr:colOff><xdr:row>{row_index + 1}</xdr:row><xdr:rowOff>95250</xdr:rowOff></xdr:from>
+  <xdr:from><xdr:col>{image_column}</xdr:col><xdr:colOff>95250</xdr:colOff><xdr:row>{row_index + 1}</xdr:row><xdr:rowOff>95250</xdr:rowOff></xdr:from>
   <xdr:ext cx="1238250" cy="857250"/>
   <xdr:pic>
     <xdr:nvPicPr><xdr:cNvPr id="{image_number}" name={quoteattr(title)}/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>
@@ -268,7 +281,7 @@ def export_discovery_workbook(
     if not isinstance(rows, list):
         raise WorkbookError("rows must be a list")
     rows = sorted(rows, key=lambda row: -float(row.get("得分") or 0))
-    headers = J_HEADERS if any("近期火爆原因" in row for row in rows) else HEADERS
+    headers = J_HEADERS if any("AI分析" in row for row in rows) else HEADERS
     output = Path(output_path).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     cache_source = reuse_workbook_path or (output if output.exists() else None)
@@ -298,11 +311,14 @@ def export_discovery_workbook(
                 relationship_id = f"rId{len(hyperlink_rels) + 1}"
                 hyperlink_rels.append((relationship_id, str(value)))
                 hyperlinks.append((ref, relationship_id))
-        xml_rows.append(f'<row r="{row_number}" ht="120" customHeight="1">{"".join(cells)}</row>')
+        row_height = 80 if headers is J_HEADERS else 120
+        xml_rows.append(f'<row r="{row_number}" ht="{row_height}" customHeight="1">{"".join(cells)}</row>')
 
-    widths = [8, 13, 11, 15, 12, 16, 13, 28, 27, 24, 14, 31, 22, 15, 65]
-    if headers is J_HEADERS:
-        widths.extend([45, 35, 95])
+    base_widths = dict(zip(
+        HEADERS, [8, 13, 11, 15, 12, 16, 13, 28, 27, 24, 14, 31, 22, 15, 65]
+    ))
+    base_widths.update({"AI分析": 75, "产品名称（原文）": 45, "FBM资格证据": 35})
+    widths = [base_widths[header] for header in headers]
     cols = "".join(
         f'<col min="{index}" max="{index}" width="{width}" customWidth="1"/>'
         for index, width in enumerate(widths, start=1)
@@ -324,7 +340,9 @@ def export_discovery_workbook(
         sheet_relationships.append(
             f'<Relationship Id="{drawing_rel_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>'
         )
-        drawing_xml, drawing_rels, media = _drawing_parts(rows, embedded)
+        drawing_xml, drawing_rels, media = _drawing_parts(
+            rows, embedded, headers.index("图片")
+        )
     drawing_tag = f'<drawing r:id="{drawing_rel_id}"/>' if drawing_rel_id else ""
     last_row = max(1, len(rows) + 1)
     worksheet = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

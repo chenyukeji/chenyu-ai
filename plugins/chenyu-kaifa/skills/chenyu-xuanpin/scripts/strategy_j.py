@@ -102,11 +102,11 @@ def _cause_evidence(row: dict, all_records: list[dict], as_of: date) -> tuple[li
         label = "当前在主题销售窗口" if as_of.month in months else "当前不在典型窗口"
         evidence.append({"factor": "季节性", "status": "hypothesis",
                          "detail": f"标题含{name}主题，{label}；需用历史销量趋势验证"})
-        saleable = f"{min(months)}–{max(months)}月（{name}，需核验）"
+        saleable = f"{min(months)}–{max(months)}月（{name}主题）"
     else:
         evidence.append({"factor": "季节性", "status": "unverified",
                          "detail": "未取得可验证的季节性销量趋势"})
-        saleable = "全年可售（需核验季节性）"
+        saleable = "全年可售"
     traffic = row.get("offsite_traffic_evidence")
     traffic_source = row.get("offsite_traffic_source")
     if traffic and traffic_source:
@@ -126,7 +126,7 @@ def _cause_evidence(row: dict, all_records: list[dict], as_of: date) -> tuple[li
     variants = _number(row.get("variation_count"))
     if variants is not None and variants >= 20:
         evidence.append({"factor": "超多变体", "status": "observed",
-                         "detail": f"卖家精灵显示{int(variants)}个变体；对销量贡献待验证"})
+                         "detail": f"卖家精灵显示{int(variants)}个变体"})
     else:
         evidence.append({"factor": "超多变体", "status": "unverified",
                          "detail": f"变体数{int(variants)}" if variants is not None else "变体数缺失"})
@@ -156,27 +156,17 @@ def score_recent_fbm(qualified: list[dict], all_records: list[dict], *,
         }
         score = sum(components.values())
         factors, saleable = _cause_evidence(row, all_records, as_of)
-        cause_text = "；".join(
-            f"{item['factor']}：{item['detail']}" for item in factors
-        )
-        growth_text = f"，近30天销量增长率{growth:g}%" if growth is not None else "，销量增长率未核实"
         conclusion = "🟢 优先调研" if score >= 70 else "🟡 继续核验"
         if growth is None and sales < 200:
             conclusion = "🟡 继续核验"
-        reason = (
-            f"热度证据：上架{age}天、FBM、预估月销量{sales:g}{growth_text}。"
-            f"可能因素：{cause_text}。"
-            f"判断：内部调研优先级{score}分；价格、季节或变体与销量的因果关系尚未证实。"
-            f"下一步：核对流量来源、历史销量、竞品功能和实际履约方式。"
-        )
         results.append({
             "candidate_id": f"{row['marketplace']}-{row['asin']}",
             "primary_listing": row,
             "score": score,
             "score_components": components,
             "conclusion": conclusion,
-            "reason": reason,
-            "hot_reason": cause_text,
+            "ai_analysis": None,
+            "ai_category_name": None,
             "factor_evidence": factors,
             "saleable_window": saleable,
             "peer_count": peer_count,
@@ -204,25 +194,86 @@ def table_rows_recent_fbm(screening: dict) -> list[dict]:
         site = row["marketplace"]
         asin = row["asin"]
         domain = "amazon.de" if site == "DE" else "amazon.com"
+        source_category = str(row.get("category_name") or "").strip()
+        if not scored.get("ai_analysis") or not (source_category or scored.get("ai_category_name")):
+            raise ValueError(f"J AI analysis or category missing: {scored['candidate_id']}")
         output.append({
             "站点": site,
             "上架日期": row.get("source_available_date") or row.get("listing_date"),
             "Review数量": row.get("review_count"),
             "售价（当地币种）": row.get("price"),
             "大品类排名": row.get("bsr"),
-            "所在品类": row.get("category_name"),
+            "所在品类": source_category or f"AI推断：{scored['ai_category_name']}",
             "预估月销量": row.get("estimated_sales"),
-            "产品优点&特征": "需核对详情和竞品，当前仅有商品标题与指标",
-            "缺点": "需核对评论、样品和履约成本",
             "生命周期": scored["saleable_window"],
             "ASIN": asin,
             "亚马逊产品链接": row.get("detail_url") or f"https://www.{domain}/dp/{asin}",
             "图片": row.get("image_url"),
             "结论": scored["conclusion"],
-            "理由": scored["reason"],
+            "AI分析": scored["ai_analysis"],
             "产品名称（原文）": row.get("product_name"),
             "FBM资格证据": f"上架{row['listing_age_days']}天；FBM；预估月销{_number(row.get('estimated_sales')):g}",
-            "近期火爆原因": scored["hot_reason"],
             "得分": scored["score"],
         })
     return output
+
+
+def ai_analysis_requests(screening: dict) -> list[dict]:
+    """Return compact evidence for the model to interpret for every shortlist item."""
+    requests = []
+    for scored in screening["results"][:screening["counts"]["shortlisted"]]:
+        row = scored["primary_listing"]
+        requests.append({
+            "candidate_id": scored["candidate_id"],
+            "marketplace": row["marketplace"],
+            "asin": row["asin"],
+            "product_name": row.get("product_name"),
+            "feature_bullets": row.get("feature_bullets") or [],
+            "product_advantages": row.get("product_advantages"),
+            "product_disadvantages": row.get("product_disadvantages"),
+            "review_pain_points": row.get("review_pain_points"),
+            "detail_source_ref": row.get("detail_source_ref"),
+            "category_name": row.get("category_name"),
+            "listing_age_days": row.get("listing_age_days"),
+            "estimated_monthly_sales": row.get("estimated_sales"),
+            "sales_growth_percent": row.get("sales_growth_percent"),
+            "review_count": row.get("review_count"),
+            "price": row.get("price"),
+            "currency": row.get("currency"),
+            "variation_count": row.get("variation_count"),
+            "peer_count": scored["peer_count"],
+            "factor_evidence": [
+                item for item in scored["factor_evidence"]
+                if item["status"] != "unverified"
+            ],
+            "score": scored["score"],
+            "conclusion": scored["conclusion"],
+            "source_ref": row.get("source_ref"),
+        })
+    return requests
+
+
+def apply_ai_analyses(screening: dict, analyses: list[dict]) -> list[dict]:
+    """Attach model-written analysis by site and ASIN; never create analysis in code."""
+    if not isinstance(analyses, list):
+        raise ValueError("j_ai_analyses must be a list")
+    shortlist = screening["results"][:screening["counts"]["shortlisted"]]
+    by_id = {row["candidate_id"]: row for row in shortlist}
+    for item in analyses:
+        if not isinstance(item, dict):
+            raise ValueError("each J AI analysis must be an object")
+        candidate_id = f"{str(item.get('marketplace') or '').upper()}-{str(item.get('asin') or '').upper()}"
+        if candidate_id not in by_id:
+            raise ValueError(f"J AI analysis does not match a shortlisted candidate: {candidate_id}")
+        analysis = str(item.get("analysis") or "").strip()
+        if not 25 <= len(analysis) <= 180 or "待验证" in analysis:
+            raise ValueError(f"J AI analysis must be 25–180 characters without 待验证: {candidate_id}")
+        scored = by_id[candidate_id]
+        category = str(item.get("category_name") or "").strip()
+        if not str(scored["primary_listing"].get("category_name") or "").strip() and not category:
+            raise ValueError(f"J AI analysis needs an inferred category: {candidate_id}")
+        if len(category) > 80:
+            raise ValueError(f"J inferred category is too long: {candidate_id}")
+        scored["ai_analysis"] = analysis
+        scored["ai_category_name"] = category or None
+    return [row["candidate_id"] for row in shortlist if not row.get("ai_analysis")]

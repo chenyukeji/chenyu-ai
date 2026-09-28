@@ -70,6 +70,7 @@ HEADER_ALIASES = {
     "asin": ("asin",),
     "parent_asin": ("父asin", "父体asin", "parent asin", "parent_asin"),
     "product_name": ("商品名称", "产品名称", "商品标题", "产品信息", "标题", "product", "title"),
+    "category_name": ("所在品类", "商品类目", "产品类目", "类目", "类别", "category"),
     "seller_location": ("卖家所在地", "卖家国家", "卖家地区", "seller location", "seller country"),
     "fulfillment": ("配送方式", "配送", "履约方式", "fulfillment", "shipping"),
     "price": ("价格", "售价", "price"),
