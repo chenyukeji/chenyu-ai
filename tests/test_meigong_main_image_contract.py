@@ -17,7 +17,7 @@ def test_main_image_contract_requires_pure_white_background():
         assert "product color applies only to the product" in text
 
     assert "不能用`blush white`" in skill
-    assert "任何粉色/米色/灰色底" in production
+    assert "任何可见粉色/米色/灰色底" in production
 
 
 def test_task_schema_classifies_main_images_before_prompting():
