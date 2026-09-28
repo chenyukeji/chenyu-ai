@@ -12,6 +12,14 @@ LISTING_STRUCTURE_LEAK = re.compile(
     r'(?i)\b(?:search terms|seo keywords?|keyword coverage|bullet point [1-5]|bullet [1-5])\b'
     r'|(?:搜索词|关键词覆盖|五点[一二三四五1-5]|卖点[一二三四五1-5])'
 )
+REFERENCE_NARRATION = re.compile(
+    r'(?:参考图(?:片)?\s*\d*\s*(?:用于|作为|展示|提供)|'
+    r'按照参考图(?:片)?|照着参考图(?:片)?|同款产品参考|版式参考)'
+)
+IDENTITY_LOCK_FIELDS = (
+    'shape_structure', 'color_pattern', 'quantity_components',
+    'accessories_packaging',
+)
 
 
 def words(value):
@@ -52,9 +60,221 @@ def ngrams(value, size=8):
     }
 
 
+def _non_empty_strings(value):
+    return (
+        isinstance(value, list) and bool(value)
+        and all(isinstance(item, str) and item.strip() for item in value)
+    )
+
+
+def _mapping_sources(tasks, task_ids, field):
+    values = set()
+    for task_id in task_ids:
+        task = tasks.get(task_id, {})
+        for item in task.get(field, []):
+            if isinstance(item, dict):
+                source_key = 'source_content' if field == 'content_mappings' else 'source_text'
+                output_key = 'output_content' if field == 'content_mappings' else 'output_text'
+                if str(item.get(source_key, '')).strip() and str(item.get(output_key, '')).strip():
+                    values.add(str(item[source_key]).strip())
+    return values
+
+
+def validate_visual_contract(image_brief, errors):
+    """Validate product identity and first-link image-content coverage."""
+    if not isinstance(image_brief, dict):
+        errors.append('$ image brief must be an object')
+        return
+
+    products = image_brief.get('products')
+    if not isinstance(products, list) or not products:
+        errors.append('$.products must contain at least one product from 产品内容')
+        return
+    product_images = {}
+    for index, product in enumerate(products):
+        if not isinstance(product, dict):
+            errors.append(f'$.products[{index}] must be an object')
+            continue
+        product_id = str(product.get('id', '')).strip()
+        image_id = str(product.get('product_content_image_id', '')).strip()
+        if not product_id or not image_id:
+            errors.append(
+                f'$.products[{index}] requires id and product_content_image_id'
+            )
+            continue
+        if product_id in product_images:
+            errors.append(f'$.products contains duplicate id: {product_id}')
+        product_images[product_id] = image_id
+
+    task_list = image_brief.get('image_tasks')
+    if not isinstance(task_list, list) or not task_list:
+        errors.append('$.image_tasks must contain the actual dynamic image plan')
+        return
+    tasks = {}
+    for index, task in enumerate(task_list):
+        if not isinstance(task, dict):
+            errors.append(f'$.image_tasks[{index}] must be an object')
+            continue
+        task_id = str(task.get('id', '')).strip()
+        if not task_id:
+            errors.append(f'$.image_tasks[{index}] requires id')
+            continue
+        if task_id in tasks:
+            errors.append(f'$.image_tasks contains duplicate id: {task_id}')
+        tasks[task_id] = task
+        instructions = str(task.get('instructions', ''))
+        if REFERENCE_NARRATION.search(instructions):
+            errors.append(
+                f'$.image_tasks[{index}].instructions narrates source-image usage; '
+                'describe the final composition and content directly'
+            )
+        product_ids = task.get('product_ids')
+        if not _non_empty_strings(product_ids):
+            errors.append(f'$.image_tasks[{index}].product_ids must be non-empty')
+            product_ids = []
+        unknown_products = [item for item in product_ids if item not in product_images]
+        if unknown_products:
+            errors.append(
+                f'$.image_tasks[{index}] references unknown products: '
+                + ', '.join(unknown_products)
+            )
+
+    main_covered = set()
+    for task_id, task in tasks.items():
+        if task.get('type') != 'main_image':
+            continue
+        product_ids = task.get('product_ids', [])
+        expected_images = {
+            product_images[item] for item in product_ids if item in product_images
+        }
+        actual_images = {
+            str(item).strip() for item in task.get('product_image_ids', [])
+            if str(item).strip()
+        }
+        if actual_images != expected_images:
+            errors.append(
+                f'$.image_tasks[{task_id}] main image product_image_ids must exactly '
+                'match 产品内容 images for its products'
+            )
+        identity_lock = task.get('identity_lock')
+        if not isinstance(identity_lock, dict):
+            errors.append(f'$.image_tasks[{task_id}] main image requires identity_lock')
+        else:
+            missing = [
+                field for field in IDENTITY_LOCK_FIELDS
+                if not str(identity_lock.get(field, '')).strip()
+            ]
+            if missing:
+                errors.append(
+                    f'$.image_tasks[{task_id}] identity_lock omits: '
+                    + ', '.join(missing)
+                )
+        if str(task.get('on_image_text', '')).strip():
+            errors.append(f'$.image_tasks[{task_id}] main image must have no text')
+        main_covered.update(item for item in product_ids if item in product_images)
+    missing_main = sorted(set(product_images) - main_covered)
+    if missing_main:
+        errors.append(
+            '$.image_tasks has no main_image task for products: ' + ', '.join(missing_main)
+        )
+
+    primary = image_brief.get('primary_reference')
+    if not isinstance(primary, dict):
+        errors.append('$.primary_reference must record the first product link image inventory')
+        return
+    if not str(primary.get('asin', '')).strip():
+        errors.append('$.primary_reference.asin is required')
+    images = primary.get('images')
+    if not isinstance(images, list) or not images:
+        errors.append('$.primary_reference.images must contain the first link gallery')
+        return
+    seen_image_ids = set()
+    has_main = False
+    for index, source in enumerate(images):
+        path = f'$.primary_reference.images[{index}]'
+        if not isinstance(source, dict):
+            errors.append(f'{path} must be an object')
+            continue
+        image_id = str(source.get('id', '')).strip()
+        if not image_id:
+            errors.append(f'{path}.id is required')
+        elif image_id in seen_image_ids:
+            errors.append(f'{path}.id is duplicated: {image_id}')
+        seen_image_ids.add(image_id)
+        role = str(source.get('role', '')).strip()
+        if role == 'main':
+            has_main = True
+        mapped_task_ids = source.get('mapped_task_ids', [])
+        omitted_reason = str(source.get('omitted_reason', '')).strip()
+        if mapped_task_ids and omitted_reason:
+            errors.append(f'{path} cannot be both mapped and omitted')
+        if not mapped_task_ids and not omitted_reason:
+            errors.append(f'{path} requires mapped_task_ids or a specific omitted_reason')
+            continue
+        if mapped_task_ids and not _non_empty_strings(mapped_task_ids):
+            errors.append(f'{path}.mapped_task_ids must be non-empty strings')
+            continue
+        unknown_tasks = [item for item in mapped_task_ids if item not in tasks]
+        if unknown_tasks:
+            errors.append(f'{path} maps to unknown tasks: ' + ', '.join(unknown_tasks))
+            continue
+        if role == 'main' and not any(
+                tasks.get(task_id, {}).get('type') == 'main_image'
+                for task_id in mapped_task_ids):
+            errors.append(f'{path} main source image must map to a main_image task')
+        if omitted_reason:
+            continue
+        content_elements = source.get('content_elements', [])
+        text_elements = source.get('text_elements', [])
+        if content_elements and not _non_empty_strings(content_elements):
+            errors.append(f'{path}.content_elements must contain non-empty strings')
+        if text_elements and not _non_empty_strings(text_elements):
+            errors.append(f'{path}.text_elements must contain non-empty strings')
+        mapped_content = _mapping_sources(tasks, mapped_task_ids, 'content_mappings')
+        mapped_text = _mapping_sources(tasks, mapped_task_ids, 'text_mappings')
+        missing_content = [item for item in content_elements if item not in mapped_content]
+        missing_text = [item for item in text_elements if item not in mapped_text]
+        if missing_content:
+            errors.append(f'{path} has unmapped content: ' + ', '.join(missing_content))
+        if missing_text:
+            errors.append(f'{path} has unmapped detail text: ' + ', '.join(missing_text))
+        scene_cells = source.get('scene_cells', [])
+        if role == 'four_grid':
+            if not isinstance(scene_cells, list) or len(scene_cells) != 4:
+                errors.append(f'{path} four_grid must record exactly four scene_cells')
+                continue
+            target_cells = []
+            for task_id in mapped_task_ids:
+                target_cells.extend(tasks.get(task_id, {}).get('scene_cells', []))
+            for cell_index, cell in enumerate(scene_cells):
+                if not isinstance(cell, dict):
+                    errors.append(f'{path}.scene_cells[{cell_index}] must be an object')
+                    continue
+                source_scene = str(cell.get('source_scene', '')).strip()
+                source_text = str(cell.get('source_text', '')).strip()
+                if not source_scene:
+                    errors.append(
+                        f'{path}.scene_cells[{cell_index}] requires source_scene'
+                    )
+                    continue
+                match = next((item for item in target_cells if isinstance(item, dict)
+                              and str(item.get('source_scene', '')).strip() == source_scene
+                              and str(item.get('source_text', '')).strip() == source_text), None)
+                if (not match or not str(match.get('output_scene', '')).strip()
+                        or (source_text and not str(match.get('output_text', '')).strip())):
+                    errors.append(
+                        f'{path}.scene_cells[{cell_index}] is missing a complete output '
+                        'scene/text mapping'
+                    )
+    if not has_main:
+        errors.append('$.primary_reference.images must include the first link main image')
+
+
 def validate(image_brief, listing_package=None):
     errors, warnings = [], []
     image_strings = list(walk_strings(image_brief))
+
+    validate_visual_contract(image_brief, errors)
 
     for path, value in image_strings:
         if LISTING_STRUCTURE_LEAK.search(value):
