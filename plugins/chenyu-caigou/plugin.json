@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-caigou",
-  "version": "0.1.0",
-  "description": "Amazon supplier comparison, procurement planning, and supply tracking workflows for Chenyu.",
+  "version": "0.2.0",
+  "description": "1688 supplier collection, Amazon procurement planning, and supply tracking workflows for Chenyu.",
   "author": {"name": "chenyukeji", "url": "https://github.com/chenyukeji"},
   "homepage": "https://github.com/chenyukeji/chenyu-ai",
   "repository": "https://github.com/chenyukeji/chenyu-ai",
@@ -10,11 +10,11 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "晨玙 Amazon 采购",
-    "shortDescription": "比较供应商、制定采购计划并跟踪供应链风险。",
-    "longDescription": "根据产品需求、供应商报价、MOQ、交期、预测、库存、物流与质量记录，输出供应商比较、采购计划和风险预警。",
+    "shortDescription": "采集和比较供应商，制定采购计划并跟踪风险。",
+    "longDescription": "使用可续跑的低频浏览器流程采集 1688 候选供应商，并根据报价、MOQ、交期、预测、库存、物流与质量记录输出供应商比较、采购计划和风险预警。",
     "developerName": "晨玙科技",
     "category": "Productivity",
-    "capabilities": ["Supplier comparison", "Procurement planning", "Supply risk tracking"],
-    "defaultPrompt": "根据我提供的产品需求、报价和库存资料，完成供应商比较并提出采购与风险建议。"
+    "capabilities": ["1688 supplier collection", "Human verification handoff", "Resumable collection", "Supplier comparison", "Procurement planning", "Supply risk tracking"],
+    "defaultPrompt": "根据我的产品需求，从已有资料或 1688 候选中完成供应商比较，并提出采购与风险建议。"
   }
 }
