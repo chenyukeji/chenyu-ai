@@ -29,6 +29,7 @@ class ListingTests(unittest.TestCase):
             {
                 'source_index': index,
                 'source_topic': f'Reference topic {index}',
+                'source_details': [f'Reference detail {index}'],
                 'own_fact_ids': ['F1'],
             }
             for index in range(1, 6)
@@ -79,6 +80,16 @@ class ListingTests(unittest.TestCase):
                           'search_terms': 'dekoartikel schmuckanhänger festbedarf',
                           'front_end_attributes': [],
                           'claim_fact_ids': ['F1'],
+                          'field_fact_ids': {
+                              'title': ['F1'],
+                              'item_highlights': ['F1'],
+                              'bullet_1': ['F1'],
+                              'bullet_2': ['F1'],
+                              'bullet_3': ['F1'],
+                              'bullet_4': ['F1'],
+                              'bullet_5': ['F1'],
+                              'description': ['F1'],
+                          },
                           'translations': {
                               'title': '适用于庆典和节日的纸质装饰与派对装饰',
                               'item_highlights': ('纸质材质造型清晰，适合桌面、置物架和室内空间，'
@@ -305,6 +316,15 @@ class ListingTests(unittest.TestCase):
         )
         self.assertEqual(errors, [])
 
+        del listing['primary_reference_bullet_outline'][0]['source_details']
+        errors = []
+        package_validator.validate_primary_bullet_outline(
+            errors, 'DE', 'V1', listing, fact_by_id
+        )
+        self.assertTrue(any('requires non-empty source_details' in error
+                            for error in errors))
+        listing['primary_reference_bullet_outline'] = self.primary_bullet_outline()
+
         data['facts'][0]['status'] = 'unconfirmed'
         errors = []
         package_validator.validate_primary_bullet_outline(
@@ -338,6 +358,15 @@ class ListingTests(unittest.TestCase):
                 'title': '6个装PAULTRA2冰箱空气过滤器替换滤芯，95 × 45 × 9毫米',
                 'item_highlights': ('兼容PureAir Ultra 2，以及242047805、5303918847、'
                                     'EAP12364179替换件号'),
+                'bullets': [
+                    '🔧【兼容PAULTRA2】适用于PAULTRA2冰箱空气过滤系统。',
+                    '📦【6个装】提供多个替换滤芯。',
+                    '🌿【过滤异味】帮助过滤冰箱空气。',
+                    '🛠️【便于安装】可装入对应滤芯仓。',
+                    '✅【日常替换】适合定期维护。',
+                ],
+                'description': ('兼容PAULTRA2、PureAir Ultra 2、242047805、'
+                                '5303918847和EAP12364179。'),
             },
         }
         errors = []
@@ -349,6 +378,15 @@ class ListingTests(unittest.TestCase):
             '6 filtres à air PAULTRA2 de rechange pour réfrigérateur, 95 x 45 x 9 mm',
             ('Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805, '
              '5303918847, EAP12364179 ; lot de 6'),
+            [
+                '🔧【Compatibilité PAULTRA2】Compatible avec le système PAULTRA2.',
+                '📦【Lot de 6】Six filtres de rechange.',
+                '🌿【Filtration】Aide à filtrer l’air du réfrigérateur.',
+                '🛠️【Installation】S’insère dans le logement compatible.',
+                '✅【Entretien】Convient au remplacement régulier.',
+            ],
+            ('Compatible PAULTRA2, PureAir Ultra 2, 242047805, 5303918847 '
+             'et EAP12364179.'),
         )
         self.assertEqual(errors, [])
 
@@ -361,9 +399,61 @@ class ListingTests(unittest.TestCase):
             '6 filtres à air PAULTRA2 de rechange pour réfrigérateur, 95 x 45 x 9 mm',
             ('Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805, '
              '5303918847, EAP12364179 ; lot de 6'),
+            [
+                '🔧【Compatibilité PAULTRA2】Compatible avec le système PAULTRA2.',
+                '📦【Lot de 6】Six filtres de rechange.',
+                '🌿【Filtration】Aide à filtrer l’air du réfrigérateur.',
+                '🛠️【Installation】S’insère dans le logement compatible.',
+                '✅【Entretien】Convient au remplacement régulier.',
+            ],
+            ('Compatible PAULTRA2, PureAir Ultra 2, 242047805, 5303918847 '
+             'et EAP12364179.'),
         )
         self.assertTrue(any('Chinese title and item_highlights omit confirmed' in error
                             for error in errors))
+
+    def test_listing_package_requires_field_level_fact_assignments(self):
+        data = copy.deepcopy(self.listing_package())
+        listing = data['listings'][0]
+        del listing['field_fact_ids']['description']
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('field_fact_ids.description must contain' in error
+                            for error in result['errors']))
+
+        listing['field_fact_ids']['description'] = ['F2']
+        result = package_validator.validate(data)
+        self.assertTrue(any('references unknown fact F2' in error
+                            for error in result['errors']))
+
+    def test_fitment_copy_requires_primary_term_in_bullet_and_full_list_in_description(self):
+        listing = {
+            'compatibility_required': True,
+            'primary_compatibility_term': 'PAULTRA2',
+            'compatibility_terms': ['PAULTRA2', 'PureAir Ultra 2', '242047805'],
+            'translations': {
+                'title': 'PAULTRA2冰箱空气过滤器',
+                'item_highlights': '兼容PureAir Ultra 2和242047805',
+                'bullets': ['🔧【尺寸】单个尺寸95 × 45 × 9毫米。'],
+                'description': '兼容PAULTRA2和PureAir Ultra 2。',
+            },
+        }
+        errors = []
+        package_validator.validate_compatibility_copy(
+            errors, 'FR', 'V1', listing,
+            'Filtre à air PAULTRA2 pour réfrigérateur',
+            'Compatible PureAir Ultra 2 et 242047805',
+            ['🔧【Dimensions】Chaque filtre mesure 95 x 45 x 9 mm.'],
+            'Compatible PAULTRA2 et PureAir Ultra 2.',
+        )
+        self.assertTrue(any('bullet 1 must lead with primary compatibility term' in error
+                            for error in errors))
+        self.assertTrue(any('description omits confirmed compatibility terms: 242047805'
+                            in error for error in errors))
+        self.assertTrue(any('Chinese bullet 1 must contain primary compatibility term'
+                            in error for error in errors))
+        self.assertTrue(any('Chinese description omits confirmed compatibility terms'
+                            in error for error in errors))
 
     def test_listing_package_requires_all_adopted_incremental_tokens(self):
         data = copy.deepcopy(self.listing_package())

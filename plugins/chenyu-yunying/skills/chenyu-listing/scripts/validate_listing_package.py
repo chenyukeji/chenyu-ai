@@ -34,6 +34,10 @@ ITEM_HIGHLIGHTS_LIMIT = 125
 ITEM_HIGHLIGHTS_TARGET_MINIMUM = 115
 BULLET_BODY_MINIMUM = 201
 SEARCH_TERMS_MAX_BYTES = 249
+BUYER_FACT_FIELDS = (
+    'title', 'item_highlights', 'bullet_1', 'bullet_2', 'bullet_3',
+    'bullet_4', 'bullet_5', 'description',
+)
 FORBIDDEN_TITLE_CHARACTERS = set('!$?_{}^¬¦/')
 ALLOWED_DESCRIPTION_TAGS = {'p', 'br', 'b'}
 DESCRIPTION_TAG = re.compile(r'<\s*/?\s*([a-zA-Z0-9]+)(?:\s[^>]*)?>')
@@ -372,7 +376,7 @@ def validate_chinese_translations(errors, market, variant_id, translations):
 
 
 def validate_compatibility_copy(errors, market, variant_id, listing, title,
-                                item_highlights):
+                                item_highlights, bullets, description):
     """Ensure fitment-dependent products expose confirmed compatibility identifiers."""
     required = listing.get('compatibility_required', False)
     if not isinstance(required, bool):
@@ -415,6 +419,20 @@ def validate_compatibility_copy(errors, market, variant_id, listing, title,
             f'{market}/{variant_id} title and item_highlights omit confirmed compatibility '
             'terms: ' + ', '.join(missing_target)
         )
+    if primary and (not isinstance(bullets, list) or not bullets
+                    or not contains_identifier(bullets[0], primary)):
+        errors.append(
+            f'{market}/{variant_id} bullet 1 must lead with primary compatibility term: '
+            f'{primary}'
+        )
+    missing_description = [
+        term for term in normalized_terms if not contains_identifier(description, term)
+    ]
+    if missing_description:
+        errors.append(
+            f'{market}/{variant_id} description omits confirmed compatibility terms: '
+            + ', '.join(missing_description)
+        )
     translations = listing.get('translations')
     if isinstance(translations, dict):
         translated_copy = (
@@ -430,6 +448,79 @@ def validate_compatibility_copy(errors, market, variant_id, listing, title,
                 f'{market}/{variant_id} Chinese title and item_highlights omit confirmed '
                 'compatibility terms: ' + ', '.join(missing_translation)
             )
+        translated_bullets = translations.get('bullets', [])
+        if primary and (not isinstance(translated_bullets, list)
+                        or not translated_bullets
+                        or not contains_identifier(translated_bullets[0], primary)):
+            errors.append(
+                f'{market}/{variant_id} Chinese bullet 1 must contain primary '
+                f'compatibility term: {primary}'
+            )
+        translated_description = visible_html(translations.get('description', ''))
+        missing_translated_description = [
+            term for term in normalized_terms
+            if not contains_identifier(translated_description, term)
+        ]
+        if missing_translated_description:
+            errors.append(
+                f'{market}/{variant_id} Chinese description omits confirmed '
+                'compatibility terms: ' + ', '.join(missing_translated_description)
+            )
+
+
+def validate_field_fact_ids(errors, market, variant_id, listing, fact_by_id):
+    """Require every substantive buyer field to declare its confirmed fact sources."""
+    field_fact_ids = listing.get('field_fact_ids')
+    if not isinstance(field_fact_ids, dict):
+        errors.append(f'{market}/{variant_id} field_fact_ids must be an object')
+        return
+    claim_ids = listing.get('claim_fact_ids', [])
+    claim_id_set = set(claim_ids) if isinstance(claim_ids, list) else set()
+    used_ids = set()
+    for field in BUYER_FACT_FIELDS:
+        fact_ids = field_fact_ids.get(field)
+        if (not isinstance(fact_ids, list) or not fact_ids
+                or any(not str(fact_id).strip() for fact_id in fact_ids)):
+            errors.append(
+                f'{market}/{variant_id} field_fact_ids.{field} must contain at least '
+                'one confirmed fact id'
+            )
+            continue
+        if len(fact_ids) != len(set(fact_ids)):
+            errors.append(
+                f'{market}/{variant_id} field_fact_ids.{field} contains duplicate fact ids'
+            )
+        for fact_id in fact_ids:
+            used_ids.add(fact_id)
+            fact = fact_by_id.get(fact_id)
+            if not fact:
+                errors.append(
+                    f'{market}/{variant_id} field_fact_ids.{field} references unknown '
+                    f'fact {fact_id}'
+                )
+                continue
+            if fact.get('status') != 'confirmed':
+                errors.append(
+                    f'{market}/{variant_id} field_fact_ids.{field} uses non-confirmed '
+                    f'fact {fact_id}'
+                )
+            applies = fact.get('variant_ids', [])
+            if applies and variant_id not in applies:
+                errors.append(
+                    f'{market}/{variant_id} field_fact_ids.{field} uses fact {fact_id} '
+                    'from another variant'
+                )
+            if fact_id not in claim_id_set:
+                errors.append(
+                    f'{market}/{variant_id} field_fact_ids.{field} uses fact {fact_id} '
+                    'absent from claim_fact_ids'
+                )
+    unused = sorted(claim_id_set - used_ids)
+    if unused:
+        errors.append(
+            f'{market}/{variant_id} claim_fact_ids contains facts not assigned to a '
+            'buyer field: ' + ', '.join(unused)
+        )
 
 
 def validate_primary_bullet_outline(errors, market, variant_id, listing, fact_by_id):
@@ -460,6 +551,13 @@ def validate_primary_bullet_outline(errors, market, variant_id, listing, fact_by
             errors.append(
                 f'{market}/{variant_id} primary reference bullet outline {index} '
                 'requires a non-empty source_topic'
+            )
+        source_details = item.get('source_details')
+        if (not isinstance(source_details, list) or not source_details
+                or any(not str(detail).strip() for detail in source_details)):
+            errors.append(
+                f'{market}/{variant_id} primary reference bullet outline {index} '
+                'requires non-empty source_details captured from that source bullet'
             )
         fact_ids = item.get('own_fact_ids', [])
         if not isinstance(fact_ids, list) or not fact_ids:
@@ -892,7 +990,8 @@ def validate(data):
             errors, market, variant_id, listing.get('translations')
         )
         validate_compatibility_copy(
-            errors, market, variant_id, listing, title, item_highlights
+            errors, market, variant_id, listing, title, item_highlights,
+            bullets, description_text
         )
         heading_matches = [re.search(r'(?mi)^\s*' + re.escape(heading) + r'\s*:',
                                      description_text)
@@ -1152,6 +1251,9 @@ def validate(data):
                     errors.append(
                         f'{market}/{variant_id} title keyword is absent from its mapping: {phrase}'
                     )
+        validate_field_fact_ids(
+            errors, market, variant_id, listing, fact_by_id
+        )
 
     missing = sorted(expected - set(listing_by_key))
     for market, variant_id in missing:
