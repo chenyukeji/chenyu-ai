@@ -242,6 +242,15 @@ def contains(text, phrase):
     )
 
 
+def contains_identifier(text, identifier):
+    """Match model and part identifiers even when Chinese text has no surrounding spaces."""
+    normalized_text = unicodedata.normalize('NFC', str(text)).casefold()
+    normalized_identifier = unicodedata.normalize('NFC', str(identifier)).casefold().strip()
+    return bool(normalized_identifier) and (
+        contains(text, identifier) or normalized_identifier in normalized_text
+    )
+
+
 def phrase_preceded_by_token(text, phrase, token, lookback=2):
     haystack, needle = words(text), words(phrase)
     if not needle:
@@ -357,6 +366,67 @@ def validate_chinese_translations(errors, market, variant_id, translations):
                     'language; translate only the buyer-facing product claim'
                 )
                 break
+
+
+def validate_compatibility_copy(errors, market, variant_id, listing, title,
+                                item_highlights):
+    """Ensure fitment-dependent products expose confirmed compatibility identifiers."""
+    required = listing.get('compatibility_required', False)
+    if not isinstance(required, bool):
+        errors.append(f'{market}/{variant_id} compatibility_required must be boolean')
+        return
+    if not required:
+        return
+    terms = listing.get('compatibility_terms', [])
+    if (not isinstance(terms, list) or not terms
+            or any(not str(term).strip() for term in terms)):
+        errors.append(
+            f'{market}/{variant_id} compatibility_terms must contain confirmed model, '
+            'series, or replacement-part identifiers when compatibility_required=true'
+        )
+        return
+    normalized_terms = [str(term).strip() for term in terms]
+    if len({unicodedata.normalize('NFC', term).casefold()
+            for term in normalized_terms}) != len(normalized_terms):
+        errors.append(f'{market}/{variant_id} compatibility_terms must be unique')
+    primary = str(listing.get('primary_compatibility_term', '')).strip()
+    if not primary:
+        errors.append(f'{market}/{variant_id} primary_compatibility_term is required')
+    elif not any(contains_identifier(term, primary)
+                 or contains_identifier(primary, term)
+                 for term in normalized_terms):
+        errors.append(
+            f'{market}/{variant_id} primary_compatibility_term must be represented in '
+            'compatibility_terms'
+        )
+    elif not contains_identifier(title, primary):
+        errors.append(
+            f'{market}/{variant_id} title must contain primary compatibility term: {primary}'
+        )
+    target_copy = f'{title} {item_highlights}'
+    missing_target = [
+        term for term in normalized_terms if not contains_identifier(target_copy, term)
+    ]
+    if missing_target:
+        errors.append(
+            f'{market}/{variant_id} title and item_highlights omit confirmed compatibility '
+            'terms: ' + ', '.join(missing_target)
+        )
+    translations = listing.get('translations')
+    if isinstance(translations, dict):
+        translated_copy = (
+            f'{translations.get("title", "")} '
+            f'{translations.get("item_highlights", "")}'
+        )
+        missing_translation = [
+            term for term in normalized_terms
+            if not contains_identifier(translated_copy, term)
+        ]
+        if missing_translation:
+            errors.append(
+                f'{market}/{variant_id} Chinese title and item_highlights omit confirmed '
+                'compatibility terms: ' + ', '.join(missing_translation)
+            )
 
 
 def validate(data):
@@ -756,6 +826,9 @@ def validate(data):
         )
         validate_chinese_translations(
             errors, market, variant_id, listing.get('translations')
+        )
+        validate_compatibility_copy(
+            errors, market, variant_id, listing, title, item_highlights
         )
         heading_matches = [re.search(r'(?mi)^\s*' + re.escape(heading) + r'\s*:',
                                      description_text)

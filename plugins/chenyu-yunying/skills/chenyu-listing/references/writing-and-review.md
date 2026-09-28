@@ -50,6 +50,23 @@
 - 可以重复标题中的关键差异或产品词，但必须增加新的识别信息。
 - `item_highlights_reference` 记录直接支持它的开发资料或竞品点位。
 
+### 适配型产品
+
+滤芯、耗材、集尘袋、软管、转接件等产品先回答“具体替换什么”，再说明数量和尺寸：
+
+1. 从用户确认、自有包装/说明书、供应商资料或已确认同款证据建立兼容系列、型号及 OEM/替换件号清单。
+2. 将最常用的主要系列或件号写入 Item Name；将全部已确认标识写入 Item Name＋Item Highlights，并在中文翻译中原样保留。
+3. 同一型号的空格、罗马数字或大小写变体不必全部塞入 Item Highlights，可在有搜索证据时作为 Search Terms 候选。
+4. 尺寸是兼容性补充，不是替代。不能只写“95 × 45 × 9 mm，请核对旧滤芯尺寸”，却省略已经确认的 `PAULTRA2`、设备系列或替换件号。
+5. 普通未确认竞品标题出现的型号先标为候选，不直接迁移。用户当前消息明确指定本产品兼容的系列或件号时，视为当前任务的直接确认，并记录该消息为来源。
+
+法语结构示例：
+
+```text
+Item Name：6 filtres à air PAULTRA2 de rechange pour réfrigérateur, 95 x 45 x 9 mm
+Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805, 5303918847, EAP12364179 ; lot de 6
+```
+
 ## 五点卖点
 
 严格五条，每条使用：

@@ -273,6 +273,59 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('translations must be an object' in error
                             for error in result['errors']))
 
+    def test_fitment_products_require_confirmed_compatibility_in_front_end_copy(self):
+        data = copy.deepcopy(self.listing_package())
+        listing = data['listings'][0]
+        listing['compatibility_required'] = True
+        listing['primary_compatibility_term'] = 'PAULTRA2'
+        listing['compatibility_terms'] = [
+            'PAULTRA2', 'PureAir Ultra 2', '242047805', '5303918847', 'EAP12364179'
+        ]
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('title must contain primary compatibility term' in error
+                            for error in result['errors']))
+        self.assertTrue(any('omit confirmed compatibility terms' in error
+                            for error in result['errors']))
+
+    def test_compatibility_validator_accepts_models_and_part_numbers_in_both_languages(self):
+        listing = {
+            'compatibility_required': True,
+            'primary_compatibility_term': 'PAULTRA2',
+            'compatibility_terms': [
+                'PAULTRA2', 'PureAir Ultra 2', '242047805', '5303918847', 'EAP12364179'
+            ],
+            'translations': {
+                'title': '6个装PAULTRA2冰箱空气过滤器替换滤芯，95 × 45 × 9毫米',
+                'item_highlights': ('兼容PureAir Ultra 2，以及242047805、5303918847、'
+                                    'EAP12364179替换件号'),
+            },
+        }
+        errors = []
+        package_validator.validate_compatibility_copy(
+            errors,
+            'FR',
+            'V1',
+            listing,
+            '6 filtres à air PAULTRA2 de rechange pour réfrigérateur, 95 x 45 x 9 mm',
+            ('Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805, '
+             '5303918847, EAP12364179 ; lot de 6'),
+        )
+        self.assertEqual(errors, [])
+
+        listing['translations']['item_highlights'] = '请核对原滤芯尺寸和冰箱说明书。'
+        package_validator.validate_compatibility_copy(
+            errors,
+            'FR',
+            'V1',
+            listing,
+            '6 filtres à air PAULTRA2 de rechange pour réfrigérateur, 95 x 45 x 9 mm',
+            ('Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805, '
+             '5303918847, EAP12364179 ; lot de 6'),
+        )
+        self.assertTrue(any('Chinese title and item_highlights omit confirmed' in error
+                            for error in errors))
+
     def test_listing_package_requires_all_adopted_incremental_tokens(self):
         data = copy.deepcopy(self.listing_package())
         data['competitors'] = [{
