@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | `chenyu-meigong` | Amazon 美工 | `chenyu-meigong` 总入口、`chenyu-zuotu`、`chenyu-jingxiu` |
 | `chenyu-yunying` | Amazon 运营 | `chenyu-yunying` 总入口、`chenyu-jingpin`、`chenyu-listing`、`chenyu-zuotuyaoqiu` |
-| `chenyu-kaifa` | Amazon 产品开发 | `chenyu-xuanpin`、`chenyu-kaifawendang` |
+| `chenyu-kaifa` | Amazon 产品开发 | `chenyu-kaifa`（自动选择总入口）、`chenyu-xuanpin`、`chenyu-kaifawendang` |
 | `chenyu-caigou` | Amazon 采购 | `chenyu-caigou` |
 
 ## 统一目录规范
@@ -40,6 +40,7 @@ plugins/
 ├── chenyu-kaifa/
 │   ├── plugin.json
 │   └── skills/
+│       ├── chenyu-kaifa/
 │       ├── chenyu-xuanpin/
 │       └── chenyu-kaifawendang/
 └── chenyu-caigou/

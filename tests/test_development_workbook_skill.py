@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 
@@ -19,7 +20,8 @@ def load_validator():
 def test_plugin_manifests_match_and_expose_new_skill_capability():
     outer = json.loads((PLUGIN / "plugin.json").read_text(encoding="utf-8"))
     inner = json.loads((PLUGIN / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
-    assert outer["version"] == inner["version"] == "1.1.2"
+    assert outer["version"] == inner["version"]
+    assert re.fullmatch(r"\d+\.\d+\.\d+", outer["version"])
     assert "One-product-per-workbook development documentation" in outer["interface"]["capabilities"]
     assert "One-product-per-workbook development documentation" in inner["interface"]["capabilities"]
 

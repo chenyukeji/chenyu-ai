@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-kaifa",
-  "version": "1.1.4",
-  "description": "Amazon product discovery plus one-product-per-workbook development documentation for Chenyu.",
+  "version": "1.1.5",
+  "description": "Automatically route Chenyu Amazon development requests to product discovery, development documentation, or both.",
   "author": {
     "name": "chenyukeji",
     "url": "https://github.com/chenyukeji"
@@ -19,11 +19,12 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "晨玙 Amazon 开发",
-    "shortDescription": "自动找品，并按每个产品生成独立开发 Excel。",
-    "longDescription": "根据自然语言识别找品策略；J 策略筛查近60天 FBM 热销商品，结合详情将商品特点、不足和近期机会合成一段简短 AI 分析；也可把已确认产品、竞品、供应商、变体和图片整理为每个产品一个文件的三表开发 Excel。",
+    "shortDescription": "自动选择选品分析或开发文档，协调连续开发任务。",
+    "longDescription": "通过晨玙开发总入口，根据自然语言需求自动选择选品分析、开发文档或两者。选品支持美德新品榜、历史分析和近60天 FBM 热销商品；开发文档把已确认产品、竞品、供应商、变体和图片整理为每个产品一个文件的三表 Excel。两个专业入口仍可单独使用。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": [
+      "Automatic development workflow selection",
       "Natural-language strategy routing",
       "Internal Playwright collection",
       "Amazon ASIN discovery",
@@ -34,6 +35,6 @@
       "One-product-per-workbook development documentation",
       "Embedded product and supplier images"
     ],
-    "defaultPrompt": "根据我的要求找产品，或把已确认产品整理成每个产品一个文件的开发 Excel。"
+    "defaultPrompt": "使用 $chenyu-kaifa，根据我的需求自动选择选品分析、开发文档或两者，并完成对应交付。"
   }
 }
