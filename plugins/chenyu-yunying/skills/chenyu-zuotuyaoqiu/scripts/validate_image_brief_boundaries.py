@@ -123,6 +123,8 @@ def validate_visual_contract(image_brief, errors):
             errors.append(f'$.image_tasks contains duplicate id: {task_id}')
         tasks[task_id] = task
         instructions = str(task.get('instructions', ''))
+        if not instructions.strip():
+            errors.append(f'$.image_tasks[{index}].instructions is required')
         if REFERENCE_NARRATION.search(instructions):
             errors.append(
                 f'$.image_tasks[{index}].instructions narrates source-image usage; '
@@ -138,6 +140,56 @@ def validate_visual_contract(image_brief, errors):
                 f'$.image_tasks[{index}] references unknown products: '
                 + ', '.join(unknown_products)
             )
+
+    for product_id in product_images:
+        product_tasks = [
+            task for task in task_list
+            if isinstance(task, dict) and product_id in task.get('product_ids', [])
+        ]
+        if not 5 <= len(product_tasks) <= 8:
+            errors.append(
+                f'$.image_tasks must contain 5-8 tasks for product {product_id}; '
+                f'found {len(product_tasks)}'
+            )
+            continue
+        task_types = [task.get('type') for task in product_tasks]
+        if task_types[:3] != ['main_image', 'closeup_scene', 'size']:
+            errors.append(
+                f'$.image_tasks for product {product_id} must start with '
+                'main_image, closeup_scene, size'
+            )
+        if task_types[-2:] != ['key_scene', 'four_grid']:
+            errors.append(
+                f'$.image_tasks for product {product_id} must end with '
+                'key_scene, four_grid'
+            )
+        middle_types = task_types[3:-2]
+        allowed_middle = {'feature', 'advantage', 'process', 'detail'}
+        invalid_middle = [item for item in middle_types if item not in allowed_middle]
+        if invalid_middle:
+            errors.append(
+                f'$.image_tasks for product {product_id} has unsupported middle task '
+                'types: ' + ', '.join(map(str, invalid_middle))
+            )
+
+    for task_id, task in tasks.items():
+        task_type = task.get('type')
+        if task_type in ('closeup_scene', 'key_scene'):
+            if not str(task.get('scene_mode', '')).strip():
+                errors.append(
+                    f'$.image_tasks[{task_id}] {task_type} requires scene_mode'
+                )
+        if task_type == 'size' and not _non_empty_strings(task.get('dimension_labels')):
+            errors.append(
+                f'$.image_tasks[{task_id}] size task requires dimension_labels'
+            )
+        if task_type == 'four_grid':
+            scene_cells = task.get('scene_cells')
+            if not isinstance(scene_cells, list) or len(scene_cells) != 4:
+                errors.append(
+                    f'$.image_tasks[{task_id}] four_grid task requires exactly '
+                    'four scene_cells'
+                )
 
     main_covered = set()
     for task_id, task in tasks.items():
