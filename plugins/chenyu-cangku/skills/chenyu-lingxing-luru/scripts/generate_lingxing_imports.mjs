@@ -14,10 +14,12 @@ const accountDefaults = new Map([
 
 function parseArgs(argv) {
   const args = {};
+  const allowed = new Set(["input", "product-output", "pairing-output", "product-template", "pairing-template"]);
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (!token.startsWith("--")) throw new Error(`Unexpected argument: ${token}`);
     const key = token.slice(2);
+    if (!allowed.has(key)) throw new Error(`Unknown option: --${key}`);
     const value = argv[index + 1];
     if (!value || value.startsWith("--")) throw new Error(`Missing value for --${key}`);
     args[key] = value;
@@ -34,7 +36,6 @@ function usage() {
     "    --pairing-output <领星产品配对.xlsx>",
     "    [--product-template <Product-V392.xlsx>]",
     "    [--pairing-template <按MSKU模板.xlsx>]",
-    "    [--preview-dir <qa-preview-dir>]",
   ].join("\n");
 }
 
@@ -173,6 +174,7 @@ function readSourceRecords(values) {
     netWeight: headerIndex(headers, ["单个重量(净重）", "单个重量(净重)"]),
     size: headerIndex(headers, ["尺寸"]),
     grossWeight: headerIndex(headers, ["毛重（取最大者）", "毛重(取最大者)"]),
+    status: headerIndex(headers, ["状态"], false),
     purchasePrice: headerIndex(headers, ["采购价"], false),
   };
 
@@ -209,6 +211,7 @@ function readSourceRecords(values) {
       product: requiredText.product,
       productName: requiredText.productName,
       msku,
+      status: cleanText(getCell(row, indexes, "status")) || "在售",
       purchaseCost: optionalNumber(getCell(row, indexes, "purchaseCost"), "进货成本", rowNumber),
       purchasePrice: optionalNumber(getCell(row, indexes, "purchasePrice"), "采购价", rowNumber),
       netWeight: optionalNumber(getCell(row, indexes, "netWeight"), "单个重量(净重)", rowNumber),
@@ -233,7 +236,7 @@ function productRows(records, headers) {
     setByHeader(row, outputIndexes, "*SKU", record.msku);
     setByHeader(row, outputIndexes, "品名", record.productName);
     setByHeader(row, outputIndexes, "产品类型", "普通产品");
-    setByHeader(row, outputIndexes, "状态", "待售");
+    setByHeader(row, outputIndexes, "状态", record.status);
     setByHeader(row, outputIndexes, "单位", "件");
     setByHeader(row, outputIndexes, "开发人", record.developer);
     setByHeader(row, outputIndexes, "开发日期", record.date, false);
@@ -277,24 +280,6 @@ function pairingRows(records) {
 function assertNoFormulaErrors(result, label) {
   const matches = result.records.filter((record) => record.kind === "match");
   if (matches.length > 0) throw new Error(`${label} 存在公式错误：${JSON.stringify(matches.slice(0, 10))}`);
-}
-
-async function renderPreviews(productWorkbook, pairingWorkbook, previewDir, productLastRow, pairingLastRow) {
-  await fs.mkdir(previewDir, { recursive: true });
-  const jobs = [
-    [productWorkbook, "产品", `A1:AE${productLastRow}`, "产品录用_左侧.png"],
-    [productWorkbook, "产品", `AF1:BK${productLastRow}`, "产品录用_中部.png"],
-    [productWorkbook, "产品", `BL1:CO${productLastRow}`, "产品录用_右侧.png"],
-    [pairingWorkbook, "Sheet1", `A1:E${pairingLastRow}`, "产品配对.png"],
-  ];
-  const outputs = [];
-  for (const [workbook, sheetName, range, fileName] of jobs) {
-    const image = await workbook.render({ sheetName, range, scale: 1, format: "png" });
-    const output = path.join(previewDir, fileName);
-    await fs.writeFile(output, new Uint8Array(await image.arrayBuffer()));
-    outputs.push(output);
-  }
-  return outputs;
 }
 
 async function main() {
@@ -370,17 +355,6 @@ async function main() {
     throw new Error(`产品配对表行数错误：期望新增 ${records.length} 行，实际数据行 ${actualPairingRows}。`);
   }
 
-  let previews = [];
-  if (args["preview-dir"]) {
-    previews = await renderPreviews(
-      productWorkbook,
-      pairingWorkbook,
-      path.resolve(args["preview-dir"]),
-      existingProductRows + records.length + 1,
-      existingPairingRows + records.length + 1,
-    );
-  }
-
   await fs.mkdir(path.dirname(productOutput), { recursive: true });
   await fs.mkdir(path.dirname(pairingOutput), { recursive: true });
   await (await SpreadsheetFile.exportXlsx(productWorkbook)).save(productOutput);
@@ -396,9 +370,7 @@ async function main() {
     productOutput,
     pairingOutput,
     templates: { productTemplate, pairingTemplate },
-    previews,
   }, null, 2));
-  process.exitCode = 0;
 }
 
 main().catch((error) => {

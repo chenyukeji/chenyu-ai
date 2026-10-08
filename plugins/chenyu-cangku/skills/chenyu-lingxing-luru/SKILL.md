@@ -17,13 +17,14 @@ description: 晨玙仓库领星产品录用模板生成。输入一份公司“�
 2. 基于 `assets/导入配对商品模板 (按MSKU).xlsx` 的按 MSKU 配对表。
 
 两份母版都是唯一格式基准。不得重建工作簿、删除示例行、删除字典页、改列名、改列序或自行升级模板版本。
+新品补录表的 `状态` 列为空时，产品状态默认填写 `在售`；有值时沿用输入值。
 
 ## 执行步骤
 
 1. 读取输入工作簿，定位包含 `Msku` 的工作表；按规则清洗并校验所有非空业务行。
 2. 为本次任务创建同一个 `lingxing-product-import/<日期_任务简称>/` 输出目录；存在同名新任务时追加序号，不覆盖旧文件。
 3. 使用工作区依赖中的 Node.js 与 `@oai/artifact-tool` 运行 `scripts/generate_lingxing_imports.mjs`。若当前脚本目录无法解析依赖，在临时执行目录创建指向工作区 `node_modules` 的 junction，复制脚本到该临时目录，并显式传入两个母版路径；完成后只删除本次创建的临时目录。
-4. 运行命令时传入输入文件、两份输出路径及临时预览目录：
+4. 运行命令时传入输入文件和两份输出路径：
 
 ```bash
 node generate_lingxing_imports.mjs \
@@ -31,11 +32,10 @@ node generate_lingxing_imports.mjs \
   --product-template /path/to/assets/Product-V392.xlsx \
   --pairing-template "/path/to/assets/导入配对商品模板 (按MSKU).xlsx" \
   --product-output /path/to/output/领星产品录用-V392.xlsx \
-  --pairing-output /path/to/output/领星产品配对-按MSKU.xlsx \
-  --preview-dir /path/to/temporary-previews
+  --pairing-output /path/to/output/领星产品配对-按MSKU.xlsx
 ```
 
-5. 生成器会在导出前各重算一次工作簿，检查公式错误和新增行数。随后检查产品表的左、中、右三段预览及配对表预览，确认文字未错列、MSKU 未截断、数据验证和模板格式仍在。
+5. 生成器会在导出前各重算一次工作簿，检查公式错误和新增行数。使用当前电子表格工具渲染并检查产品表的左、中、右三段及配对表，确认文字未错列、MSKU 未截断、数据验证和模板格式仍在。预览和生成分开执行。
 6. 交付两份实际 Excel 和未能转换的明确问题；不把预览图或检查日志当成业务成果。
 
 ## 停止条件
