@@ -1,0 +1,30 @@
+{
+  "name": "chenyu-wuliu",
+  "version": "0.1.0",
+  "description": "Carton-photo shipping invoices for Chenyu logistics.",
+  "author": {
+    "name": "chenyukeji",
+    "url": "https://github.com/chenyukeji"
+  },
+  "homepage": "https://github.com/chenyukeji/chenyu-ai",
+  "repository": "https://github.com/chenyukeji/chenyu-ai",
+  "keywords": [
+    "amazon",
+    "logistics",
+    "shipping-invoice",
+    "carton",
+    "lingxing"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "晨玙 Amazon 物流",
+    "shortDescription": "根据箱唛照片与领星资料生成联航、驿路达发货发票。",
+    "longDescription": "面向物流岗位，核对箱唛照片、领星商品资料、发货渠道及 FBA 箱号，保留承运商原版 .xls 模板生成发货发票。执行依赖 Windows 与 WPS 表格；不代替运营的买家订单商业发票。",
+    "developerName": "晨玙科技",
+    "category": "Productivity",
+    "capabilities": [
+      "Carton photo to shipping invoice generation"
+    ],
+    "defaultPrompt": "使用箱唛照片和已确认的领星商品资料，生成联航或驿路达发货发票。"
+  }
+}

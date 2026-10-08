@@ -1,6 +1,6 @@
 # chenyu-ai
 
-晨玙科技 Amazon AI 工作插件仓库。仓库按公司岗位维护四个相互独立、可单独分发的插件：美工、运营、开发和仓库。
+晨玙科技 Amazon AI 工作插件仓库。仓库按公司岗位维护五个相互独立、可单独分发的插件：美工、运营、开发、仓库和物流。
 
 ## 当前插件
 
@@ -10,6 +10,7 @@
 | `chenyu-yunying` | Amazon 运营 | `chenyu-yunying` 总入口、`chenyu-jingpin`、`chenyu-listing`、`chenyu-zuotuyaoqiu`、`chenyu-invoice` |
 | `chenyu-kaifa` | Amazon 产品开发 | `chenyu-kaifa`（自动选择总入口）、`chenyu-xuanpin`、`chenyu-kaifawendang` |
 | `chenyu-cangku` | Amazon 仓库 | `chenyu-lingxing-luru`（一份新品补录表生成两份领星导入表） |
+| `chenyu-wuliu` | Amazon 物流 | `chenyu-xiangmai-fapiao`（箱唛照片生成联航／驿路达发货发票，依赖 Windows＋WPS） |
 
 ## 统一目录规范
 
@@ -87,6 +88,7 @@ codex plugin add chenyu-yunying@chenyu-ai
 codex plugin add chenyu-meigong@chenyu-ai
 codex plugin add chenyu-kaifa@chenyu-ai
 codex plugin add chenyu-cangku@chenyu-ai
+codex plugin add chenyu-wuliu@chenyu-ai
 ```
 
 安装或升级后新建对话，确保 Codex 加载新版本。GitHub `main` 是插件源码、规则、测试、清单和 marketplace 的唯一基线；本地插件只能从已经提交并推送的同一源码刷新，不能保留领先或落后的私人副本。
@@ -193,7 +195,7 @@ chenyu-yunying/
 5. **建设跨部门 Workflow**：打通新品开发、上架、改款和库存风险流程。
 6. **开放受控写入**：在审计、授权、幂等和回滚机制具备后，再逐项开放发布、调价、广告、采购等操作。
 
-每个阶段都必须保持四个岗位插件可独立安装、独立升级、独立回退。
+每个阶段都必须保持五个岗位插件可独立安装、独立升级、独立回退。
 
 
 商业发票由 AI 运营负责：`plugins/chenyu-yunying/skills/chenyu-invoice`，交付订单编号命名的 PDF。原 `chenyu-fahuo` 插件已合并到运营插件。
