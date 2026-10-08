@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-cangku",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Warehouse data preparation and Lingxing import-template generation workflows for Chenyu.",
   "author": {
     "name": "chenyukeji",

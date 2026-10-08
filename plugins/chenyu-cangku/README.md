@@ -30,5 +30,6 @@ chenyu-cangku/
         ├── agents/openai.yaml
         ├── assets/
         ├── references/field-mapping.md
+        ├── scripts/generate_lingxing_imports.py
         └── scripts/generate_lingxing_imports.mjs
 ```
