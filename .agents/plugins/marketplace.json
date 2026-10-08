@@ -17,6 +17,18 @@
       "category": "Productivity"
     },
     {
+      "name": "chenyu-cangku",
+      "source": {
+        "source": "local",
+        "path": "./plugins/chenyu-cangku"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
       "name": "chenyu-fahuo",
       "source": {
         "source": "local",

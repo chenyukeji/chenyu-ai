@@ -1,0 +1,6 @@
+interface:
+  display_name: "晨玙领星产品录用"
+  short_description: "输入新品补录 Excel，生成领星产品录用表和按 MSKU 配对表。"
+  default_prompt: "使用 $chenyu-lingxing-luru，将我提供的新品补录 Excel 转成领星产品录用表和按 MSKU 配对表，并核验格式。"
+policy:
+  allow_implicit_invocation: true

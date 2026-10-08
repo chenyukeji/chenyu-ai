@@ -16,6 +16,7 @@ This repository packages role-based Amazon workflows as portable plugins for com
 - Amazon product-discovery requests enter `plugins/chenyu-kaifa/skills/chenyu-xuanpin`.
 - One-product-per-workbook Amazon development documents belong to `plugins/chenyu-kaifa/skills/chenyu-kaifawendang`.
 - Supplier comparison, procurement planning, and supply tracking belong to `plugins/chenyu-caigou/skills/chenyu-caigou`.
+- Lingxing product onboarding and SKU/MSKU pairing templates belong to `plugins/chenyu-cangku/skills/chenyu-lingxing-luru`.
 - Amazon shipping-document template generation belongs to `plugins/chenyu-fahuo/skills/chenyu-invoice`.
 
 ## Packaging

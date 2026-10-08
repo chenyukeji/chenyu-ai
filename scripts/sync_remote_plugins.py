@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-NAMES = ('chenyu-kaifa', 'chenyu-yunying', 'chenyu-meigong', 'chenyu-caigou', 'chenyu-fahuo')
+NAMES = ('chenyu-kaifa', 'chenyu-yunying', 'chenyu-meigong', 'chenyu-caigou', 'chenyu-cangku', 'chenyu-fahuo')
 VERSION = re.compile(r'\d+\.\d+\.\d+\Z')
 
 
@@ -76,6 +76,8 @@ def install_plugins(repo: Path, market: Path, cache: Path, codex: str, versions:
     for name in NAMES:
         source = repo / 'plugins' / name
         entry = market / name
+        if not entry.exists() and not entry.is_symlink():
+            entry.symlink_to(source, target_is_directory=True)
         if not entry.is_symlink() or entry.resolve() != source.resolve():
             raise RuntimeError(f'{name}: marketplace entry must link to {source}')
 

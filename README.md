@@ -1,6 +1,6 @@
 # chenyu-ai
 
-晨玙科技 Amazon AI 工作插件仓库。仓库按公司岗位维护五个相互独立、可单独分发的插件：美工、运营、开发、采购和发货。
+晨玙科技 Amazon AI 工作插件仓库。仓库按公司岗位维护六个相互独立、可单独分发的插件：美工、运营、开发、采购、仓库和发货。
 
 ## 当前插件
 
@@ -10,6 +10,7 @@
 | `chenyu-yunying` | Amazon 运营 | `chenyu-yunying` 总入口、`chenyu-jingpin`、`chenyu-listing`、`chenyu-zuotuyaoqiu` |
 | `chenyu-kaifa` | Amazon 产品开发 | `chenyu-kaifa`（自动选择总入口）、`chenyu-xuanpin`、`chenyu-kaifawendang` |
 | `chenyu-caigou` | Amazon 采购 | `chenyu-caigou` |
+| `chenyu-cangku` | Amazon 仓库 | `chenyu-lingxing-luru`（一份新品补录表生成两份领星导入表） |
 | `chenyu-fahuo` | Amazon 发货 | `chenyu-invoice`（法国站商业发票模板） |
 
 ## 统一目录规范
@@ -47,6 +48,9 @@ plugins/
 ├── chenyu-caigou/
 │   ├── plugin.json
 │   └── skills/chenyu-caigou/
+├── chenyu-cangku/
+│   ├── plugin.json
+│   └── skills/chenyu-lingxing-luru/
 └── chenyu-fahuo/
     ├── plugin.json
     └── skills/chenyu-invoice/
@@ -57,11 +61,11 @@ plugins/
 - 根目录使用 `plugin.json` 描述插件，`skills/` 保存该岗位的实际能力。
 - 每个 Skill 都有 `SKILL.md`；`agents/openai.yaml` 只描述该 Skill 在界面中的名称和默认提示。
 - `assets/`、`references/`、`scripts/` 仅在有真实内容时建立，不保留空目录。
-- 后续需要 MCP、App 或独立 Agent 时，只在对应插件中增加，五个插件仍可分别安装和升级。
+- 后续需要 MCP、App 或独立 Agent 时，只在对应插件中增加，六个插件仍可分别安装和升级。
 
 ## 统一输出目录
 
-未指定其他保存位置时，五个插件的业务成果统一写入：
+未指定其他保存位置时，六个插件的业务成果统一写入：
 
 ```text
 outputs/<插件名>/<交付部分>/<YYYY-MM-DD_产品简称>/
@@ -75,7 +79,7 @@ outputs/<插件名>/<交付部分>/<YYYY-MM-DD_产品简称>/
 
 `chenyu-guanggao`（广告）仅为后续计划，当前未实现。目录和 Skill 标识统一使用拼音，Listing 保留通用名称；标准文件名不翻译。插件更名后，安装新名称的包并停用旧包，避免同名专业 Skill 重复出现。运营包包含共用 `references/`，分发时保留。
 
-仓库已在 `.agents/plugins/marketplace.json` 注册五个岗位插件。拥有仓库访问权限的员工可添加并刷新 GitHub marketplace：
+仓库已在 `.agents/plugins/marketplace.json` 注册六个岗位插件。拥有仓库访问权限的员工可添加并刷新 GitHub marketplace：
 
 ```bash
 codex plugin marketplace add chenyukeji/chenyu-ai
@@ -89,12 +93,13 @@ codex plugin add chenyu-yunying@chenyu-ai
 codex plugin add chenyu-meigong@chenyu-ai
 codex plugin add chenyu-kaifa@chenyu-ai
 codex plugin add chenyu-caigou@chenyu-ai
+codex plugin add chenyu-cangku@chenyu-ai
 codex plugin add chenyu-fahuo@chenyu-ai
 ```
 
 安装或升级后新建对话，确保 Codex 加载新版本。GitHub `main` 是插件源码、规则、测试、清单和 marketplace 的唯一基线；本地插件只能从已经提交并推送的同一源码刷新，不能保留领先或落后的私人副本。
 
-ZIP 仍作为备用分发方式：管理员或维护者分别打包 `plugins/` 下的五个目录，ZIP 根层必须直接看到 `plugin.json` 和 `skills/`，再由员工在 ChatGPT 工作区插件管理页面上传。五个岗位插件互不依赖；`dist/` 中的 ZIP 是派生发布物，不进入源码提交，需要分发时应从已提交版本重新生成并作为 GitHub Release 附件发布。
+ZIP 仍作为备用分发方式：管理员或维护者分别打包 `plugins/` 下的六个目录，ZIP 根层必须直接看到 `plugin.json` 和 `skills/`，再由员工在 ChatGPT 工作区插件管理页面上传。六个岗位插件互不依赖；`dist/` 中的 ZIP 是派生发布物，不进入源码提交，需要分发时应从已提交版本重新生成并作为 GitHub Release 附件发布。
 
 ## 后续架构计划
 
@@ -193,7 +198,7 @@ chenyu-yunying/
 └── .mcp.json               # MCP 注册与连接配置（接入 MCP 后才创建）
 ```
 
-跨部门 Workflow 不复制到五个插件中，统一放在仓库级 `workflows/`，并明确每一步由哪个岗位插件负责。员工日常仍只安装自己岗位的插件；需要完整跨部门自动化时，再由管理端组合调用。
+跨部门 Workflow 不复制到六个插件中，统一放在仓库级 `workflows/`，并明确每一步由哪个岗位插件负责。员工日常仍只安装自己岗位的插件；需要完整跨部门自动化时，再由管理端组合调用。
 
 ### 实施顺序
 
@@ -204,5 +209,5 @@ chenyu-yunying/
 5. **建设跨部门 Workflow**：打通新品开发、上架、改款和库存风险流程。
 6. **开放受控写入**：在审计、授权、幂等和回滚机制具备后，再逐项开放发布、调价、广告、采购等操作。
 
-每个阶段都必须保持五个岗位插件可独立安装、独立升级、独立回退。
+每个阶段都必须保持六个岗位插件可独立安装、独立升级、独立回退。
 

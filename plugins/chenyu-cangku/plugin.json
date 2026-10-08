@@ -1,0 +1,33 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "chenyu-cangku",
+  "version": "0.1.0",
+  "description": "Warehouse data preparation and Lingxing import-template generation workflows for Chenyu.",
+  "author": {
+    "name": "chenyukeji",
+    "url": "https://github.com/chenyukeji"
+  },
+  "homepage": "https://github.com/chenyukeji/chenyu-ai",
+  "repository": "https://github.com/chenyukeji/chenyu-ai",
+  "keywords": [
+    "amazon",
+    "warehouse",
+    "lingxing",
+    "inventory",
+    "spreadsheet"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "晨玙 Amazon 仓库",
+    "shortDescription": "将仓库业务表转换为领星等系统可导入的标准模板。",
+    "longDescription": "面向仓库岗位处理新品建档、SKU/MSKU 配对和系统导入文件；当前可把一份晨玙新品补录 Excel 自动转换为领星产品录用表和按 MSKU 配对表。",
+    "developerName": "晨玙科技",
+    "category": "Productivity",
+    "capabilities": [
+      "Lingxing product import generation",
+      "SKU and MSKU pairing generation",
+      "Warehouse spreadsheet validation"
+    ],
+    "defaultPrompt": "根据我提供的新品补录 Excel，生成领星产品录用表和按 MSKU 配对表，并核验字段和模板格式。"
+  }
+}
