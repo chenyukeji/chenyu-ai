@@ -2,7 +2,7 @@
 name: chenyu-xuanpin
 description: 晨玙 Amazon 选品分析。接收用户自定义的单类目、多类目或自然语言选品要求，支持近期 FBM、新品榜、卖家精灵历史季节性选品，以及店铺快照、搜索热词、排名跃升数据导入分析；按证据排序并生成开品 Excel。只负责选品和分析，不处理供应商报价、利润、采购、试销、Listing 或广告。
 metadata:
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # 晨玙 Amazon 选品分析

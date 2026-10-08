@@ -13,13 +13,13 @@
       "name": "同类中国卖家现货",
       "role": "candidate_discovery",
       "phase": "import_ready",
-      "ui": false
+      "order": 6
     },
     "B": {
       "name": "近期商品需求",
       "role": "candidate_discovery",
       "phase": "planned",
-      "ui": false
+      "order": 7
     },
     "C": {
       "name": "搜索热词机会",
@@ -32,7 +32,7 @@
       "name": "评论痛点",
       "role": "candidate_discovery",
       "phase": "planned",
-      "ui": false
+      "order": 8
     },
     "E": {
       "name": "新品榜发现",
@@ -45,7 +45,7 @@
       "name": "现货组合与单品比较",
       "role": "candidate_discovery",
       "phase": "planned",
-      "ui": false
+      "order": 9
     },
     "H": {
       "name": "历史季节性选品",

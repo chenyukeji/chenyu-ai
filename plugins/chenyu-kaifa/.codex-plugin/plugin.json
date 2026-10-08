@@ -1,6 +1,6 @@
 {
   "name": "chenyu-kaifa",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Automatically route Chenyu Amazon development requests to product discovery, development documentation, or both.",
   "author": {
     "name": "chenyukeji",
