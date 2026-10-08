@@ -1,6 +1,6 @@
 # chenyu-ai
 
-晨玙科技 Amazon AI 工作插件仓库。仓库按公司岗位维护四个相互独立、可单独分发的插件：美工、运营、开发和采购。
+晨玙科技 Amazon AI 工作插件仓库。仓库按公司岗位维护五个相互独立、可单独分发的插件：美工、运营、开发、采购和发货。
 
 ## 当前插件
 
@@ -10,6 +10,7 @@
 | `chenyu-yunying` | Amazon 运营 | `chenyu-yunying` 总入口、`chenyu-jingpin`、`chenyu-listing`、`chenyu-zuotuyaoqiu` |
 | `chenyu-kaifa` | Amazon 产品开发 | `chenyu-kaifa`（自动选择总入口）、`chenyu-xuanpin`、`chenyu-kaifawendang` |
 | `chenyu-caigou` | Amazon 采购 | `chenyu-caigou` |
+| `chenyu-fahuo` | Amazon 发货 | `chenyu-invoice`（法国站商业发票模板） |
 
 ## 统一目录规范
 
@@ -43,9 +44,12 @@ plugins/
 │       ├── chenyu-kaifa/
 │       ├── chenyu-xuanpin/
 │       └── chenyu-kaifawendang/
-└── chenyu-caigou/
+├── chenyu-caigou/
+│   ├── plugin.json
+│   └── skills/chenyu-caigou/
+└── chenyu-fahuo/
     ├── plugin.json
-    └── skills/chenyu-caigou/
+    └── skills/chenyu-invoice/
 ```
 
 每个插件遵循以下规则：
@@ -53,11 +57,11 @@ plugins/
 - 根目录使用 `plugin.json` 描述插件，`skills/` 保存该岗位的实际能力。
 - 每个 Skill 都有 `SKILL.md`；`agents/openai.yaml` 只描述该 Skill 在界面中的名称和默认提示。
 - `assets/`、`references/`、`scripts/` 仅在有真实内容时建立，不保留空目录。
-- 后续需要 MCP、App 或独立 Agent 时，只在对应插件中增加，四个插件仍可分别安装和升级。
+- 后续需要 MCP、App 或独立 Agent 时，只在对应插件中增加，五个插件仍可分别安装和升级。
 
 ## 统一输出目录
 
-未指定其他保存位置时，四个插件的业务成果统一写入：
+未指定其他保存位置时，五个插件的业务成果统一写入：
 
 ```text
 outputs/<插件名>/<交付部分>/<YYYY-MM-DD_产品简称>/
@@ -71,7 +75,7 @@ outputs/<插件名>/<交付部分>/<YYYY-MM-DD_产品简称>/
 
 `chenyu-guanggao`（广告）仅为后续计划，当前未实现。目录和 Skill 标识统一使用拼音，Listing 保留通用名称；标准文件名不翻译。插件更名后，安装新名称的包并停用旧包，避免同名专业 Skill 重复出现。运营包包含共用 `references/`，分发时保留。
 
-仓库已在 `.agents/plugins/marketplace.json` 注册四个岗位插件。拥有仓库访问权限的员工可添加并刷新 GitHub marketplace：
+仓库已在 `.agents/plugins/marketplace.json` 注册五个岗位插件。拥有仓库访问权限的员工可添加并刷新 GitHub marketplace：
 
 ```bash
 codex plugin marketplace add chenyukeji/chenyu-ai
@@ -85,11 +89,12 @@ codex plugin add chenyu-yunying@chenyu-ai
 codex plugin add chenyu-meigong@chenyu-ai
 codex plugin add chenyu-kaifa@chenyu-ai
 codex plugin add chenyu-caigou@chenyu-ai
+codex plugin add chenyu-fahuo@chenyu-ai
 ```
 
 安装或升级后新建对话，确保 Codex 加载新版本。GitHub `main` 是插件源码、规则、测试、清单和 marketplace 的唯一基线；本地插件只能从已经提交并推送的同一源码刷新，不能保留领先或落后的私人副本。
 
-ZIP 仍作为备用分发方式：管理员或维护者分别打包 `plugins/` 下的四个目录，ZIP 根层必须直接看到 `plugin.json` 和 `skills/`，再由员工在 ChatGPT 工作区插件管理页面上传。四个部门插件互不依赖；`dist/` 中的 ZIP 是派生发布物，不进入源码提交，需要分发时应从已提交版本重新生成并作为 GitHub Release 附件发布。
+ZIP 仍作为备用分发方式：管理员或维护者分别打包 `plugins/` 下的五个目录，ZIP 根层必须直接看到 `plugin.json` 和 `skills/`，再由员工在 ChatGPT 工作区插件管理页面上传。五个岗位插件互不依赖；`dist/` 中的 ZIP 是派生发布物，不进入源码提交，需要分发时应从已提交版本重新生成并作为 GitHub Release 附件发布。
 
 ## 后续架构计划
 
@@ -108,7 +113,7 @@ Skill + MCP（专业能力 + 外部系统和实时数据）
 - **MCP**：连接 Amazon、ERP、素材库、供应商和内部数据库，提供结构化工具与数据。
 - **Agent**：代表一个岗位负责接收目标、选择 Workflow、调用 Skills/MCP、汇总结果和控制高风险操作。
 
-Agent 与 Workflow 是本仓库的业务编排规范；Skills 与 MCP 是插件可直接打包的能力。只有真实实现完成后才创建对应目录，不建立空占位目录。
+Agent 与 Workflow 是本仓库的业务编排规范；Skills 与 MCP 是插件可直接打包的能力。`chenyu-fahuo` 当前先提供边界明确的文件生成 Skill，不提前建立岗位 Agent 或 Workflow 占位目录。只有真实实现完成后才创建对应目录。
 
 设计依据参考 OpenAI 官方的 [Skills 与 Plugins 说明](https://learn.chatgpt.com/zh-Hans/docs/skills-and-plugins) 和 [创建 Plugins 指南](https://learn.chatgpt.com/zh-Hans/docs/build-plugins)。
 
@@ -121,7 +126,7 @@ Agent 与 Workflow 是本仓库的业务编排规范；Skills 与 MCP 是插件�
 | `kaifa-agent` | Amazon 产品负责人 | 市场机会、产品方案、利润模型和开发决策 | 输出建议，不自动立项或采购 |
 | `caigou-agent` | 供应链负责人 | 供应商比较、采购计划、交期和质量风险 | 不自动询价、签约、下单或付款 |
 
-岗位 Agent 首先只在自己的插件内部调度。等四个岗位稳定后，再评估增加独立的 `guanli-agent`，用于跨部门查看进度和发起流程，但不取代各岗位的专业判断。
+岗位 Agent 首先只在自己的插件内部调度。等各岗位稳定后，再评估增加独立的 `guanli-agent`，用于跨部门查看进度和发起流程，但不取代各岗位的专业判断。
 
 ### MCP 计划
 
@@ -188,7 +193,7 @@ chenyu-yunying/
 └── .mcp.json               # MCP 注册与连接配置（接入 MCP 后才创建）
 ```
 
-跨部门 Workflow 不复制到四个插件中，统一放在仓库级 `workflows/`，并明确每一步由哪个岗位插件负责。员工日常仍只安装自己岗位的插件；需要完整跨部门自动化时，再由管理端组合调用。
+跨部门 Workflow 不复制到五个插件中，统一放在仓库级 `workflows/`，并明确每一步由哪个岗位插件负责。员工日常仍只安装自己岗位的插件；需要完整跨部门自动化时，再由管理端组合调用。
 
 ### 实施顺序
 
@@ -199,5 +204,5 @@ chenyu-yunying/
 5. **建设跨部门 Workflow**：打通新品开发、上架、改款和库存风险流程。
 6. **开放受控写入**：在审计、授权、幂等和回滚机制具备后，再逐项开放发布、调价、广告、采购等操作。
 
-每个阶段都必须保持四个岗位插件可独立安装、独立升级、独立回退。
+每个阶段都必须保持五个岗位插件可独立安装、独立升级、独立回退。
 

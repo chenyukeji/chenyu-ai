@@ -1,0 +1,33 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "chenyu-fahuo",
+  "version": "0.1.0",
+  "description": "Amazon shipping-document and fixed-template generation workflows for Chenyu.",
+  "author": {
+    "name": "chenyukeji",
+    "url": "https://github.com/chenyukeji"
+  },
+  "homepage": "https://github.com/chenyukeji/chenyu-ai",
+  "repository": "https://github.com/chenyukeji/chenyu-ai",
+  "keywords": [
+    "amazon",
+    "shipping",
+    "invoice",
+    "fulfillment",
+    "documents"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "晨玙 Amazon 发货",
+    "shortDescription": "按已确认订单生成发货所需的固定版式文档。",
+    "longDescription": "根据已确认的 Amazon 订单与对应母版生成可核验的发货文档；当前能力为法国站商业发票 PDF。",
+    "developerName": "晨玙科技",
+    "category": "Productivity",
+    "capabilities": [
+      "Commercial invoice generation",
+      "Fixed-template document rendering",
+      "Order-field and purchase-date validation"
+    ],
+    "defaultPrompt": "根据我提供的 Amazon 订单信息，使用对应固定母版生成并核验发货文档；发票日期必须取订单购买日期。"
+  }
+}

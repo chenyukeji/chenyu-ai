@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-NAMES = ('chenyu-kaifa', 'chenyu-yunying', 'chenyu-meigong', 'chenyu-caigou')
+NAMES = ('chenyu-kaifa', 'chenyu-yunying', 'chenyu-meigong', 'chenyu-caigou', 'chenyu-fahuo')
 VERSION = re.compile(r'\d+\.\d+\.\d+\Z')
 
 

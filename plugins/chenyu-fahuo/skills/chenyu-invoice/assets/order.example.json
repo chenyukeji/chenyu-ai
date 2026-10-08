@@ -1,0 +1,36 @@
+{
+  "order_id": "403-1234567-7654321",
+  "currency": "EUR",
+  "sales_channel": "Amazon.fr",
+  "fulfillment": "Amazon FBA",
+  "buyer": {
+    "name": "Camille EXEMPLE",
+    "company": "Société Exemple",
+    "address_lines": [
+      "10 Rue Exemple",
+      "Bâtiment A"
+    ],
+    "city": "Lyon",
+    "postal_code": "69000",
+    "country": "France"
+  },
+  "seller": {},
+  "items": [
+    {
+      "sku": "EXAMPLE-WHITE-BOA",
+      "asin": "B000000000",
+      "title": "Boa en Plumes Blanc 1,8 m, Écharpe Moelleuse pour Carnaval et Fête",
+      "description": "Boa en plumes blanc, 1,8 m",
+      "quantity": 1,
+      "unit_price": "7.99",
+      "line_total": "7.99"
+    }
+  ],
+  "shipping_fee": null,
+  "order_total": null,
+  "tax": {
+    "amount": null
+  },
+  "origin": null,
+  "purchase_date": "2026-10-01"
+}

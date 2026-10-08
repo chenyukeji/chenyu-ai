@@ -1,0 +1,6 @@
+interface:
+  display_name: "晨玙商业发票（原版式）"
+  short_description: "从 Amazon.fr 订单生成原版式 PDF；日期取订单购买日期，并核验总额与 VAT。"
+  default_prompt: "使用 $chenyu-invoice，将我提供的 Amazon.fr 订单信息填到原发票 PDF 母版。Date 必须取订单购买日期；Item No. 使用订单号，Description 不空，Shipping way 固定为 Paypal package，VAT = Price/1.2*0.2。生成后渲染检查。"
+policy:
+  allow_implicit_invocation: true
