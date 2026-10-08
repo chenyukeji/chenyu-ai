@@ -528,7 +528,7 @@ New-Item -ItemType Directory -Force outputs | Out-Null
 git archive --format=zip --output="dist/chenyu-yunying-1.0.0.zip" HEAD:plugins/chenyu-yunying
 ```
 
-员工在支持插件上传的管理页面选择该 ZIP，安装或更新后新建对话使用。更新包时只需要重新分发 `chenyu-yunying`，不会影响美工、开发或采购插件。
+员工在支持插件上传的管理页面选择该 ZIP，安装或更新后新建对话使用。更新包时只需要重新分发 `chenyu-yunying`，不会影响美工或开发插件。
 
 ## 当前边界
 

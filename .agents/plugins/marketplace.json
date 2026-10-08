@@ -5,18 +5,6 @@
   },
   "plugins": [
     {
-      "name": "chenyu-caigou",
-      "source": {
-        "source": "local",
-        "path": "./plugins/chenyu-caigou"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
-    },
-    {
       "name": "chenyu-cangku",
       "source": {
         "source": "local",
