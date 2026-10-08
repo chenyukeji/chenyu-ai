@@ -539,3 +539,7 @@ git archive --format=zip --output="dist/chenyu-yunying-1.0.0.zip" HEAD:plugins/c
 - 平台和类目限制需要发布级确认时，应核实当前官方规则；未知限制不会标记为已通过。
 
 仓库总体结构和其他岗位插件见项目根目录的 [README](../../README.md)。
+
+## 商业发票
+
+`skills/chenyu-invoice` 由运营负责，输入已确认的 Amazon.fr EUR 订单，交付以订单编号命名的 PDF。模板、字段校验和生成脚本随 Skill 一起安装。默认输出到 `outputs/chenyu-yunying/commercial-invoice/`。

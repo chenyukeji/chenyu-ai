@@ -1,6 +1,6 @@
 ---
 name: chenyu-yunying
-description: 晨玙运营总入口。接收产品开发 Excel、产品素材和自然语言需求，协调生成自有产品 Listing、作图要求或两者，统一产品事实并核对交付一致性。适用于综合运营交付和不确定应选哪个专业 Skill 的请求；广告能力尚未实现。
+description: 晨玙运营总入口。接收产品开发 Excel、产品素材和自然语言需求，协调生成自有产品 Listing、作图要求或商业发票，统一产品事实并核对交付一致性。适用于综合运营交付和不确定应选哪个专业 Skill 的请求；广告能力尚未实现。
 ---
 
 # 晨玙运营
@@ -8,6 +8,8 @@ description: 晨玙运营总入口。接收产品开发 Excel、产品素材和�
 根据员工本次目标安排工作。用户只要一个成果就只生成该成果；两个都要时先统一产品事实，再分别完成 Listing 和作图要求，并遵守 [Listing 与作图要求边界](../../references/deliverable-boundaries.md)。需要 Excel 时读取并执行 [运营交付大母版](../../references/delivery-master.md)，并以 [晨玙 Amazon 运营交付大母版](assets/晨玙Amazon运营交付大母版.xlsx) 作为唯一的字段、配色和排版基准。母版包含“产品内容”“作图要求”及 DE、FR、IT、ES 四站 Listing，但它只是内部生成源。Listing 和作图要求同时交付时，默认导出两个独立工作簿：Listing 文件保留“产品内容＋目标站点 Listing”，作图要求文件保留“产品内容＋作图要求”。“产品内容”只生成一次并原样复制到两个文件，内容、图片和格式必须一致。只有用户明确要求合并文件时才保留全部模块在同一工作簿。
 
 任务会生成文件时，先读取并遵循 [输出目录规范](../../references/output-paths.md)，并让同一次综合任务在各交付部分下复用同一个日期任务名。
+
+商业发票属于运营职责。收到已确认 Amazon 订单并要求发票时，直接执行 `chenyu-invoice`，生成按订单编号命名的 PDF；不使用 Listing / 作图要求 Excel 母版，不要求开发文档。网站提交发票时选择“商业发票”任务类型。
 
 ## 共用输入
 
@@ -21,6 +23,7 @@ description: 晨玙运营总入口。接收产品开发 Excel、产品素材和�
 | 根据自有事实和竞品研究生成欧洲站 Item Name、Item Highlights、高信息量五点、HTML 详情、搜索词和变体文案 | [chenyu-listing](../chenyu-listing/SKILL.md)；标题使用 2–4 个核心词并前置关键差异，Item Highlights 补规格/结构/场景，Search Terms 只收录反查和 Amazon 相关性复核后的增量词；综合 Listing 默认 DE/FR/IT/ES，UK 按需加入 |
 | 图片规划、作图单、交给美工的要求 | [chenyu-zuotuyaoqiu](../chenyu-zuotuyaoqiu/SKILL.md) |
 | 自有 Listing 和作图要求 | 先统一产品事实；有竞品链接时只执行一次竞品研究；Listing 读取文字/关键词证据，作图要求读取视觉证据，两者独立生成，不互相改写 |
+| 按已确认 Amazon.fr EUR 订单生成商业发票 | [chenyu-invoice](../chenyu-invoice/SKILL.md)，核对购买日期、收件人、商品及金额，交付订单编号 PDF |
 | 实际制作或精修图片 | 如环境已安装美工插件，交接其总入口；否则交付作图单并说明需要美工能力 |
 | 广告投放或优化 | 明确 chenyu-guanggao 尚未实现，不声称已执行投放 |
 

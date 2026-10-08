@@ -1,7 +1,7 @@
 {
   "name": "chenyu-yunying",
-  "version": "1.2.2",
-  "description": "Product development briefs to Amazon listings and image briefs for Chenyu.",
+  "version": "1.2.3",
+  "description": "Amazon listings, image briefs and commercial invoices for Chenyu operations.",
   "author": {
     "name": "chenyukeji",
     "url": "https://github.com/chenyukeji"
@@ -11,22 +11,24 @@
   "keywords": [
     "amazon",
     "listing",
-    "image-brief"
+    "image-brief",
+    "commercial-invoice"
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "\u6668\u7399 Amazon \u8fd0\u8425",
-    "shortDescription": "\u4ece\u5f00\u53d1\u6587\u6863\u751f\u6210\u7b26\u5408 2026 \u89c4\u5219\u7684\u6b27\u6d32\u7ad9 Listing \u548c\u4f5c\u56fe\u8981\u6c42\u3002",
-    "longDescription": "\u7edf\u4e00\u89e3\u6790\u5f00\u53d1 Excel \u548c\u7ade\u54c1\u7814\u7a76\u5305\uff0c\u9ed8\u8ba4\u751f\u6210\u5fb7\u56fd\u3001\u6cd5\u56fd\u3001\u610f\u5927\u5229\u3001\u897f\u73ed\u7259\u56db\u7ad9\u672c\u5730\u5316 Listing\uff0c\u5e76\u4e3a\u5168\u90e8\u5b57\u6bb5\u63d0\u4f9b\u4e2d\u6587\u7ffb\u8bd1\uff1b\u540c\u65f6\u6309\u7edf\u4e00\u8fd0\u8425\u4ea4\u4ed8\u5927\u6bcd\u7248\u751f\u6210\u542b\u5d4c\u5165\u5f0f\u53c2\u8003\u56fe\u7247\u7684\u4f5c\u56fe\u8981\u6c42\uff0c\u53ef\u6309\u9700\u4fdd\u7559 Listing\u3001\u4f5c\u56fe\u8981\u6c42\u6216\u4e24\u8005\u3002",
-    "developerName": "\u6668\u7399\u79d1\u6280",
+    "displayName": "晨玙 Amazon 运营",
+    "shortDescription": "运营交付：欧洲站 Listing、作图要求与商业发票。",
+    "longDescription": "统一解析开发 Excel 和竞品研究包，默认生成德国、法国、意大利、西班牙四站本地化 Listing，并为全部字段提供中文翻译；同时按统一运营交付大母版生成含嵌入式参考图片的作图要求，可按需保留 Listing、作图要求或两者。 商业发票由运营负责：核对 Amazon.fr EUR 订单后，按原 PDF 母版生成以订单编号命名的发票。",
+    "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": [
       "Competitor research",
       "Listing writing",
-      "Image brief planning"
+      "Image brief planning",
+      "Commercial invoices"
     ],
     "defaultPrompt": [
-      "\u4f7f\u7528\u8fd0\u8425\u603b\u5165\u53e3\uff0c\u6839\u636e\u5f00\u53d1\u6587\u6863\u751f\u6210\u6240\u9700\u7684 Listing \u548c\u4f5c\u56fe\u8981\u6c42\u3002"
+      "使用运营总入口，根据开发文档生成所需的 Listing 和作图要求。"
     ]
   }
 }

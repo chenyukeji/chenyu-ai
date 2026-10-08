@@ -12,6 +12,7 @@
 
 | 目录 | 内容 |
 | --- | --- |
+| `commercial-invoice` | 按已确认订单生成的商业发票 PDF，文件名为订单编号 |
 | `competitor-research` | 开发表解析结果、网页证据、竞品图片和 `competitor-research.json` |
 | `listing` | Listing 工作包、分析结果、Excel 或其他最终 Listing 文件 |
 | `image-brief` | 作图要求工作包、Excel 和相关交接文件 |

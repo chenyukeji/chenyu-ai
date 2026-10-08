@@ -7,7 +7,7 @@ description: 晨玙 Amazon 法国站商业发票生成。用用户提供的原�
 
 **核心要求：必须与原始 PDF 母版保持一致，不要重新设计。** 本 Skill 有经过清理、不含原订单客户及金额的实际 WPS PDF 母版 `assets/blank-reference-template.pdf`，脚本直接在其固定位填入新订单数据。禁止换用新 ReportLab 表格，禁止改变原始灰色表头、字号、列宽、边框、行高、页边距、底部总计和原有标签。读取并执行 [原母版 1:1 版式规范](references/invoice-layout.md)。
 
-开始执行会生成文件的任务前，先读取并遵循 [发货插件输出目录规范](../../references/output-paths.md)。
+开始执行会生成文件的任务前，先读取并遵循 [运营插件输出目录规范](../../references/output-paths.md)。
 
 ## 输入
 
@@ -51,7 +51,7 @@ python scripts/generate_invoice.py \
 python scripts/test_invoice.py
 ```
 
-执行时从 `assets/blank-reference-template.pdf` 读取已经清除旧客户信息的原母版；没有此文件则报错，**不得退回自动绘制新发票**。默认保存到 `outputs/chenyu-fahuo/commercial-invoice/<YYYY-MM-DD_订单编号>/`，不需要数据库：输入订单，直接输出 `<订单编号>.pdf`。`--output` 只接受目标目录，最终文件名为 `<订单编号>.pdf`。
+执行时从 `assets/blank-reference-template.pdf` 读取已经清除旧客户信息的原母版；没有此文件则报错，**不得退回自动绘制新发票**。默认保存到 `outputs/chenyu-yunying/commercial-invoice/<YYYY-MM-DD_订单编号>/`，不需要数据库：输入订单，直接输出 `<订单编号>.pdf`。`--output` 只接受目标目录，最终文件名为 `<订单编号>.pdf`。
 
 ## 风险边界
 
