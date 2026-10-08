@@ -11,6 +11,38 @@ import playwright_collector as collector
 
 
 class SessionTests(unittest.TestCase):
+    def test_password_login_alternative_is_not_a_security_challenge(self):
+        page = MagicMock()
+        page.locator.return_value.first.is_visible.return_value = False
+        page.locator.return_value.inner_text.return_value = "账号密码登录\n验证码登录 找回密码"
+        self.assertFalse(collector._challenge_visible(page))
+
+    def test_real_challenge_controls_and_instructions_still_block(self):
+        page = MagicMock()
+        page.locator.return_value.first.is_visible.return_value = True
+        self.assertTrue(collector._challenge_visible(page))
+        page.locator.return_value.first.is_visible.return_value = False
+        for text in ("请输入验证码", "请完成安全验证", "向右滑动完成验证", "人机验证", "Robot Check"):
+            with self.subTest(text=text):
+                page.locator.return_value.inner_text.return_value = text
+                self.assertTrue(collector._challenge_visible(page))
+
+    def test_password_login_runs_with_verification_login_link_present(self):
+        page = MagicMock()
+        page.url = "https://www.sellersprite.com/cn/w/user/login"
+        page.locator.return_value.first.is_visible.return_value = False
+        page.locator.return_value.inner_text.return_value = "验证码登录 找回密码"
+        with patch.object(collector, "_require_playwright", return_value=MagicMock()), \
+             patch.object(collector, "_launch_context", return_value=(MagicMock(), page, Path("/tmp/profile"))), \
+             patch.object(collector, "_sellersprite_credentials", return_value=("test", "secret", "environment")), \
+             patch.object(collector, "_goto"), \
+             patch.object(collector, "_wait_for_sellersprite_session", return_value="sellersprite_login_unverified"), \
+             patch.object(collector, "_login_sellersprite_in_page", return_value={"login_status": "failed", "block_reason": "invalid_credentials"}) as login:
+            result = collector.collect_sellersprite_by_asin({"marketplace": "US", "asins": ["B012345678"]})
+        login.assert_called_once()
+        self.assertTrue(result["source_metadata"]["login_attempted"])
+        self.assertEqual(result["block_reason"], "invalid_credentials")
+
     def test_session_cookie_survives_new_browser_context(self):
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"CHENYU_SELLERSPRITE_USERNAME": "test-account"}):
             path = Path(folder) / "sellersprite-session.json"

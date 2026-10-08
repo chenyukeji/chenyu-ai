@@ -292,7 +292,10 @@ def _challenge_visible(page) -> bool:
         text = page.locator("body").inner_text(timeout=1000).lower()[:10000]
     except Exception:
         return False
-    markers = ("robot check", "enter the characters you see below", "验证码", "人机验证")
+    # A normal password-login page offers “验证码登录” as an alternative.
+    # Only explicit challenge instructions (or the controls above) block login.
+    markers = ("robot check", "enter the characters you see below", "请输入验证码",
+               "验证码错误", "请完成安全验证", "向右滑动完成验证", "人机验证")
     return any(marker in text for marker in markers)
 
 
@@ -1209,12 +1212,17 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
     block_reason = None
     selected_market = None
     refreshed = False
+    login_attempted = False
     with _require_playwright()() as runtime:
         context, page, profile = _launch_context(runtime, {**payload, "url": url})
         try:
             _goto(page, url)
             block_reason = _wait_for_sellersprite_session(page)
-            if block_reason and username and password and not _challenge_visible(page):
+            challenge_visible = bool(block_reason and _challenge_visible(page))
+            if challenge_visible:
+                block_reason = "sellersprite_security_challenge_requires_user"
+            if block_reason and username and password and not challenge_visible:
+                login_attempted = True
                 auth = _login_sellersprite_in_page(page, username, password, url, int(payload.get("manual_timeout_seconds", 30)))
                 block_reason = auth.get("block_reason") if auth.get("login_status") != "verified" else _wait_for_sellersprite_session(page)
                 if auth.get("login_status") != "verified" and not block_reason:
@@ -1296,7 +1304,7 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                 "profile_dir": str(profile),
                 "source_metadata": {"source": "sellersprite_competitor_lookup", "marketplace": marketplace,
                     "selected_market": selected_market, "url": page.url, "observed_at": _now_iso(),
-                    "credential_source": credential_source, "query_timeout_ms": timeout,
+                    "credential_source": credential_source, "login_attempted": login_attempted, "query_timeout_ms": timeout,
                     "batch_queries": batch_queries, "batch_size": batch_size},
                 "counts": {"requested": len(asins), "enriched": len(unique), "missing": len(asins) - len(unique)},
             }
