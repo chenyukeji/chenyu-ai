@@ -1,0 +1,4 @@
+interface:
+  display_name: "箱唛照片生成发货发票"
+  short_description: "从箱唛照片与领星商品资料填写原版承运商发票"
+  default_prompt: "使用 $chenyu-xiangmai-fapiao 根据箱唛照片核对领星资料，并填写原版联航或驿路达发票。"

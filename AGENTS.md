@@ -17,6 +17,7 @@ This repository packages role-based Amazon workflows as portable plugins for com
 - One-product-per-workbook Amazon development documents belong to `plugins/chenyu-kaifa/skills/chenyu-kaifawendang`.
 - Lingxing product onboarding and SKU/MSKU pairing templates belong to `plugins/chenyu-cangku/skills/chenyu-lingxing-luru`.
 - Amazon commercial invoice generation belongs to operations: `plugins/chenyu-yunying/skills/chenyu-invoice`.
+- Carton-marking photos to carrier shipping invoices belong to `plugins/chenyu-cangku/skills/chenyu-xiangmai-fapiao`.
 
 ## Packaging
 

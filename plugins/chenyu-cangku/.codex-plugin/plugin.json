@@ -1,7 +1,7 @@
 {
   "name": "chenyu-cangku",
-  "version": "0.1.2",
-  "description": "Warehouse data preparation and Lingxing import-template generation workflows for Chenyu.",
+  "version": "0.2.0",
+  "description": "Warehouse product imports and carton-photo shipping invoice workflows for Chenyu.",
   "author": {
     "name": "chenyukeji",
     "url": "https://github.com/chenyukeji"
@@ -18,15 +18,16 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "晨玙 Amazon 仓库",
-    "shortDescription": "将仓库业务表转换为领星等系统可导入的标准模板。",
-    "longDescription": "面向仓库岗位处理新品建档、SKU/MSKU 配对和系统导入文件；当前可把一份晨玙新品补录 Excel 自动转换为领星产品录用表和按 MSKU 配对表。",
+    "shortDescription": "生成领星产品导入表及箱唛照片发货发票。",
+    "longDescription": "面向仓库岗位处理新品建档、SKU/MSKU 配对和承运商发货发票；支持从箱唛照片读取箱规与数量，核对领星商品资料后生成联航或驿路达格式的发货发票。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": [
       "Lingxing product import generation",
       "SKU and MSKU pairing generation",
-      "Warehouse spreadsheet validation"
+      "Warehouse spreadsheet validation",
+      "Carton photo to shipping invoice generation"
     ],
-    "defaultPrompt": "根据我提供的新品补录 Excel，生成领星产品录用表和按 MSKU 配对表，并核验字段和模板格式。"
+    "defaultPrompt": "根据我提供的新品补录表生成领星导入文件，或根据箱唛照片和领星商品资料生成联航/驿路达发货发票。"
   }
 }
