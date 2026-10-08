@@ -1,37 +1,32 @@
 # 晨玙 Amazon 仓库插件
 
-`chenyu-cangku` 面向仓库岗位处理新品建档和系统导入文件。当前把晨玙“新品补录”Excel 自动转换为两份可导入领星的官方模板，同时保留模板中的示例、字典、下拉选项、格式和其他工作表。
+`chenyu-cangku` 使用 [领星产品录用 Skill](skills/chenyu-lingxing-luru/SKILL.md)，将一份公司“新品补录”Excel 转换为两份领星导入文件。当前版本见 [plugin.json](plugin.json)。
 
-## 包含能力
+## 输入与交付
 
-- `chenyu-lingxing-luru`：输入一份新品补录表，生成领星产品录用表与按 MSKU 配对表。
-- 清洗 MSKU 中的换行、尾部空格和尾部竖线，检查重复值和必填字段。
-- 按账号映射法国站店铺，拆分包装尺寸，并生成重量、采购备注和头程费用字段。
-- 生成后核对数据行数、公式错误和可视化渲染结果。
+| 文件 | 用途 |
+| --- | --- |
+| 新品补录 Excel | 输入产品、MSKU、账号、尺寸重量和采购相关已知字段 |
+| 领星产品录用表 | 使用 `Product-V392.xlsx` 官方模板整理产品档案 |
+| 按 MSKU 配对表 | 使用按 MSKU 导入模板整理店铺商品配对 |
 
-## 适用边界
+生成器清洗 MSKU、检查重复值和必填项、应用已确认的店铺映射、处理尺寸重量及费用字段，并保留官方模板中的示例、字典、格式与下拉选项。未知店铺映射、重复 MSKU 或非空非法数值会停止并指出问题。
 
-插件只生成导入文件，不登录领星、不上传文件、不新增或修改系统产品。账号没有已确认店铺映射、非空尺寸无法解析、MSKU 重复或必填字段缺失时停止并指出具体行，不猜测业务值。
+## 执行
 
-用户的新品补录表和生成结果属于业务文件，不提交到 GitHub；仓库只保留空白领星模板、字段规则和生成脚本。
+唯一生成实现为 `skills/chenyu-lingxing-luru/scripts/generate_lingxing_imports.py`，依赖 Python 和 openpyxl。网站 Worker 和本地 Skill 均调用此实现。
 
-默认输出位于 `outputs/chenyu-cangku/lingxing-product-import/<YYYY-MM-DD_任务简称>/`。详细规则见 [输出目录规范](references/output-paths.md)。
-
-## 目录说明
-
-```text
-chenyu-cangku/
-├── .codex-plugin/plugin.json
-├── plugin.json
-├── references/output-paths.md
-└── skills/
-    └── chenyu-lingxing-luru/
-        ├── SKILL.md
-        ├── agents/openai.yaml
-        ├── assets/
-        ├── references/field-mapping.md
-        ├── scripts/generate_lingxing_imports.py
-        └── scripts/generate_lingxing_imports.mjs
+```bash
+python skills/chenyu-lingxing-luru/scripts/generate_lingxing_imports.py \
+  --input /path/to/新品补录.xlsx \
+  --product-output /path/to/output/领星产品录用-V392.xlsx \
+  --pairing-output /path/to/output/领星产品配对-按MSKU.xlsx
 ```
 
-箱唛照片生成承运商发货发票现归 AI 物流，见 `chenyu-wuliu/skills/chenyu-xiangmai-fapiao`。
+默认读取 Skill 内两份官方模板。字段映射和校验要求见 [字段规则](skills/chenyu-lingxing-luru/references/field-mapping.md)，模板不应重建或擅自升级。
+
+## 输出与职责
+
+两份文件放在同一个 `lingxing-product-import/<日期_任务简称>/` 目录，见 [输出规范](references/output-paths.md)。结果需人工导入领星；不登录、上传或修改库存。
+
+箱唛照片生成承运商发货发票归 [AI 物流](../chenyu-wuliu/README.md)，买家订单商业发票归 [AI 运营](../chenyu-yunying/README.md)。安装、测试与发布见仓库根 README。

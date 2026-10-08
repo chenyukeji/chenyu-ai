@@ -100,6 +100,21 @@ else:
             self.assertEqual(SYNC.file_hashes(self.live / 'plugins' / name), SYNC.file_hashes(self.cache / name / '1.0.1'))
         self.assertEqual(json.loads(self.status.read_text())['state'], 'current')
 
+    def test_sync_leaves_unmanaged_plugins_and_marketplace_untouched(self) -> None:
+        unrelated = self.cache / 'chenyu-fahuo' / 'custom'
+        unrelated.mkdir(parents=True)
+        marker = unrelated / 'keep.txt'
+        marker.write_text('not managed by this synchronizer')
+        home = Path(self.temp.name) / 'home'
+        registry = home / '.agents/plugins/marketplace.json'
+        registry.parent.mkdir(parents=True)
+        original = json.dumps({'name': 'personal', 'plugins': [{'name': 'chenyu-fahuo'}]})
+        registry.write_text(original)
+        with patch.object(SYNC.Path, 'home', return_value=home):
+            self.assertEqual(self.run_sync(), 0)
+        self.assertEqual(marker.read_text(), 'not managed by this synchronizer')
+        self.assertEqual(registry.read_text(), original)
+
     def test_dirty_checkout_is_not_overwritten(self) -> None:
         original = git(self.live, 'rev-parse', 'HEAD')
         for name in SYNC.NAMES:

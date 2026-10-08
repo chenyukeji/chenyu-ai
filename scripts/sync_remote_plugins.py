@@ -95,27 +95,6 @@ def install_plugins(repo: Path, market: Path, cache: Path, codex: str, versions:
         if not installed.is_dir() or file_hashes(installed) != expected:
             raise RuntimeError(f'{name}: installed files differ from Git source')
 
-    # Invoice ownership moved to operations; remove the obsolete installed entry
-    # only after all replacement plugins have been verified.
-    obsolete = cache / 'chenyu-fahuo'
-    if obsolete.exists():
-        command([codex, 'plugin', 'remove', 'chenyu-fahuo@personal', '--json'])
-        if obsolete.exists():
-            shutil.rmtree(obsolete)
-    registry = Path.home() / '.agents/plugins/marketplace.json'
-    if registry.is_file():
-        metadata = json.loads(registry.read_text(encoding='utf-8'))
-        entries = metadata.get('plugins', [])
-        retained = [entry for entry in entries if entry.get('name') != 'chenyu-fahuo']
-        if len(retained) != len(entries):
-            metadata['plugins'] = retained
-            temporary = registry.with_suffix('.invoice-migration.tmp')
-            temporary.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-            temporary.replace(registry)
-    old_link = market / 'chenyu-fahuo'
-    if old_link.is_symlink() and old_link.resolve() == (repo / 'plugins/chenyu-fahuo').resolve():
-        old_link.unlink()
-
     # Only remove old versions after every replacement has passed verification.
     for name in NAMES:
         folder = cache / name

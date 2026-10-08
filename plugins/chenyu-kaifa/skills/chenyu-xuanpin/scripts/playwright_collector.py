@@ -1028,48 +1028,6 @@ def _select_sellersprite_market(page, marketplace: str) -> str:
     )
 
 
-def _sellersprite_query_is_busy(page, search_button) -> bool:
-    try:
-        if search_button.is_disabled():
-            return True
-    except Exception:
-        pass
-    for selector in (".el-loading-mask:visible", ".el-icon-loading:visible", "[aria-busy='true']:visible"):
-        try:
-            if page.locator(selector).count():
-                return True
-        except Exception:
-            continue
-    return False
-
-
-def _sellersprite_result_is_explicitly_empty(page) -> bool:
-    """Return true only when the visible competitor table reports an empty result."""
-    try:
-        return bool(
-            page.evaluate(
-                """
-                () => {
-                  const visible = (element) => {
-                    const style = window.getComputedStyle(element);
-                    const rect = element.getBoundingClientRect();
-                    return style.display !== 'none' && style.visibility !== 'hidden' &&
-                      rect.width > 0 && rect.height > 0;
-                  };
-                  const emptyPattern = /(暂无数据|暂无结果|无数据|未查询到|没有找到|no data|no results?|not found)/i;
-                  return [...document.querySelectorAll('.el-table')].some((table) => {
-                    if (!visible(table) || !/(产品信息|product)/i.test(table.innerText || '')) return false;
-                    const empty = table.querySelector('.el-table__empty-text, .el-empty__description');
-                    return Boolean(empty && visible(empty) && emptyPattern.test(empty.innerText || ''));
-                  });
-                }
-                """
-            )
-        )
-    except Exception:
-        return False
-
-
 def _ensure_sellersprite_variants_off(page) -> None:
     """Keep the competitor lookup's 'show all variants' option disabled."""
     label = page.locator("label").filter(

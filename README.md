@@ -1,201 +1,106 @@
-# chenyu-ai
+# 晨玙 AI 岗位插件
 
-晨玙科技 Amazon AI 工作插件仓库。仓库按公司岗位维护五个相互独立、可单独分发的插件：美工、运营、开发、仓库和物流。
+`chenyu-ai` 保存岗位 Skill、业务规则、模板、采集与文件生成脚本。当前共有 **5 个插件、14 个 Skill**。网站页面、账号权限、任务队列、微调版本和产品任务由独立的 `chenyu-ai-web` 仓库维护。
 
-## 当前插件
+## 当前功能
 
-| 插件 | 面向岗位 | 当前 Skills |
-| --- | --- | --- |
-| `chenyu-meigong` | Amazon 美工 | `chenyu-meigong` 总入口、`chenyu-zuotu`、`chenyu-jingxiu` |
-| `chenyu-yunying` | Amazon 运营 | `chenyu-yunying` 总入口、`chenyu-jingpin`、`chenyu-listing`、`chenyu-zuotuyaoqiu`、`chenyu-invoice` |
-| `chenyu-kaifa` | Amazon 产品开发 | `chenyu-kaifa`（自动选择总入口）、`chenyu-xuanpin`、`chenyu-kaifawendang` |
-| `chenyu-cangku` | Amazon 仓库 | `chenyu-lingxing-luru`（一份新品补录表生成两份领星导入表） |
-| `chenyu-wuliu` | Amazon 物流 | `chenyu-xiangmai-fapiao`（箱唛照片生成联航／驿路达发货发票，依赖 Windows＋WPS） |
+| 岗位 | 插件与说明 | Skill | 交付 |
+| --- | --- | --- | --- |
+| AI 开发 | [chenyu-kaifa](plugins/chenyu-kaifa/README.md) | 自动选择、选品分析、开发文档 | 开品结果 Excel、每产品独立的开发 Excel |
+| AI 运营 | [chenyu-yunying](plugins/chenyu-yunying/README.md) | 自动选择、竞品研究、Listing、作图要求、订单商业发票 | 竞品研究包、独立运营 Excel、订单 PDF |
+| AI 美工 | [chenyu-meigong](plugins/chenyu-meigong/README.md) | 自动选择、整套作图、主图优化、局部精修 | 完整商品图片 |
+| AI 仓库 | [chenyu-cangku](plugins/chenyu-cangku/README.md) | 领星产品录用 | 产品录用表与按 MSKU 配对表 |
+| AI 物流 | [chenyu-wuliu](plugins/chenyu-wuliu/README.md) | 箱唛发货发票 | 联航或驿路达原格式 `.xls` |
 
-## 统一目录规范
+版本以各插件的 `plugin.json` 和 `.codex-plugin/plugin.json` 为准，两份清单的版本必须一致。
 
-```text
-plugins/
-├── chenyu-meigong/
-│   ├── plugin.json
-│   └── skills/
-│       ├── chenyu-meigong/
-│       ├── chenyu-zuotu/
-│       │   ├── SKILL.md
-│       │   ├── agents/
-│       │   ├── assets/
-│       │   ├── references/
-│       │   └── scripts/
-│       └── chenyu-jingxiu/
-│           ├── SKILL.md
-│           ├── agents/
-│           └── assets/
-├── chenyu-yunying/
-│   ├── plugin.json
-│   ├── references/kaifawendang.md
-│   └── skills/
-│       ├── chenyu-yunying/
-│       ├── chenyu-jingpin/
-│       ├── chenyu-listing/
-│       ├── chenyu-zuotuyaoqiu/
-│       └── chenyu-invoice/
-├── chenyu-kaifa/
-│   ├── plugin.json
-│   └── skills/
-│       ├── chenyu-kaifa/
-│       ├── chenyu-xuanpin/
-│       └── chenyu-kaifawendang/
-└── chenyu-cangku/
-    ├── plugin.json
-    └── skills/chenyu-lingxing-luru/
+## 使用边界
 
-```
+- 开发选品：E 新品榜、J 近期 FBM、H 历史季节性有采集流程；A/I/C/K 支持导入证据分析；B/D/F 保留策略定义，尚不可执行。采集依赖站点访问和有效账号，数据不足时保留阻塞状态。
+- 运营的竞品研究是可复用 Skill，网站不单独列为任务类型。Listing、作图要求分别交付；订单商业发票属于运营。
+- 美工实际出图依赖图像生成或编辑工具；文件检查不能替代视觉审核。
+- 仓库生成导入文件，不自动上传领星或修改库存。
+- 物流箱唛发票依赖 Windows＋WPS。网站已有物流表单，正式生成等待执行环境接入；不要把它与运营订单 PDF 混用。
+- 广告、采购、自动发布商品，以及独立 MCP/App、岗位 Agent 服务均未在本仓库实现。
 
-每个插件遵循以下规则：
-
-- 根目录使用 `plugin.json` 描述插件，`skills/` 保存该岗位的实际能力。
-- 每个 Skill 都有 `SKILL.md`；`agents/openai.yaml` 只描述该 Skill 在界面中的名称和默认提示。
-- `assets/`、`references/`、`scripts/` 仅在有真实内容时建立，不保留空目录。
-- 后续需要 MCP、App 或独立 Agent 时，只在对应插件中增加，五个插件仍可分别安装和升级。
-
-## 统一输出目录
-
-未指定其他保存位置时，五个插件的业务成果统一写入：
+## 目录
 
 ```text
-outputs/<插件名>/<交付部分>/<YYYY-MM-DD_产品简称>/
+chenyu-ai/
+├── .agents/plugins/marketplace.json   # 五个插件的市场登记
+├── plugins/
+│   ├── chenyu-kaifa/
+│   ├── chenyu-yunying/
+│   ├── chenyu-meigong/
+│   ├── chenyu-cangku/
+│   └── chenyu-wuliu/
+├── scripts/sync_remote_plugins.py    # GitHub 与安装缓存同步
+├── deploy/                           # 定时更新服务
+├── tests/                            # 跨插件及公共回归测试
+├── pyproject.toml                    # pytest 测试发现配置
+└── AGENTS.md                         # 协作、职责与发布约定
 ```
 
-例如运营 Listing 使用 `outputs/chenyu-yunying/listing/2026-09-20_tree-skirt-120cm/`，美工整套出图使用 `outputs/chenyu-meigong/image-production/2026-09-20_tree-skirt-120cm/`。同一综合任务在不同交付部分下复用相同任务名；新运行遇到同名目录时追加 `_02`、`_03`，不得覆盖旧成果。只查看、解释或诊断时不创建空目录。各插件的具体交付部分见其 `references/output-paths.md`。
+插件内部：
 
-## 员工安装
+| 路径 | 职责 |
+| --- | --- |
+| `plugin.json`、`.codex-plugin/plugin.json` | 插件身份、版本和能力登记 |
+| `skills/<名称>/SKILL.md` | 触发条件、执行步骤、交付与停止条件 |
+| `skills/<名称>/agents/openai.yaml` | 界面名称及默认提示，不是后台任务服务 |
+| `assets/` | 空白模板和必要素材 |
+| `references/` | 业务合同、字段映射、评分与交付规则 |
+| `scripts/` | 实际采集、解析、生成和校验实现 |
 
-日常由 `chenyu-yunying` 或 `chenyu-meigong` 总入口接收需求，也可直接选择专业 Skill。运营将开发文档整理为 Listing 和作图要求，美工接收作图要求与产品素材制作或精修图片。总入口通过当前助手读取专业 Skill 协调工作，不提供后台调度或跨会话记忆。
+README 用作能力和使用入口；业务规则以所属 `SKILL.md` 及其引用文件为准，避免在多处复制后产生冲突。各岗位总入口由当前助手读取专业 Skill 协调，不提供独立后台调度或跨会话记忆。
 
-`chenyu-guanggao`（广告）仅为后续计划，当前未实现。目录和 Skill 标识统一使用拼音，Listing 保留通用名称；标准文件名不翻译。插件更名后，安装新名称的包并停用旧包，避免同名专业 Skill 重复出现。运营包包含共用 `references/`，分发时保留。
+## 安装
 
-仓库已在 `.agents/plugins/marketplace.json` 注册五个岗位插件。拥有仓库访问权限的员工可添加并刷新 GitHub marketplace：
+有仓库访问权限的员工添加 GitHub marketplace 后，按岗位安装：
 
 ```bash
 codex plugin marketplace add chenyukeji/chenyu-ai
 codex plugin marketplace upgrade chenyu-ai
-```
-
-然后按岗位安装，例如：
-
-```bash
+codex plugin add chenyu-kaifa@chenyu-ai
 codex plugin add chenyu-yunying@chenyu-ai
 codex plugin add chenyu-meigong@chenyu-ai
-codex plugin add chenyu-kaifa@chenyu-ai
 codex plugin add chenyu-cangku@chenyu-ai
 codex plugin add chenyu-wuliu@chenyu-ai
 ```
 
-安装或升级后新建对话，确保 Codex 加载新版本。GitHub `main` 是插件源码、规则、测试、清单和 marketplace 的唯一基线；本地插件只能从已经提交并推送的同一源码刷新，不能保留领先或落后的私人副本。
+升级后新建对话加载新版本。服务器使用已配置的 `personal` marketplace 同步缓存，详见 [自动更新部署](deploy/README.md)。
 
-ZIP 仍作为备用分发方式：管理员或维护者分别打包 `plugins/` 下的五个目录，ZIP 根层必须直接看到 `plugin.json` 和 `skills/`，再由员工在 ChatGPT 工作区插件管理页面上传。五个岗位插件互不依赖；`dist/` 中的 ZIP 是派生发布物，不进入源码提交，需要分发时应从已提交版本重新生成并作为 GitHub Release 附件发布。
+## 运行依赖
 
-## 后续架构计划
+- 开发浏览器采集：Python、Playwright、Chromium、Pillow、openpyxl；见 [依赖文件](plugins/chenyu-kaifa/requirements-browser.txt)。
+- 仓库 Excel：Python 与 openpyxl。
+- 运营订单 PDF：Python 与 PyMuPDF；见 [依赖文件](plugins/chenyu-yunying/skills/chenyu-invoice/scripts/requirements.txt)。
+- 运营工作簿拆分：Node.js 与执行环境提供的 `@oai/artifact-tool`。
+- 美工：图像生成/编辑工具；材料提取和文件检查脚本按各自 Skill 执行。
+- 物流：Windows PowerShell 与 WPS 表格，且能访问经授权的领星商品资料。
 
-当前版本先把各岗位最核心的 Skills 做成可安装插件。后续扩展分为三层：
+这是插件集合，按相应脚本和 Skill 执行，不提供仓库级 Python 应用或统一 CLI。
 
-```text
-Agent（岗位负责人：理解目标、选择能力、控制权限）
-  ↓
-Workflow（业务流程：规定步骤、输入输出、检查点和交接）
-  ↓
-Skill + MCP（专业能力 + 外部系统和实时数据）
-```
+## 输出与隐私
 
-- **Skill**：完成一个边界明确、可重复使用的专业任务。
-- **Workflow**：把多个 Skills 和人工确认点组合成端到端业务流程。
-- **MCP**：连接 Amazon、ERP、素材库、供应商和内部数据库，提供结构化工具与数据。
-- **Agent**：代表一个岗位负责接收目标、选择 Workflow、调用 Skills/MCP、汇总结果和控制高风险操作。
-
-Agent 与 Workflow 是本仓库的业务编排规范；Skills 与 MCP 是插件可直接打包的能力。商业发票 `chenyu-invoice` 已迁入运营插件 `chenyu-yunying`。只有真实实现完成后才创建对应目录。
-
-设计依据参考 OpenAI 官方的 [Skills 与 Plugins 说明](https://learn.chatgpt.com/zh-Hans/docs/skills-and-plugins) 和 [创建 Plugins 指南](https://learn.chatgpt.com/zh-Hans/docs/build-plugins)。
-
-### Agent 计划
-
-| Agent | 定位 | 主要调度内容 | 权限原则 |
-| --- | --- | --- | --- |
-| `meigong-agent` | Amazon 视觉负责人 | 作图、精修、视觉检查、素材交付 | 可生成文件，不自动发布商品图 |
-| `yunying-agent` | Amazon 店铺负责人 | Listing、广告、销售、库存和日常任务 | 默认只读，修改店铺必须人工确认 |
-| `kaifa-agent` | Amazon 产品负责人 | 市场机会、产品方案、利润模型和开发决策 | 输出建议，不自动立项或采购 |
-
-岗位 Agent 首先只在自己的插件内部调度。等各岗位稳定后，再评估增加独立的 `guanli-agent`，用于跨部门查看进度和发起流程，但不取代各岗位的专业判断。
-
-### MCP 计划
-
-MCP 按数据域建设，不按单个 Prompt 建设。第一阶段全部使用只读工具；涉及写入、发布、预算、下单或付款的工具必须单独授权，并保留确认步骤和操作记录。
-
-| MCP | 计划连接 | 主要使用方 | 第一阶段能力 |
-| --- | --- | --- | --- |
-| `amazon-mcp` | Amazon 店铺、Listing、广告、订单和库存 | 运营、开发 | 查询与报表读取 |
-| `erp-mcp` | 产品、成本、库存、采购单和物流 | 开发、运营 | 查询与数据汇总 |
-| `sucai-mcp` | 产品实拍、参考图、成品图和版本记录 | 美工、运营 | 素材检索与读取 |
-| `caiji-mcp` | Amazon New Releases 采集结果 | 开发、运营 | 只读查询采集快照 |
-
-
-### Workflow 计划
-
-#### 美工 Workflow
-
-- `zuotu-zhizuo`：解析作图单 → 匹配素材 → 逐图生成 → 质量检查 → 局部返修 → 交付。
-- `jingxiu-jiancha`：接收原图与修改点 → 累积局部精修 → 对照检查 → 返回最终完整图。
-- `meigong-yunying-jiaojie`：整理成品、版本、卖点和使用位置，交给运营确认上线。
-
-#### 运营 Workflow
-
-- `yunying-richang-zhenduan`：汇总销售、广告、排名、库存和 Review → 识别异常 → 生成当日任务。
-- `listing-youhua`：产品资料与关键词 → Listing 草稿 → 合规检查 → 人工确认 → 发布准备。
-- `guanggao-youhua`：广告报表 → 搜索词与投放分析 → 预算/竞价建议 → 人工确认。
-- `yunying-zhoubao`：周度数据汇总 → 目标差异 → 原因分析 → 下周行动计划。
-
-#### 开发 Workflow
-
-- `shichang-chanpin-fangan`：市场机会 → 用户需求 → 竞品差距 → 差异化产品方案。
-- `chanpin-lirun-cesuan`：产品规格 → 供应链成本 → 平台与物流费用 → 利润模型。
-- `kaifa-pingshen`：市场、产品、利润、合规和供应风险 → 开发/验证/暂缓/放弃决策。
-
-#### 跨部门 Workflow
-
-- `xinpin-shangjia`：开发立项 → 打样与备货 → 美工生产素材 → 运营准备 Listing 与广告 → 人工批准上线。
-- `chanpin-gaijin`：运营收集 Review 与退货问题 → 开发形成改款方案 → 开发验证成本和供应 → 美工更新视觉表达。
-- `kucun-fengxian-chuli`：运营发现库存风险 → 运营评估补货 → 开发/运营评估利润与促销 → 人工确认执行。
-
-### 规划目录规范
-
-以下是单个插件未来完成 Agent、Workflow 和 MCP 后的目标结构；未实现的目录不会提前加入仓库或员工 ZIP：
+独立使用时，默认成果保存到：
 
 ```text
-chenyu-yunying/
-├── plugin.json
-├── skills/
-│   └── chenyu-yunying/
-├── agents/                 # 岗位级调度配置与职责说明
-│   └── yunying-agent/
-├── workflows/              # 可复用流程定义、检查点与交接格式
-│   ├── yunying-richang-zhenduan/
-│   └── yunying-zhoubao/
-├── mcp/                    # 属于本插件的数据连接实现
-│   └── amazon-yunying-mcp/
-└── .mcp.json               # MCP 注册与连接配置（接入 MCP 后才创建）
+outputs/<插件名>/<交付部分>/<YYYY-MM-DD_任务简称>/
 ```
 
-跨部门 Workflow 不复制到五个插件中，统一放在仓库级 `workflows/`，并明确每一步由哪个岗位插件负责。员工日常仍只安装自己岗位的插件；需要完整跨部门自动化时，再由管理端组合调用。
+同名新任务追加序号，不覆盖旧成果。网站任务以执行器指定的任务目录为准；具体默认目录见各插件说明。真实订单、产品资料、结果文件、登录状态、密码和令牌不进入源码或插件分发包。
 
-### 实施顺序
+## 验证与发布
 
-1. **完善 Skills**：用真实业务样本稳定输入、输出、模板和异常处理。
-2. **落地单部门 Workflow**：先完成不依赖外部系统的文件型流程和人工交接。
-3. **接入只读 MCP**：优先打通 Amazon、ERP、素材与供应商数据查询。
-4. **启用岗位 Agent**：让每个 Agent 在明确权限内选择 Workflow、Skill 和工具。
-5. **建设跨部门 Workflow**：打通新品开发、上架、改款和库存风险流程。
-6. **开放受控写入**：在审计、授权、幂等和回滚机制具备后，再逐项开放发布、调价、广告、采购等操作。
+在已安装 pytest、openpyxl、Pillow 等对应依赖的测试环境中，从仓库根目录运行：
 
-每个阶段都必须保持五个岗位插件可独立安装、独立升级、独立回退。
+```bash
+python -m pytest
+# PDF 生成回归另需 PyMuPDF
+python plugins/chenyu-yunying/skills/chenyu-invoice/scripts/test_invoice.py
+```
 
+pytest 默认覆盖根目录测试及选品 Skill 内测试。采集测试主要使用模拟页面和样例数据，通过测试不代表线上登录或外部页面始终可用。物流 WPS 生成需在对应 Windows 环境验收。
 
-商业发票由 AI 运营负责：`plugins/chenyu-yunying/skills/chenyu-invoice`，交付订单编号命名的 PDF。原 `chenyu-fahuo` 插件已合并到运营插件。
+修改插件后同步递增两份清单的纯语义版本，验证 Skill、插件和相关测试，提交并推送后再更新缓存。自动同步只接受干净 `main` 的快进更新，并校验安装文件与源码一致；详细协作约定见 [AGENTS.md](AGENTS.md)。

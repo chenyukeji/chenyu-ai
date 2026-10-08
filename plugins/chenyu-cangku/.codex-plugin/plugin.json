@@ -1,6 +1,6 @@
 {
   "name": "chenyu-cangku",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Warehouse data preparation and Lingxing import-template generation workflows for Chenyu.",
   "author": {
     "name": "chenyukeji",
