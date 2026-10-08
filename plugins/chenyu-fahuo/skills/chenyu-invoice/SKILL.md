@@ -20,7 +20,7 @@ description: 晨玙 Amazon 法国站商业发票生成。用用户提供的原�
 1. 只读提取订单：订单号、`buyer.name`（收件人，如虚构样例 Camille EXEMPLE）、买家类型/企业显示名（仅作来源元数据，如虚构样例 Entreprise Exemple）、街道、楼栋、城市、邮编、商品标题、数量和金额。**`Importer/Buyer/Receiver:` 后仅填 `buyer.name`；`Contact:`、`Company Name:` 两个标签保留且不填值；`Address:` 仅打印街道/楼栋，不重复收件人姓名**。未确认的信息不得补造。
 2. 验证 `items[].unit_price × quantity = line_total`；所有金额保留两位小数、法式逗号小数。币种必须是 EUR；Buyer Country 使用实际国家，法国沿用原版 France，其他国家只替换国家值。
 3. `Item No.` **使用订单编号**分三行居中，不使用 SKU。`Item Name` 写完整已确认商品标题，衬线粗体居中自动换行；`Description` 写标题中可确认的短品名/规格（优先显式 JSON 的 `description`），不能空着。
-4. **发票 `Date:` 必须取 Amazon 订单 `购买日期`**（本地日期，忽略当天生成日期、截止配送日期和已有旧版 `invoice_date`）；转换为 `DD/MM/YYYY`，没有可核对的购买日期就停止并要求补充。**Shipping way 固定原母版的 `Paypal package`**；Amazon 加急/FBA 来源保留在数据中，不覆盖发票固定文字。
+4. **发票 `Date:` 必须取 Amazon 订单 `购买日期`**（本地日期，忽略当天生成日期和截止配送日期）；转换为 `DD/MM/YYYY`，没有可核对的购买日期就停止并要求补充。**Shipping way 固定原母版的 `Paypal package`**；Amazon 加急/FBA 来源保留在数据中，不覆盖发票固定文字。
 5. **VAT 固定用含税价公式** `VAT = Price / 1.2 * 0.2`，保留两位小数，保留原标签 `VAT(20%*Price):`。`€373.66 → €62.28`；`€7.99 → €1.33`。用户提供 VAT 若与此业务口径不符须停止。该值不等于已经税务核实。
 6. `Total Amount:` 优先打印已确认的 `order_total`；如未提供，为满足原表格会显示**已知商品小计**，交付时明确这不是已核实的订单最终实付。未知 `Shipping fee`、`ORGIN`、Tracking、Remote area、VAT number 留空；不默认填零、China 或 No。
 7. 用 `scripts/generate_invoice.py` 加载真正空白原母版并覆盖新订单数据，不允许重新绘制原模板。单商品严格占用原一行 110pt 单元格；多商品为保留布局可复制原母版分页。
@@ -51,7 +51,7 @@ python scripts/generate_invoice.py \
 python scripts/test_invoice.py
 ```
 
-执行时从 `assets/blank-reference-template.pdf` 读取已经清除旧客户信息的原母版；没有此文件则报错，**不得退回自动绘制新发票**。默认保存到 `outputs/chenyu-fahuo/commercial-invoice/<YYYY-MM-DD_订单编号>/`，不需要数据库：输入订单，直接输出 `<订单编号>.pdf`。`--output` 可指定目标目录；即使传入旧式 `invoice.pdf` 路径，也只使用其父目录，最终文件名仍为 `<订单编号>.pdf`。
+执行时从 `assets/blank-reference-template.pdf` 读取已经清除旧客户信息的原母版；没有此文件则报错，**不得退回自动绘制新发票**。默认保存到 `outputs/chenyu-fahuo/commercial-invoice/<YYYY-MM-DD_订单编号>/`，不需要数据库：输入订单，直接输出 `<订单编号>.pdf`。`--output` 只接受目标目录，最终文件名为 `<订单编号>.pdf`。
 
 ## 风险边界
 

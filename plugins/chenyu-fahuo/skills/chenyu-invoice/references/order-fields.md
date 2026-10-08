@@ -4,7 +4,7 @@
 | --- | --- |
 | `order_id` | 必填，Amazon 订单号 `000-0000000-0000000`；打印在 `Item No.` 列，分三行居中 |
 | `purchase_date` | **必填**，Amazon 订单购买日期，`YYYY-MM-DD`；打印到 `Date:`，格式 `DD/MM/YYYY`。不得使用配送截至日期或生成 PDF 的当天日期 |
-| `invoice_date` | 历史输入兼容字段：由 `purchase_date` 自动覆盖，不作为可信日期来源。命令行 `--invoice-date` 如提供必须等于 `purchase_date` |
+| `invoice_date` | 不接受此 JSON 字段；可选命令行 `--invoice-date` 仅用于核对，必须等于 `purchase_date` |
 | `currency` | 本 EUR 原母版**仅支持 EUR**，显示 `€` 和逗号小数 |
 | `buyer.company` | 原 Amazon 订单企业买家显示名（如虚构样例 Entreprise Exemple），仅保留为来源元数据；**不填写**第一行，不当作收件人姓名 |
 | `buyer.name` | 收件人姓名，填写到 **`Importer/Buyer/Receiver:` 后**。如虚构样例 `Camille EXEMPLE`；不是 Contact，也不是地址行 |

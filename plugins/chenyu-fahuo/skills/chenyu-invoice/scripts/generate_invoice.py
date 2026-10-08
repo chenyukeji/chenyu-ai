@@ -131,6 +131,8 @@ def normalize(data, seller=None, invoice_date=None):
     if not isinstance(data, dict):
         raise ValueError('Input must be a JSON object')
     d = dict(data)
+    if 'invoice_date' in d:
+        raise ValueError('invoice_date is unsupported; use purchase_date')
     if not isinstance(d.get('buyer') or {}, dict) or not isinstance(d.get('seller') or {}, dict):
         raise ValueError('buyer and seller must be JSON objects')
     d['seller'] = dict(seller or {}) | dict(d.get('seller') or {})
@@ -145,10 +147,7 @@ def normalize(data, seller=None, invoice_date=None):
         raise ValueError('purchase_date must be YYYY-MM-DD') from e
     if invoice_date is not None and invoice_date != parsed_purchase.isoformat():
         raise ValueError('--invoice-date must match purchase_date; do not use generation date')
-    # Silently replace a previously generated (stale) invoice_date property:
-    # the order purchase_date is authoritative even in legacy JSON.
     d['purchase_date'] = parsed_purchase.isoformat()
-    d['invoice_date'] = parsed_purchase.isoformat()
     if not re.fullmatch(r'\d{3}-\d{7}-\d{7}', str(d.get('order_id', ''))):
         raise ValueError('Valid order_id is required')
     if d.get('currency', 'EUR') != 'EUR':
@@ -400,7 +399,7 @@ def invoice_pdf(d,output):
         draw_left(page,d.get('tracking_number',''),100,454.4,font=FONT_SANS,size=9,max_width=252)
         vatnum=clean(seller.get('vat_number',''))
         if vatnum:draw_left(page,vatnum,450.0,406.6,font=FONT_SANS,size=9,max_width=100)
-        issue=date.fromisoformat(d['invoice_date']).strftime('%d/%m/%Y')
+        issue=date.fromisoformat(d['purchase_date']).strftime('%d/%m/%Y')
         draw_left(page,issue,411.4,422.8,font=FONT_SANS_BOLD,size=9.9,max_width=85)
         # Seven column borders, grey header and 110-pt table row remain unchanged.
         draw_centered_lines(page,str(n+1),CELLS[0],CELLS[1],ROW_TOP,ROW_BOTTOM,font=FONT_SERIF,ideal=12)
@@ -441,13 +440,10 @@ def invoice_pdf(d,output):
 
 
 def resolve_output_file(order_id, requested=None):
-    """Invoice PDF basename is ALWAYS its Amazon order ID.
-
-    --output may be a directory or a legacy .pdf path.  In the latter case
-    only its parent directory is used; the supplied basename is ignored.
-    """
-    dest = Path(requested) if requested is not None else Path.cwd()
-    directory = dest.parent if dest.suffix.lower() == '.pdf' else dest
+    """Save the invoice under its Amazon order ID in the requested directory."""
+    directory = Path(requested) if requested is not None else Path.cwd()
+    if directory.suffix.lower() == '.pdf':
+        raise ValueError('--output must be a directory')
     return directory / f'{order_id}.pdf'
 
 
@@ -458,7 +454,7 @@ def main(argv=None):
     g.add_argument('--text',type=Path,help='Copied order text/Markdown (single item)')
     p.add_argument('--seller',type=Path,help='Private seller profile JSON (not checked into Git)')
     p.add_argument('--invoice-date',help='Optional confirmation of purchase date YYYY-MM-DD; must match purchase_date')
-    p.add_argument('--output',type=Path,help='Output directory (or legacy PDF path; filename is always <order_id>.pdf)')
+    p.add_argument('--output',type=Path,help='Output directory; filename is always <order_id>.pdf')
     args=p.parse_args(argv)
     try:
         payload=(json.loads(args.input.read_text(encoding='utf-8')) if args.input else

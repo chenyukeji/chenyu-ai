@@ -33,8 +33,8 @@ class InvoiceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             folder = Path(td)
             self.assertEqual(mod.resolve_output_file(order_id, folder), folder / f'{order_id}.pdf')
-            self.assertEqual(mod.resolve_output_file(order_id, folder / 'invoice.pdf'), folder / f'{order_id}.pdf')
-            self.assertEqual(mod.resolve_output_file(order_id, folder / 'Facture_sample.PDF'), folder / f'{order_id}.pdf')
+            with self.assertRaisesRegex(ValueError, 'must be a directory'):
+                mod.resolve_output_file(order_id, folder / 'invoice.pdf')
 
     def test_cli_writes_invoice_named_with_order_number(self):
         order_id = SAMPLE['order_id']
@@ -44,7 +44,7 @@ class InvoiceTests(unittest.TestCase):
             input_file.write_text(json.dumps(SAMPLE), encoding='utf-8')
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 mod.main(['--input', str(input_file), '--invoice-date', '2026-10-01',
-                          '--output', str(folder / 'arbitrary-name.pdf')])
+                          '--output', str(folder)])
             files = list(folder.glob('*.pdf'))
             self.assertEqual([p.name for p in files], [f'{order_id}.pdf'])
             with fitz.open(files[0]) as pdf:
@@ -53,15 +53,20 @@ class InvoiceTests(unittest.TestCase):
     def test_date_comes_from_order_purchase_not_generation_date(self):
         data=deepcopy(SAMPLE)
         data['purchase_date']='2026-10-07'
-        data['invoice_date']='2026-10-08'  # stale prior generated invoice date
         norm=mod.normalize(data)
-        self.assertEqual(norm['invoice_date'],'2026-10-07')
+        self.assertEqual(norm['purchase_date'],'2026-10-07')
         with tempfile.TemporaryDirectory() as td:
             path=Path(td)/'sample.pdf'
             mod.invoice_pdf(norm,path)
             with fitz.open(path) as doc:
                 self.assertIn('07/10/2026',doc[0].get_text())
                 self.assertNotIn('08/10/2026',doc[0].get_text())
+
+    def test_legacy_invoice_date_is_rejected(self):
+        data=deepcopy(SAMPLE)
+        data['invoice_date']='2026-10-08'
+        with self.assertRaisesRegex(ValueError,'invoice_date is unsupported'):
+            mod.normalize(data)
 
     def test_missing_purchase_date_blocks_invoice(self):
         data=deepcopy(SAMPLE)
