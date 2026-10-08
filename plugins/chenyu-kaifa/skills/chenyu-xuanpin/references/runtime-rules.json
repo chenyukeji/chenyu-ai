@@ -3,18 +3,78 @@
   "config_revision": "2026-09-20-discovery-v2",
   "plugin_name": "chenyu-kaifa",
   "status": "runtime",
-  "discovery_marketplaces": ["US", "DE"],
+  "discovery_marketplaces": [
+    "US",
+    "DE"
+  ],
   "default_strategy_id": "E",
   "strategy_registry": {
-    "A": {"name": "同类中国卖家现货", "role": "candidate_discovery", "phase": "import_ready"},
-    "B": {"name": "近期商品需求", "role": "candidate_discovery", "phase": "planned"},
-    "C": {"name": "关键词需求", "role": "candidate_discovery", "phase": "planned"},
-    "D": {"name": "评论痛点", "role": "candidate_discovery", "phase": "planned"},
-    "E": {"name": "美德新品榜", "role": "candidate_discovery", "phase": "available"},
-    "F": {"name": "现货组合与单品比较", "role": "candidate_discovery", "phase": "planned"},
-    "H": {"name": "历史旺季提前备货", "role": "candidate_discovery", "phase": "planned"},
-    "I": {"name": "店铺相邻产品扩品", "role": "candidate_discovery", "phase": "planned"},
-    "J": {"name": "近60天FBM机会", "role": "candidate_discovery", "phase": "available"}
+    "A": {
+      "name": "同类中国卖家现货",
+      "role": "candidate_discovery",
+      "phase": "import_ready",
+      "ui": false
+    },
+    "B": {
+      "name": "近期商品需求",
+      "role": "candidate_discovery",
+      "phase": "planned",
+      "ui": false
+    },
+    "C": {
+      "name": "搜索热词机会",
+      "role": "candidate_discovery",
+      "phase": "import_ready",
+      "description": "导入搜索词、搜索量、数据周期与对应 ASIN，分析搜索需求机会。",
+      "order": 3
+    },
+    "D": {
+      "name": "评论痛点",
+      "role": "candidate_discovery",
+      "phase": "planned",
+      "ui": false
+    },
+    "E": {
+      "name": "新品榜发现",
+      "role": "candidate_discovery",
+      "phase": "available",
+      "description": "从美国、德国新品榜发现商品，并补充卖家精灵数据。",
+      "order": 1
+    },
+    "F": {
+      "name": "现货组合与单品比较",
+      "role": "candidate_discovery",
+      "phase": "planned",
+      "ui": false
+    },
+    "H": {
+      "name": "历史季节性选品",
+      "role": "candidate_discovery",
+      "phase": "available",
+      "description": "通过卖家精灵回看去年同期及随后 2～3 个月的月度销量飙升榜，寻找季节性候选。",
+      "order": 4
+    },
+    "I": {
+      "name": "优质店铺上新跟踪",
+      "role": "candidate_discovery",
+      "phase": "import_ready",
+      "description": "导入目标店铺前后两次商品快照，比较新发现商品；首次快照用于建立基线。",
+      "order": 2
+    },
+    "J": {
+      "name": "近期 FBM 机会",
+      "role": "candidate_discovery",
+      "phase": "available",
+      "description": "从卖家精灵筛选近 60 天上架的 FBM 热销商品。",
+      "order": 0
+    },
+    "K": {
+      "name": "排名跃升发现",
+      "role": "candidate_discovery",
+      "phase": "import_ready",
+      "description": "导入同类目商品的此前排名、当前排名和统计窗口，分析排名跃升机会。",
+      "order": 5
+    }
   },
   "scoring": {
     "method": "new_product_discovery_score_v1",

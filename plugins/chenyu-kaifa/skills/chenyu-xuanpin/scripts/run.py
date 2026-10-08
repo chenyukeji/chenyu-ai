@@ -24,6 +24,10 @@ from new_releases_history import (
 )
 from playwright_collector import BrowserCollectionError, browser_status, collect, collect_sellersprite_by_asin, login_sellersprite
 from sellersprite_j import collect_recent_fbm
+from sellersprite_h import collect_monthly_surges
+import strategy_h
+import strategy_evidence
+from strategy_inputs import read_input
 from strategy_j import (
     ai_analysis_requests, apply_ai_analyses, qualify_recent_fbm,
     score_recent_fbm, table_rows_recent_fbm,
@@ -45,6 +49,7 @@ DISCOVERY_INPUT_KEYS = {
     "query_timeout_ms", "query_delay_ms", "query_poll_ms", "empty_grace_ms",
     "batch_queries", "batch_size", "manual_timeout_seconds", "profile_dir",
     "j_min_monthly_sales", "j_keyword", "j_enrich_details",
+    "h_following_months", "h_min_monthly_sales", "h_min_growth_percent", "h_keyword",
 }
 SELLERSPRITE_FIELDS = (
     "source_available_date",
@@ -199,7 +204,7 @@ def _merge_sellersprite(seed_records: list[dict], seller_records: list[dict]) ->
             merged["enrichment_status"] = "enriched"
         else:
             merged.setdefault("enrichment_status", "missing")
-        merged["source_strategy"] = "E"
+        merged["source_strategy"] = seed.get("source_strategy", "E")
         output.append(merged)
     return output
 
@@ -375,8 +380,8 @@ def _load_input_data(payload: dict) -> tuple[list[dict], list[dict], list[str]]:
     sources = []
     paths = list(payload.get("discovery_paths") or [])
     for value in paths:
-        path = Path(value).expanduser().resolve()
-        source_records, source_candidates = _content_records(_read_json(path))
+        content, path = read_input(value)
+        source_records, source_candidates = _content_records(content)
         records.extend(source_records)
         candidates.extend(source_candidates)
         sources.append(str(path))
@@ -609,6 +614,72 @@ def _history_database_source(task: dict, payload: dict, run_dir: Path, manifest:
     return discovery_records_from_history(report, limit=limit)
 
 
+def _run_evidence_strategy(task, payload, records, candidates, sources, source_scope, run_dir, manifest):
+    strategy = task["strategy_resolution"]["primary_strategy"]
+    markets = task["strategy_resolution"]["source_marketplaces"]
+    discovery = dict(payload.get("discovery") or {})
+    selection = task["strategy_resolution"]
+    following = (selection.get("parameters") or {}).get("h_following_months", discovery.get("h_following_months", 2))
+    months = strategy_h.target_months(payload.get("as_of_date"), following) if strategy == "H" else []
+    if candidates:
+        return _stop(manifest, run_dir, "AWAITING_DISCOVERY_INPUT", "strategy_evidence", ["该策略需要带原始证据的 discovery_records 或 discovery_paths，不能直接导入已评分候选"])
+    coverage = list(manifest.get("strategy_coverage") or [])
+    if strategy == "H" and not records and discovery.get("collect_live", True):
+        for market in markets:
+            try:
+                result = collect_monthly_surges({
+                    "marketplace": market, "months": months,
+                    "min_monthly_sales": discovery.get("h_min_monthly_sales", 300),
+                    "min_growth_percent": discovery.get("h_min_growth_percent", 10),
+                    "keyword": discovery.get("h_keyword"), "max_pages": discovery.get("max_pages", 3),
+                    "headless": discovery.get("headless", True),
+                    "profile_dir": discovery.get("profile_dir") or payload.get("profile_dir"),
+                })
+            except Exception as exc:
+                result = {"collection_status": "blocked", "records": [],
+                          "block_reason": f"historical_monthly_collection_{type(exc).__name__}: {str(exc)[:180]}"}
+            manifest["artifacts"][f"historical_months_{market.lower()}"] = _write_json(run_dir / f"04-h-{market.lower()}.json", result)
+            coverage.append({"marketplace": market, "status": result.get("collection_status"), "months": result.get("coverage", [])})
+            if result.get("collection_status") != "complete":
+                manifest["warnings"].append(f"{market} 历史窗口采集未完整：{result.get('block_reason') or '分页或历史月份覆盖有限'}")
+            records.extend(result.get("records") or [])
+    if not records:
+        help_text = ("请提供卖家精灵目标月份的销量飙升榜记录，或配置可访问历史月份的账号。目标月份：" + "、".join(months)) if strategy == "H" else strategy_evidence.INPUT_HELP[strategy]
+        return _stop(manifest, run_dir, "AWAITING_DISCOVERY_INPUT", "strategy_evidence", [help_text, *manifest["warnings"]])
+    if strategy == "H" and not coverage:
+        for market in markets:
+            present = {str(row.get("history_month") or row.get("month") or "")[:7] for row in records if str(row.get("marketplace") or "").upper() == market}
+            missing = [month for month in months if month not in present]
+            coverage.append({"marketplace": market, "status": "partial" if missing else "complete", "missing_months": missing})
+            if missing:
+                manifest["warnings"].append(f"{market} 导入资料未覆盖：{'、'.join(missing)}；缺少记录不代表零销量。")
+    manifest["artifacts"]["source_records"] = _write_json(run_dir / "07-source-records.json", {"records": records, "sources": sources, "source_scope": source_scope, "coverage": coverage})
+    limit = max(1, min(int(payload.get("shortlist_limit") or task.get("shortlist_limit") or 20), 1000))
+    if strategy == "H":
+        report = strategy_h.analyze_monthly_surge(records, months, markets,
+            min_sales=float(discovery.get("h_min_monthly_sales", 300)),
+            min_growth=float(discovery.get("h_min_growth_percent", 10)), shortlist_limit=limit)
+        rows = strategy_h.table_rows(report)
+        headers = ["站点", "产品名称", "ASIN", "所在品类", "历史命中月份", "月度销量与增长", "命中月份最高月销量", "最大环比增长率", "图片", "结论", "理由", "亚马逊产品链接", "来源链接"]
+    else:
+        report = strategy_evidence.analyze_evidence(strategy, records, markets, limit)
+        rows = strategy_evidence.table_rows(report, load_rules()["strategy_registry"][strategy]["name"])
+        headers = ["站点", "产品名称", "ASIN", "所在品类", "预估月销量", "售价（当地币种）", "Review数量", "图片", "策略", "策略证据", "结论", "理由", "亚马逊产品链接", "来源链接"]
+    manifest["artifacts"]["screening"] = _write_json(run_dir / "09-screening.json", report)
+    if not rows:
+        return _stop(manifest, run_dir, "NO_QUALIFIED_CANDIDATES", "strategy_evidence", ["输入中没有满足该策略且证据完整的候选；原因见筛选记录"])
+    manifest["artifacts"]["table_rows"] = _write_json(run_dir / "10-table-rows.json", {"rows": rows})
+    workbook = export_discovery_workbook(payload.get("output_path") or (run_dir / "开品结果.xlsx"), rows, headers=headers)
+    manifest["artifacts"]["workbook"] = workbook["path"]
+    status = "PARTIAL" if any(x["status"] != "complete" for x in coverage) else "COMPLETE"
+    manifest.update({"status": status, "current_stage": "delivery", "blocking_items": []})
+    _save_manifest(manifest, run_dir)
+    return {"ok": True, "status": status, "run_id": manifest["run_id"], "run_dir": str(run_dir),
+            "workbook": workbook, "strategy_resolution": task["strategy_resolution"],
+            "counts": {"source_records": len(records), "qualified": report["count"], "shortlisted": len(rows), "rejected": len(report["rejected"])},
+            "score_method": report["method"], "warnings": manifest["warnings"], "artifacts": manifest["artifacts"]}
+
+
 def run_discovery_flow(payload: dict) -> dict:
     flow_started = time.perf_counter()
     unknown_input = sorted(set(payload) - RUN_INPUT_KEYS)
@@ -645,7 +716,8 @@ def run_discovery_flow(payload: dict) -> dict:
     )
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest = _manifest(task, run_dir)
-    for stale in ("enrichment_blocking_items", "enrichment_incomplete", "blocking_items"):
+    previous_enrichment_incomplete = bool(manifest.get("enrichment_incomplete"))
+    for stale in ("enrichment_blocking_items", "enrichment_incomplete", "blocking_items", "strategy_coverage"):
         manifest.pop(stale, None)
     manifest["warnings"] = [warning for warning in manifest.get("warnings", []) if "卖家精灵补数未完整" not in warning]
     manifest["timings_ms"] = {}
@@ -659,15 +731,19 @@ def run_discovery_flow(payload: dict) -> dict:
     _record_timing(manifest, "input_loading", stage_started)
     saved_records_path = run_dir / "07-source-records.json"
     source_scope = {
+        "as_of_date": payload.get("as_of_date"),
         "category_resolution": task["category_resolution"],
         "marketplaces": task["strategy_resolution"]["source_marketplaces"],
         "strategies": task["strategy_resolution"]["strategy_ids"],
         "discovery": {key: value for key, value in discovery.items()
                       if key not in {"refresh", "refresh_sellersprite", "sellersprite_enrich"}},
     }
+    if task["strategy_resolution"]["strategy_ids"] == ["H"]:
+        parameters = task["strategy_resolution"].get("parameters") or {}
+        source_scope["historical_months"] = strategy_h.target_months(payload.get("as_of_date"), parameters.get("h_following_months", discovery.get("h_following_months", 2)))
     use_history_database = discovery.get("source") == "new_releases_db"
-    if use_history_database and task["strategy_resolution"]["strategy_ids"] == ["J"]:
-        raise ContractError("J 从卖家精灵选产品采集，不使用新品榜历史数据库")
+    if use_history_database and task["strategy_resolution"]["strategy_ids"] != ["E"]:
+        raise ContractError("新品榜历史数据库仅适用于 E；H 使用卖家精灵历史月份销量飙升榜")
     if not records and not candidates and use_history_database:
         stage_started = time.perf_counter()
         records = _history_database_source(task, payload, run_dir, manifest)
@@ -682,14 +758,20 @@ def run_discovery_flow(payload: dict) -> dict:
             )
     refresh_live = (
         bool(discovery.get("refresh"))
-        and task["strategy_resolution"]["strategy_ids"] in (["E"], ["J"])
+        and task["strategy_resolution"]["strategy_ids"] in (["E"], ["J"], ["H"])
         and discovery.get("collect_live", True)
     )
-    if not records and not candidates and saved_records_path.exists() and not refresh_live:
+    if (not records and not candidates and saved_records_path.exists() and not refresh_live
+            and not (task["strategy_resolution"]["strategy_ids"] == ["J"] and previous_enrichment_incomplete)):
         saved_records = _read_json(saved_records_path)
         if saved_records.get("source_scope") == source_scope:
             records = saved_records.get("records") or []
+            manifest["strategy_coverage"] = saved_records.get("coverage") or []
     strategy_ids = task["strategy_resolution"]["strategy_ids"]
+    if len(strategy_ids) > 1 and any(item in {"H", "I", "C", "K"} for item in strategy_ids):
+        raise ContractError("新策略需逐项运行；请为每次调用明确指定一个 strategy_id，分别保留来源证据")
+    if len(strategy_ids) == 1 and strategy_ids[0] in {"H", "I", "C", "K"}:
+        return _run_evidence_strategy(task, payload, records, candidates, sources, source_scope, run_dir, manifest)
     if not records and not candidates and strategy_ids == ["J"] and discovery.get("collect_live", True):
         stage_started = time.perf_counter()
         records = _live_strategy_j(task, payload, run_dir, manifest)

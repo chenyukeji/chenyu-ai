@@ -57,7 +57,7 @@ def test_j_explains_price_variants_and_marks_unobserved_causes_unknown():
     assert factors["季节性"]["status"] == "hypothesis"
     assert factors["站外流量"]["status"] == "unverified"
     assert factors["功能创新"]["status"] == "unverified"
-    assert "因果关系尚未证实" in first["reason"]
+    assert first["ai_analysis"] is None  # Model analysis is supplied in the second workflow stage.
 
 
 def test_j_flow_uses_product_research_without_new_releases(monkeypatch, tmp_path):
@@ -82,6 +82,16 @@ def test_j_flow_uses_product_research_without_new_releases(monkeypatch, tmp_path
         "run_dir": str(tmp_path / "internal"),
         "output_path": str(output),
         "as_of_date": "2026-09-26",
+        "discovery": {"j_enrich_details": False},
+        "j_ai_analyses": [{"marketplace": "US", "asin": "B0JGOOD001", "analysis": "该厨房用品近期上架，已有一定月销量且评论数量较少，值得结合具体功能与同类产品继续调研。"}],
+    })
+    assert result["status"] == "AWAITING_AI_ANALYSIS"
+    result = run.handle({
+        "skill_action": "resume_discovery_flow", "run_dir": str(tmp_path / "internal"),
+        "output_path": str(output), "as_of_date": "2026-09-26",
+        "discovery": {"j_enrich_details": False},
+        "j_ai_analyses": [{"marketplace": "US", "asin": item["asin"],
+            "analysis": "该厨房用品近期上架，已有一定月销量且评论数量较少，值得结合具体功能与同类产品继续调研。"} for item in sample],
     })
     assert result["status"] == "COMPLETE"
     assert result["counts"]["qualified"] == 3
@@ -89,10 +99,10 @@ def test_j_flow_uses_product_research_without_new_releases(monkeypatch, tmp_path
     with zipfile.ZipFile(output) as package:
         sheet = ET.fromstring(package.read("xl/worksheets/sheet1.xml"))
     ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-    assert sheet.find("s:autoFilter", ns).attrib["ref"] == "A1:R4"
+    assert sheet.find("s:autoFilter", ns).attrib["ref"] == "A1:O4"
     text = "".join(node.text or "" for node in sheet.findall(".//s:t", ns))
-    assert "近期火爆原因" in text
-    assert "站外流量" in text
+    assert "AI分析" in text
+    assert "FBM资格证据" in text
     manifest = json.loads((tmp_path / "internal" / "00-run.json").read_text())
     assert manifest["status"] == "COMPLETE"
 
@@ -100,7 +110,8 @@ def test_j_flow_uses_product_research_without_new_releases(monkeypatch, tmp_path
 def test_recent_fbm_new_product_words_choose_j_without_new_release_source():
     task = run.create_task("找近60天 FBM 新品")
     assert task["strategy_resolution"]["strategy_ids"] == ["J"]
-    assert run.handle({"skill_action": "list_strategies"})["strategies"][-1]["implementation_status"] == "available"
+    strategies = run.handle({"skill_action": "list_strategies"})["strategies"]
+    assert next(item for item in strategies if item["strategy_id"] == "J")["implementation_status"] == "available"
 
 
 def test_j_refreshes_when_research_filters_change(monkeypatch, tmp_path):
@@ -116,6 +127,8 @@ def test_j_refreshes_when_research_filters_change(monkeypatch, tmp_path):
         "run_dir": str(tmp_path / "internal"),
         "output_path": str(tmp_path / "out" / "开品结果.xlsx"),
         "as_of_date": "2026-09-26",
+        "discovery": {"j_enrich_details": False},
+        "j_ai_analyses": [{"marketplace": "US", "asin": "B0JGOOD001", "analysis": "该厨房用品近期上架，已有一定月销量且评论数量较少，值得结合具体功能与同类产品继续调研。"}],
     }
     run.handle({**base, "discovery": {"j_keyword": "kitchen"}})
     run.handle({**base, "discovery": {"j_keyword": "garden"}})
@@ -135,6 +148,8 @@ def test_j_delivers_verified_site_when_other_site_is_blocked(monkeypatch, tmp_pa
         "run_dir": str(tmp_path / "internal"),
         "output_path": str(tmp_path / "out" / "开品结果.xlsx"),
         "as_of_date": "2026-09-26",
+        "discovery": {"j_enrich_details": False},
+        "j_ai_analyses": [{"marketplace": "US", "asin": "B0JGOOD001", "analysis": "该厨房用品近期上架，已有一定月销量且评论数量较少，值得结合具体功能与同类产品继续调研。"}],
     })
     assert result["status"] == "PARTIAL"
     assert result["counts"]["qualified"] == 1
@@ -197,6 +212,8 @@ def test_j_recollects_partial_cache_after_login_becomes_available(monkeypatch, t
         "run_dir": str(tmp_path / "internal"),
         "output_path": str(tmp_path / "out" / "开品结果.xlsx"),
         "as_of_date": "2026-09-26",
+        "discovery": {"j_enrich_details": False},
+        "j_ai_analyses": [{"marketplace": "US", "asin": "B0JGOOD001", "analysis": "该厨房用品近期上架，已有一定月销量且评论数量较少，值得结合具体功能与同类产品继续调研。"}],
     }
     first = run.handle(payload)
     second = run.handle(payload)

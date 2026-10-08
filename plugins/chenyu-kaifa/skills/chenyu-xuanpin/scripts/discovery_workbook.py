@@ -277,11 +277,12 @@ def export_discovery_workbook(
     rows: list[dict],
     image_loader=None,
     reuse_workbook_path: str | Path | None = None,
+    headers: list[str] | None = None,
 ) -> dict:
     if not isinstance(rows, list):
         raise WorkbookError("rows must be a list")
     rows = sorted(rows, key=lambda row: -float(row.get("得分") or 0))
-    headers = J_HEADERS if any("AI分析" in row for row in rows) else HEADERS
+    headers = headers or (J_HEADERS if any("AI分析" in row for row in rows) else HEADERS)
     output = Path(output_path).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     cache_source = reuse_workbook_path or (output if output.exists() else None)
@@ -318,7 +319,7 @@ def export_discovery_workbook(
         HEADERS, [8, 13, 11, 15, 12, 16, 13, 28, 27, 24, 14, 31, 22, 15, 65]
     ))
     base_widths.update({"AI分析": 75, "产品名称（原文）": 45, "FBM资格证据": 35})
-    widths = [base_widths[header] for header in headers]
+    widths = [base_widths.get(header, 35) for header in headers]
     cols = "".join(
         f'<col min="{index}" max="{index}" width="{width}" customWidth="1"/>'
         for index, width in enumerate(widths, start=1)

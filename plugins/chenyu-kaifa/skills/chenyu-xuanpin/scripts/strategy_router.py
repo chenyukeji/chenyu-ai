@@ -11,26 +11,16 @@ CATEGORY_PRESETS_PATH = REFERENCES_DIR / "category-presets.json"
 STRATEGY_SIGNALS = {
     "A": ("中国卖家", "中国卖家同类", "同类中国卖家", "chinese seller"),
     "B": ("近期需求", "最近需求", "需求趋势", "recent demand", "rising demand"),
-    "C": ("关键词", "搜索词", "keyword", "search term"),
+    "C": ("热词", "关键词选品", "搜索词", "keyword research", "search term"),
     "D": ("差评", "评论痛点", "review痛点", "review pain", "complaint"),
     "E": ("新品榜", "找新品", "新品", "new releases", "new release"),
     "F": ("组合装", "套装", "多件装", "现货组合", "bundle", "multipack"),
-    "H": ("旺季", "季节", "圣诞", "万圣节", "复活节", "seasonal", "christmas", "halloween", "q4"),
-    "I": ("店铺扩品", "店铺相邻", "这个店铺", "卖家店铺", "storefront", "seller catalog"),
+    "H": ("历史开发", "历史季节性", "历史旺季", "季节性选品", "去年同期", "历史销量", "销量飙升榜", "seasonal history", "historical sales"),
+    "I": ("店铺跟踪", "店铺上新", "优质店铺", "店铺扩品", "店铺相邻", "这个店铺", "卖家店铺", "storefront", "seller catalog"),
+    "K": ("排名飙升", "排名跃升", "movers and shakers", "movers & shakers"),
     "J": ("fbm", "近60天", "近 60 天", "最近60天", "最近 60 天"),
 }
 
-IMPLEMENTATION_STATUS = {
-    "A": "import_ready",
-    "B": "planned",
-    "C": "planned",
-    "D": "planned",
-    "E": "available",
-    "F": "planned",
-    "H": "planned",
-    "I": "planned",
-    "J": "available",
-}
 
 
 class StrategyRouteError(ValueError):
@@ -117,8 +107,16 @@ def resolve_strategy(request: str | None, task: dict, selection: dict | None, ru
     if unsupported:
         raise StrategyRouteError(f"unsupported discovery marketplaces: {unsupported}")
 
+    parameters = dict(selection.get("parameters") or {})
+    if set(parameters) - {"h_following_months"}:
+        raise StrategyRouteError("unsupported strategy parameters")
+    if parameters and strategy_ids != ["H"]:
+        raise StrategyRouteError("历史月份参数仅适用于 H")
+    if "h_following_months" in parameters and (type(parameters["h_following_months"]) is not int or parameters["h_following_months"] not in (2, 3)):
+        raise StrategyRouteError("h_following_months 必须为 2 或 3")
     primary = strategy_ids[0]
     return {
+        "parameters": parameters,
         "mode": selection.get("mode") or ("manual" if source == "explicit" else "auto"),
         "strategy_ids": strategy_ids,
         "primary_strategy": primary,
@@ -132,7 +130,7 @@ def resolve_strategy(request: str | None, task: dict, selection: dict | None, ru
             {
                 "strategy_id": strategy_id,
                 "name": registry[strategy_id]["name"],
-                "implementation_status": IMPLEMENTATION_STATUS[strategy_id],
+                "implementation_status": registry[strategy_id]["phase"],
                 "role": "primary" if strategy_id == primary else "supporting",
             }
             for strategy_id in strategy_ids
@@ -187,7 +185,7 @@ def list_strategies(rules: dict) -> list[dict]:
             "name": config["name"],
             "role": config["role"],
             "phase": config["phase"],
-            "implementation_status": IMPLEMENTATION_STATUS[strategy_id],
+            "implementation_status": config["phase"],
         }
         for strategy_id, config in rules["strategy_registry"].items()
     ]

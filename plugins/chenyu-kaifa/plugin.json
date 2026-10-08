@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-kaifa",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "description": "Automatically route Chenyu Amazon development requests to product discovery, development documentation, or both.",
   "author": {
     "name": "chenyukeji",
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "晨玙 Amazon 开发",
     "shortDescription": "自动选择选品分析或开发文档，协调连续开发任务。",
-    "longDescription": "通过晨玙开发总入口，根据自然语言需求自动选择选品分析、开发文档或两者。选品支持美德新品榜、历史分析和近60天 FBM 热销商品；开发文档把已确认产品、竞品、供应商、变体和图片整理为每个产品一个文件的三表 Excel。两个专业入口仍可单独使用。",
+    "longDescription": "根据自然语言需求自动选择选品分析、开发文档或两者。选品支持近期 FBM、新品榜和卖家精灵历史季节性采集，并支持导入店铺快照、搜索热词和排名跃升数据进行分析。开发文档按产品生成独立三表 Excel。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": [
