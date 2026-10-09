@@ -191,9 +191,9 @@ def validate_visual_contract(image_brief, errors):
             task for task in task_list
             if isinstance(task, dict) and product_id in task.get('product_ids', [])
         ]
-        if not 5 <= len(product_tasks) <= 8:
+        if not 6 <= len(product_tasks) <= 8:
             errors.append(
-                f'$.image_tasks must contain 5-8 tasks for product {product_id}; '
+                f'$.image_tasks must contain 6-8 tasks for product {product_id}; '
                 f'found {len(product_tasks)}'
             )
             continue

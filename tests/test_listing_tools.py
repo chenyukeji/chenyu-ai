@@ -60,8 +60,8 @@ class ListingTests(unittest.TestCase):
                           'title': ('Dekoration, Papierdekoration und Festschmuck für Feiern '
                                     'und Feiertage'),
                           'item_highlights': ('Papiermaterial mit klarer Form für Tisch, Regal und '
-                                              'Innenraum, einzeln platzierbar oder mit vorhandener '
-                                              'Festdeko kombinierbar'),
+                                              'Innenraum, einzeln platzierbar oder mit '
+                                              'Dekoration kombinierbar'),
                           'bullets': [
                               '📦【Dekoration für kleine Flächen】Die Dekorationselemente setzen auf Tisch, Regal oder Fensterbank einen klaren saisonalen Akzent. Jedes Element kann einzeln platziert oder zusammen mit vorhandener Festdekoration verwendet werden. So lässt sich der verfügbare Platz flexibel nutzen, ohne eine feste Anordnung vorauszusetzen.',
                               '🧩【Leichtes Papiermaterial】Die Dekoration besteht aus Papier und lässt sich unkompliziert an einem trockenen Platz im Innenraum aufstellen. Das leichte Material erleichtert das Umstellen zwischen Tisch, Regal und Fensterbank. Die klaren Formen bleiben dabei gut sichtbar und ergänzen unterschiedliche saisonale Dekorationsstile.',
@@ -155,6 +155,28 @@ class ListingTests(unittest.TestCase):
         self.assertFalse(analyzer.contains('stone', 'one'))
         self.assertTrue(analyzer.contains('Étoile', 'étoile'))
         self.assertFalse(analyzer.contains('étoile', 'etoile'))
+
+    def test_item_highlights_requires_a_title_core_keyword(self):
+        data = self.listing_package()
+        data['listings'][0]['item_highlights'] = (
+            data['listings'][0]['item_highlights'].replace(
+                'Dekoration kombinierbar', 'Festdeko kombinierbar'
+            )
+        )
+        result = package_validator.validate(data)
+        self.assertTrue(any(
+            'item_highlights must include at least one title core keyword' in error
+            for error in result['errors']
+        ))
+
+    def test_item_highlights_accepts_verified_title_keyword_alias(self):
+        data = self.listing_package()
+        data['listings'][0]['item_highlights'] = (
+            data['listings'][0]['item_highlights'].replace(
+                'Dekoration kombinierbar', 'Deko kombinierbar'
+            )
+        )
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
 
     def test_own_listing_package_ready(self):
         data = self.listing_package()
@@ -256,7 +278,7 @@ class ListingTests(unittest.TestCase):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['item_highlights'] = (
             'Design A: Papiermaterial mit klarer Form für Tisch, Regal und Innenraum, '
-            'einzeln platzierbar oder mit Festdeko kombinierbar'
+            'einzeln platzierbar oder mit Dekoration kombinierbar'
         )
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])
@@ -621,7 +643,7 @@ class ListingTests(unittest.TestCase):
     def test_item_highlights_below_target_is_editorial_warning(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['item_highlights'] = (
-            'Papiermaterial für Tisch, Regal und Innenraum mit klarer Form und '
+            'Dekoration aus Papier für Tisch und Regal mit klarer Form und '
             'flexibler Platzierung bei saisonalen Feiern'
         )
         result = package_validator.validate(data)

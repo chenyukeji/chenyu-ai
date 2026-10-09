@@ -87,6 +87,11 @@ def package():
                 'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
             },
             {
+                'id': 'T-M1', 'type': 'feature', 'product_ids': ['V1'],
+                'instructions': '依据竞品细节内容，展示本品已确认的滤层结构。',
+                'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
+            },
+            {
                 'id': 'T4', 'type': 'key_scene', 'product_ids': ['V1'],
                 'scene_mode': '冰箱冷藏室中的核心使用场景',
                 'instructions': '用单一核心场景突出产品的实际使用位置。',
@@ -115,7 +120,7 @@ def package():
     }
 
 
-def test_dynamic_five_task_plan_is_valid():
+def test_dynamic_six_task_plan_is_valid():
     result = VALIDATOR.validate(package())
     assert result['ready_for_delivery'], result['errors']
 
@@ -182,7 +187,7 @@ def test_main_image_must_use_exact_product_content_image_and_identity_lock():
 def test_detail_text_and_four_grid_scene_text_cannot_be_dropped():
     data = package()
     data['image_tasks'][1]['text_mappings'] = []
-    data['image_tasks'][4]['scene_cells'][3]['output_text'] = ''
+    data['image_tasks'][5]['scene_cells'][3]['output_text'] = ''
     result = VALIDATOR.validate(data)
     assert not result['ready_for_delivery']
     assert any('unmapped detail text: Activated Carbon Layer' in item
@@ -199,33 +204,33 @@ def test_execution_instructions_do_not_narrate_reference_images():
     assert any('narrates source-image usage' in item for item in result['errors'])
 
 
-def test_each_product_requires_five_to_eight_tasks_in_fixed_outer_order():
+def test_each_product_requires_six_to_eight_tasks_in_fixed_outer_order():
     data = package()
-    data['image_tasks'].insert(3, {
-        'id': 'T-M1', 'type': 'feature', 'product_ids': ['V1'],
-        'instructions': '用模块化结构展示一个已确认特点。',
-        'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
-    })
-    data['image_tasks'].insert(4, {
-        'id': 'T-M2', 'type': 'process', 'product_ids': ['V1'],
-        'instructions': '用三个步骤展示实际使用流程。',
-        'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
-    })
-    data['image_tasks'].insert(5, {
-        'id': 'T-M3', 'type': 'detail', 'product_ids': ['V1'],
-        'instructions': '补充一个独立细节放大图。',
-        'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
-    })
     assert VALIDATOR.validate(data)['ready_for_delivery']
 
-    data['image_tasks'].insert(6, {
+    five_tasks = copy.deepcopy(data)
+    five_tasks['image_tasks'].pop(3)
+    result = VALIDATOR.validate(five_tasks)
+    assert not result['ready_for_delivery']
+    assert any('must contain 6-8 tasks for product V1; found 5' in item
+               for item in result['errors'])
+
+    for task_id, task_type in [('T-M2', 'process'), ('T-M3', 'detail')]:
+        data['image_tasks'].insert(-2, {
+            'id': task_id, 'type': task_type, 'product_ids': ['V1'],
+            'instructions': '依据竞品图册适用内容，展示本品独立信息。',
+            'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
+        })
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+    data['image_tasks'].insert(-2, {
         'id': 'T-M4', 'type': 'advantage', 'product_ids': ['V1'],
         'instructions': '增加第四张中间优势图。',
         'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
     })
     result = VALIDATOR.validate(data)
     assert not result['ready_for_delivery']
-    assert any('must contain 5-8 tasks for product V1; found 9' in item
+    assert any('must contain 6-8 tasks for product V1; found 9' in item
                for item in result['errors'])
 
 
@@ -233,7 +238,7 @@ def test_required_scene_and_size_metadata_cannot_be_missing():
     data = package()
     data['image_tasks'][1]['scene_mode'] = ''
     data['image_tasks'][2]['dimension_labels'] = []
-    data['image_tasks'][3]['scene_mode'] = ''
+    data['image_tasks'][4]['scene_mode'] = ''
     result = VALIDATOR.validate(data)
     assert not result['ready_for_delivery']
     assert any('closeup_scene requires scene_mode' in item for item in result['errors'])

@@ -930,6 +930,16 @@ def validate(data):
                     errors.append(
                         f'{market}/{variant_id} title keyword is not marked as core: {phrase}'
                     )
+            if item_highlights and not any(
+                contains(item_highlights, form)
+                for phrase, normalized in zip(title_keywords, normalized_title_keywords)
+                for form in [phrase, *keyword_by_key.get((market, normalized), {}).get('aliases', [])]
+                if str(form).strip()
+            ):
+                errors.append(
+                    f'{market}/{variant_id} item_highlights must include at least one '
+                    'title core keyword or a verified alias'
+                )
         title_quantity = listing.get('title_quantity')
         title_quantity_term = str(listing.get('title_quantity_term', '')).strip()
         if (isinstance(title_quantity, bool) or not isinstance(title_quantity, int)
