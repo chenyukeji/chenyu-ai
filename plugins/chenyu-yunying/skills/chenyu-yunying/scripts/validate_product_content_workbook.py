@@ -23,6 +23,7 @@ INTERNAL_TEXT = re.compile(
     r'根据自有资料核对|销售变体|资料来源|证据状态'
 )
 VISIBLE_TEXT_COLUMNS = {'A', 'C', 'D', 'E', 'F'}
+LISTING_RESEARCH_GAP = re.compile(r'未取得|未抓取|待验证|待复核|本地同义词候选|卖家精灵.{0,8}(?:不可用|失败|缺失)')
 
 
 def _target(base: str, value: str) -> str:
@@ -81,6 +82,31 @@ def _product_sheet(archive: ZipFile) -> str:
     raise ValueError('missing 产品内容 worksheet')
 
 
+def _listing_research_errors(archive: ZipFile, shared: list[str]) -> list[str]:
+    errors = []
+    workbook = ET.fromstring(archive.read('xl/workbook.xml'))
+    relationships = _relations(archive, 'xl/workbook.xml')
+    for entry in workbook.findall(f'.//{{{MAIN}}}sheet'):
+        name = entry.get('name', '')
+        if name == '产品内容' or name == '作图要求':
+            continue
+        path = relationships.get(entry.get(f'{{{DOC_REL}}}id', ''))
+        if not path or path not in archive.namelist():
+            continue
+        sheet = ET.fromstring(archive.read(path))
+        for row in sheet.findall(f'.//{{{MAIN}}}sheetData/{{{MAIN}}}row'):
+            cells = {cell.get('r', ''): _cell_value(cell, shared).strip()
+                     for cell in row.findall(f'{{{MAIN}}}c')}
+            number = row.get('r', '')
+            if cells.get(f'A{number}') != 'Search Terms':
+                continue
+            for address, value in cells.items():
+                match = LISTING_RESEARCH_GAP.search(value)
+                if match:
+                    errors.append(f'{name}!{address} contains unverified Search Terms: {match.group()}')
+    return errors
+
+
 def _image_rows(archive: ZipFile, sheet_path: str, sheet: ET.Element) -> set[int]:
     rows = set()
     sheet_rels = _relations(archive, sheet_path)
@@ -129,6 +155,7 @@ def validate(path: Path) -> dict:
             if not product_rows:
                 errors.append('产品内容 has no product rows')
             image_rows = _image_rows(archive, sheet_path, sheet)
+            errors.extend(_listing_research_errors(archive, shared))
             for row in product_rows:
                 if row not in image_rows:
                     errors.append(f'产品内容!B{row} has no embedded product image')

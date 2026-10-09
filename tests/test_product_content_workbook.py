@@ -14,11 +14,11 @@ SPEC.loader.exec_module(VALIDATOR)
 MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 
 
-def altered_workbook(destination, mutate):
+def altered_workbook(destination, mutate, worksheet="xl/worksheets/sheet1.xml"):
     with ZipFile(MASTER) as source, ZipFile(destination, 'w') as output:
         for item in source.infolist():
             content = source.read(item.filename)
-            if item.filename == 'xl/worksheets/sheet1.xml':
+            if item.filename == worksheet:
                 content = mutate(content)
             output.writestr(item, content)
 
@@ -62,4 +62,26 @@ def test_internal_uncertainty_note_is_rejected():
         result = VALIDATOR.validate(path)
     assert not result['ready_for_delivery']
     assert any('产品内容!F2 contains internal handoff text' in error
+               for error in result['errors'])
+
+
+def test_unverified_search_terms_note_is_rejected():
+    def add_note(content):
+        root = ET.fromstring(content)
+        cell = root.find(f'.//{{{MAIN}}}c[@r="D10"]')
+        for child in list(cell):
+            cell.remove(child)
+        cell.set('t', 'inlineStr')
+        inline = ET.SubElement(cell, f'{{{MAIN}}}is')
+        ET.SubElement(inline, f'{{{MAIN}}}t').text = (
+            '本地同义词候选；未取得卖家精灵反查及 Amazon 前20自然结果，待验证'
+        )
+        return ET.tostring(root, encoding='utf-8')
+
+    with TemporaryDirectory() as temporary:
+        path = Path(temporary) / 'unverified-search-terms.xlsx'
+        altered_workbook(path, add_note, 'xl/worksheets/sheet3.xml')
+        result = VALIDATOR.validate(path)
+    assert not result['ready_for_delivery']
+    assert any('DE Listing!D10 contains unverified Search Terms' in error
                for error in result['errors'])

@@ -167,7 +167,7 @@ Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805
 3. 读取全部有效参考链接标题，提取其中与本品一致的产品词、同义词、当地常用词形和高相关长尾词，逐条记录来源 ASIN、`source_field=title` 和 `source_tool=reference_title_terms`。删除品牌、错误规格、不同功能和竞品身份词。
 4. 若前台去重后候选少，再查目标站点其他同类商品标题，不限于开发文档链接；来源记为 `source_tool=same_category_title_terms`、`source_field=title`，并将商品 ASIN 和标题纳入竞品记录。先判断商品类型、结构和实际用途是否与自有产品匹配；不能把硬质窗板、单独软管等相邻品类的词当作软布窗户密封套同义词。
 5. 合并三类候选但不丢失来源，对每个候选短语在目标 Amazon 站点检查前 20 个自然商品，广告位不计。
-6. 记录 `organic_results_checked`、`relevant_results` 和 `relevance_band`：占比不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。未实际检查时不填写虚构数字或等级，候选标为待验证。
+6. 记录 `organic_results_checked`、`relevant_results` 和 `relevance_band`：占比不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。未实际检查时不填写虚构数字或等级，候选只留内部研究记录；该站 Search Terms 不作为已完成交付。
 7. `high` 优先采用，`medium` 按剩余字节采用，`low` 通常排除。结果主要为配件或其他品类时直接排除。
 8. 来源站点与目标站点不同时，候选只作语义参考，不声称当地搜索量。
 
