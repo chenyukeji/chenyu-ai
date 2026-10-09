@@ -84,7 +84,9 @@ def package():
                 'id': 'T3', 'type': 'size', 'product_ids': ['V1'],
                 'dimension_labels': ['9.5 cm / 3.74 in', '4.5 cm / 1.77 in', '0.9 cm / 0.35 in'],
                 'on_image_text': 'Product Size；9.5 cm / 3.74 in；4.5 cm / 1.77 in；0.9 cm / 0.35 in',
-                'instructions': '顶部写 Product Size；标注三个测量方向：9.5 cm / 3.74 in、4.5 cm / 1.77 in、0.9 cm / 0.35 in；角落保留滤层细节窗。',
+                'supporting_visual': {'kind': 'detail', 'description': '边缘接口纹理局部',
+                                      'source_ref': 'V1 original close-up'},
+                'instructions': '顶部写 Product Size；标注三个测量方向：9.5 cm / 3.74 in、4.5 cm / 1.77 in、0.9 cm / 0.35 in；角落展示边缘接口纹理局部。',
                 'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
             },
             {
@@ -322,3 +324,29 @@ def test_mapped_competitor_content_and_scene_copy_must_reach_final_instructions(
                for item in result['errors'])
     assert any('final instructions omit four-grid output_text: Bedroom' in item
                for item in result['errors'])
+
+
+def test_size_visual_adds_distinct_evidence_or_explains_pure_size():
+    data = package()
+    size = data['image_tasks'][2]
+    del size['supporting_visual']
+    result = VALIDATOR.validate(data)
+    assert any('size task requires supporting_visual' in item for item in result['errors'])
+
+    size['supporting_visual'] = {'kind': 'scene', 'description': '厨房台面使用局部',
+                                 'source_ref': 'V1 verified use photo'}
+    result = VALIDATOR.validate(data)
+    assert any('final instructions omit supporting visual' in item for item in result['errors'])
+    size['instructions'] += ' 厨房台面使用局部。'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+    data['image_tasks'][4]['instructions'] += ' 厨房台面使用局部。'
+    result = VALIDATOR.validate(data)
+    assert any('supporting visual repeats task T4' in item for item in result['errors'])
+
+    size['supporting_visual'] = {'kind': 'none'}
+    result = VALIDATOR.validate(data)
+    assert any('pure size image requires' in item for item in result['errors'])
+    size['supporting_visual']['omission_reason'] = 'User requested pure size'
+    size['instructions'] = size['instructions'].replace(' 厨房台面使用局部。', '')
+    assert VALIDATOR.validate(data)['ready_for_delivery']

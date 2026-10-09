@@ -227,6 +227,52 @@ def validate_visual_contract(image_brief, errors):
         instructions = str(task.get('instructions', ''))
         on_image_text = str(task.get('on_image_text', ''))
         if task_type == 'size':
+            support = task.get('supporting_visual')
+            if not isinstance(support, dict):
+                errors.append(
+                    f'$.image_tasks[{task_id}] size task requires supporting_visual'
+                )
+            else:
+                kind = support.get('kind')
+                if kind not in ('detail', 'scene', 'both', 'none'):
+                    errors.append(
+                        f'$.image_tasks[{task_id}].supporting_visual.kind must be '
+                        'detail, scene, both, or none'
+                    )
+                elif kind == 'none':
+                    if not str(support.get('omission_reason', '')).strip():
+                        errors.append(
+                            f'$.image_tasks[{task_id}] pure size image requires '
+                            'a specific supporting_visual.omission_reason'
+                        )
+                else:
+                    description = str(support.get('description', '')).strip()
+                    if not description or not str(support.get('source_ref', '')).strip():
+                        errors.append(
+                            f'$.image_tasks[{task_id}] supporting_visual requires '
+                            'description and source_ref'
+                        )
+                    if description and description not in instructions:
+                        errors.append(
+                            f'$.image_tasks[{task_id}] final instructions omit '
+                            f'supporting visual: {description}'
+                        )
+                    for other_id, other in tasks.items():
+                        if other_id == task_id or not isinstance(other, dict):
+                            continue
+                        own_products = task.get('product_ids', [])
+                        other_products = other.get('product_ids', [])
+                        if not isinstance(own_products, list) or not isinstance(other_products, list):
+                            continue
+                        if not set(item for item in own_products if isinstance(item, str)).intersection(
+                                item for item in other_products if isinstance(item, str)):
+                            continue
+                        if description and description.casefold() in str(
+                                other.get('instructions', '')).casefold():
+                            errors.append(
+                                f'$.image_tasks[{task_id}] supporting visual '
+                                f'repeats task {other_id}: {description}'
+                            )
             heading = task.get('size_heading', 'Product Size')
             override_reason = str(task.get('size_heading_override_reason', '')).strip()
             if heading != 'Product Size' and not override_reason:
