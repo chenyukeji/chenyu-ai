@@ -104,6 +104,10 @@ def _headers(rows: dict[int, dict[int, str]], row_numbers: tuple[int, ...]) -> s
     }
 
 
+def _present(value: str | None) -> bool:
+    return bool(value and value.strip() != "/")
+
+
 def inspect_workbook(path: Path, template: bool = False) -> dict:
     report = {"path": str(path.resolve()), "errors": [], "warnings": [], "sheets": []}
     if path.suffix.lower() != ".xlsx":
@@ -167,15 +171,15 @@ def inspect_workbook(path: Path, template: bool = False) -> dict:
         research_rows = [
             row
             for row_number, row in sheets[0]["rows"].items()
-            if row_number > 1 and any(value for value in row.values())
+            if row_number > 1 and any(_present(value) for value in row.values())
         ]
         if not template:
             if not research_rows:
                 report["errors"].append("参考产品信息调研至少需要一条商品记录")
             for row in research_rows:
-                if row.get(12) and not row.get(11):
+                if _present(row.get(12)) and not _present(row.get(11)):
                     report["errors"].append("参考商品链接缺少对应 ASIN")
-                if row.get(12) and not any(row.get(column) for column in range(2, 8)):
+                if _present(row.get(12)) and not any(_present(row.get(column)) for column in range(2, 8)):
                     report["errors"].append("参考商品只有链接，缺少已核实的调研数据")
 
         confirm_rows = [
