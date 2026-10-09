@@ -62,7 +62,7 @@ def package():
                 },
                 'content_mappings': [
                     {'source_content': 'white background arrangement',
-                     'output_content': 'white background arrangement with V1 product'}
+                     'output_content': '纯白背景，完整展示售卖产品'}
                 ],
                 'text_mappings': [], 'scene_cells': [],
             },
@@ -72,7 +72,7 @@ def package():
                 'instructions': '放大过滤层结构，标签写 Activated Carbon Layer。',
                 'content_mappings': [
                     {'source_content': 'close-up filter layers',
-                     'output_content': 'close-up of confirmed V1 filter layers'}
+                     'output_content': '放大过滤层结构'}
                 ],
                 'text_mappings': [
                     {'source_text': 'Activated Carbon Layer',
@@ -83,7 +83,8 @@ def package():
             {
                 'id': 'T3', 'type': 'size', 'product_ids': ['V1'],
                 'dimension_labels': ['9.5 cm / 3.74 in', '4.5 cm / 1.77 in', '0.9 cm / 0.35 in'],
-                'instructions': '标注三个测量方向：9.5 cm / 3.74 in、4.5 cm / 1.77 in、0.9 cm / 0.35 in；角落保留滤层细节窗。',
+                'on_image_text': 'Product Size；9.5 cm / 3.74 in；4.5 cm / 1.77 in；0.9 cm / 0.35 in',
+                'instructions': '顶部写 Product Size；标注三个测量方向：9.5 cm / 3.74 in、4.5 cm / 1.77 in、0.9 cm / 0.35 in；角落保留滤层细节窗。',
                 'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
             },
             {
@@ -99,10 +100,10 @@ def package():
             },
             {
                 'id': 'T5', 'type': 'four_grid', 'product_ids': ['V1'],
-                'instructions': '四格分别展示厨房、办公室、旅行和卧室场景。',
+                'instructions': '四格分别展示厨房、办公室、旅行和卧室场景，每格写 Kitchen、Office、Travel、Bedroom。',
                 'content_mappings': [
                     {'source_content': 'four use scenes',
-                     'output_content': 'four confirmed use scenes'}
+                     'output_content': '厨房、办公室、旅行和卧室场景'}
                 ],
                 'text_mappings': [],
                 'scene_cells': [
@@ -271,14 +272,14 @@ def test_competitor_descriptions_can_merge_into_one_final_image():
     }]
     task = data['image_tasks'][1]
     task['content_mappings'].extend([
-        {'source_content': 'fleece interior close-up', 'output_content': 'own fleece interior'},
-        {'source_content': 'stitched opening', 'output_content': 'own stitched opening'},
+        {'source_content': 'fleece interior close-up', 'output_content': '本品绒布内里'},
+        {'source_content': 'stitched opening', 'output_content': '本品缝线开口'},
     ])
     task['text_mappings'].extend([
         {'source_text': 'Warm Fabric', 'output_text': 'Fleece Lining'},
         {'source_text': 'Comfort Fit', 'output_text': 'Under Helmet'},
     ])
-    task['instructions'] += ' 同一张图加入 Fleece Lining 和 Under Helmet 两个短标签。'
+    task['instructions'] += ' 展示本品绒布内里与本品缝线开口；同一张图加入 Fleece Lining 和 Under Helmet 两个短标签。'
     assert VALIDATOR.validate(data)['ready_for_delivery']
     task['instructions'] = task['instructions'].replace('Under Helmet', '')
     result = VALIDATOR.validate(data)
@@ -288,4 +289,36 @@ def test_competitor_descriptions_can_merge_into_one_final_image():
     task['text_mappings'].pop()
     result = VALIDATOR.validate(data)
     assert any('has unmapped detail text: Comfort Fit' in item
+               for item in result['errors'])
+
+
+def test_size_heading_and_labels_must_reach_final_instructions():
+    data = package()
+    size = data['image_tasks'][2]
+    size['instructions'] = size['instructions'].replace('Product Size', '')
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('size heading' in item for item in result['errors'])
+
+    size['instructions'] = package()['image_tasks'][2]['instructions']
+    size['on_image_text'] = size['on_image_text'].replace('Product Size', '')
+    result = VALIDATOR.validate(data)
+    assert any('size heading' in item for item in result['errors'])
+
+    size['on_image_text'] = 'Dimensions；9.5 cm / 3.74 in；4.5 cm / 1.77 in；0.9 cm / 0.35 in'
+    size['instructions'] = size['instructions'].replace('Product Size', 'Dimensions')
+    size['size_heading'] = 'Dimensions'
+    size['size_heading_override_reason'] = 'User explicitly requested Dimensions'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_mapped_competitor_content_and_scene_copy_must_reach_final_instructions():
+    data = package()
+    data['image_tasks'][1]['instructions'] = '标签写 Activated Carbon Layer。'
+    data['image_tasks'][5]['instructions'] = '四格展示厨房、办公室、旅行和卧室场景。'
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('final instructions omit mapped content: 放大过滤层结构' in item
+               for item in result['errors'])
+    assert any('final instructions omit four-grid output_text: Bedroom' in item
                for item in result['errors'])

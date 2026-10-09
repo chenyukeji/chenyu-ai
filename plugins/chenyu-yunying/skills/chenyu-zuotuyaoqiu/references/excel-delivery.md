@@ -30,14 +30,14 @@
 写入 Excel 前先生成并校验 `image-brief-package.json`：
 
 - `products[]`：每个变体保存 `id`、实际嵌入“产品内容”页的 `product_content_image_id`、`product_content_image_source`（`own_main`、`supplier` 或 `first_reference_main`）和非空 `product_content_image_source_ref`（内部来源路径、供应商链接/规格或首链接 ASIN）；另记录候选 `own_main_image_id` 与 `supplier_image_id`，无图填空字符串。校验器按非空候选强制自有主图→对应规格供应商图→首链接主图的顺序。供应商图必须匹配当前销售规格。选择 `first_reference_main` 时图片 ID 必须等于 `primary_reference.images` 中的第一条链接主图 ID。
-- `primary_reference`：保存第一条商品链接的 `asin` 和完整 `images[]`；`additional_references[]` 保存其他有效竞品链接中有借鉴价值的图片。每张图记录 `id`、`role`、必须保留的 `content_elements`、原图 `text_elements`，以及 `mapped_task_ids`；确实不适用时改写具体 `omitted_reason`，不能无记录跳过。
+- `primary_reference`：保存第一条商品链接的 `asin` 和完整 `images[]`；`additional_references[]` 逐链接保存其他有效竞品的可读取图册图片及评估结果。每张图记录 `id`、`role`、必须保留的 `content_elements`、原图 `text_elements`，以及 `mapped_task_ids`；确实不适用时改写具体 `omitted_reason`，不能无记录跳过。
 - `image_tasks[]`：按实际内容动态建立任务，不要求七项。每项保存 `id`、`type`、`product_ids`、直接描述最终画面的 `instructions`、`content_mappings` 和 `text_mappings`。
 - `image_tasks[]` 必须有六至八项，前三项 `type` 依次为 `main_image`、`closeup_scene`、`size`，最后两项依次为 `key_scene`、`four_grid`；中间须插入一至三项 `feature`、`advantage`、`process` 或 `detail` 等任务。每个产品ID都必须被这五类基础任务覆盖。
 - 主图任务额外保存 `product_image_ids` 和 `identity_lock`。`product_image_ids` 必须与适用变体的“产品内容”图片完全一致；`identity_lock` 分别锁定 `shape_structure`、`color_pattern`、`quantity_components`、`accessories_packaging`。
-- 近照场景图和突出场景图保存非空 `scene_mode`；尺寸图保存至少一项 `dimension_labels`；每项为同一测量部位的 `cm / in` 成对标注且换算正确，不得只写其中一个单位。合并到近照或尺寸图中的细节仍写入对应任务的 `content_mappings` 与 `text_mappings`。
+- 近照场景图和突出场景图保存非空 `scene_mode`；尺寸图保存至少一项 `dimension_labels`；每项为同一测量部位的 `cm / in` 成对标注且换算正确，不得只写其中一个单位。`instructions` 和 `on_image_text` 默认都写“Product Size”；用户明确指定其他标题或无标题时，记录 `size_heading` 和具体的 `size_heading_override_reason`。合并到近照或尺寸图中的细节仍写入对应任务的 `content_mappings` 与 `text_mappings`。
 - 四宫格来源图和成品任务都保存正好四项 `scene_cells`。每项用 `source_scene`、`source_text` 对应 `output_scene`、`output_text`，保证四个场景逐格落地；来源格有文字时 `output_text` 必填且不能省略，来源格确实无文字时可保持为空。
 
-校验器会拒绝：少于六项或多于八项任务、五类基础图缺失或顺序错误、主图与产品内容所选图片不一致、图片来源顺序或来源 ID 不符、产品身份锁定字段缺失、近照/突出场景未定义、尺寸标签缺失、首链接图册存在未映射图片、细节文字缺失、四宫格少格或少文字，以及执行要求中出现“参考图片1用于……”等来源解说。
+校验器会拒绝：少于六项或多于八项任务、五类基础图缺失或顺序错误、主图与产品内容所选图片不一致、图片来源顺序或来源 ID 不符、产品身份锁定字段缺失、近照/突出场景未定义、尺寸标签缺失、首链接图册存在未映射图片、适用内容或短文案只在内部映射、尺寸图缺少默认标题、四宫格少格或少文字，以及执行要求中出现“参考图片1用于……”等来源解说。
 
 最后一列按实际需要使用换行组织以下内容，空项不写：
 
@@ -45,7 +45,7 @@
 - 画面目的和有事实依据的产品特点；事实来源不得只写 Listing 字段名。
 - 构图、背景、场景类型与强度、人物/道具、产品位置和姿态；非主图需说明场景如何服务当前画面目的。
 - 不可改变的产品结构、图案、颜色和包装内容。
-- 准确上图文字、层级和建议位置；尽量不使用文字，无需文字时明确“无文字”。必须使用文字时默认统一用精简英文，即使 Listing 使用其他语言；尺寸图只保留同一尺寸的准确 `cm / in` 数值和单位。
+- 准确上图文字、层级和建议位置；白底主图无文字，其余图片按画面任务使用少量短标题或标签，无需文字时明确“无文字”。必须使用文字时默认统一用精简英文，即使 Listing 使用其他语言；尺寸图默认写简短英文标题“Product Size”，并准确配对同一测量部位的 `cm / in` 数值；用户明确指定其他标题或无标题时按其要求执行。其他信息图可使用一个短标题和少量直接解释画面的标签。
 - 尺寸箭头、测量部位、数值、单位和换算结果。
 - 必须保留的来源内容、细节文字与四宫格逐格场景文字，以及允许自由调整的视觉风格。
 - 禁止元素、验收条件，以及只影响当前任务的具体缺口。
@@ -81,5 +81,5 @@
 - 辅助场景不抢主体、不遮挡尺寸或细节，完整场景中产品仍清楚可辨；所有场景道具均不得造成包装内容误解。四宫格逐格核对场景与文字，不能漏格、漏词或用一个泛化标签替代四个原有场景表达。
 - 同一任务内不重复嵌入同一图片；不同任务只有在借鉴点确实不同且文字分别说明时才允许复用。
 - 导出后检查文字截断、图片锚点、行高、列宽、参考图数量与任务完整性。
-- 用研究包逐条核对原始商品链接是否被评估；再核对首链接每张图的内容/文字是否已映射到任务或记录具体不采用原因，并核对嵌入图片的实际数量、来源 ASIN/原图编号和所在任务。适用内容不能因排版空间或固定图数被漏掉，不把母版七行或示例嵌图数当作目标。
+- 用研究包逐条核对原始商品链接是否被评估；再核对首链接每张图的内容/文字是否已映射到任务或记录具体不采用原因，并核对嵌入图片的实际数量、来源 ASIN/原图编号和所在任务。适用内容不能因排版空间或固定图数被漏掉，不把母版七行或示例嵌图数当作目标。对照 `image-brief-package.json` 中每项 `output_content`、`output_text` 和四宫格 `output_scene`/`output_text`，确认它们都实写在最终 Excel 对应行“作图要求”中；内部映射有、交付文字没有，视为未交付。
 - 导出后运行 `python3 plugins/chenyu-yunying/skills/chenyu-yunying/scripts/validate_product_content_workbook.py <最终工作簿.xlsx>`，实际检查每个产品行的 B 列嵌图及 A/C/D/E/F 列内部备注；只看 `product_content_image_id` 或预览中有图不算通过。原始工作簿不覆盖；最终作图单另存到任务输出目录。插件仅保留统一的运营交付大母版，任务专属原始开发表、竞品研究包和临时素材仍只保留在任务输出目录。

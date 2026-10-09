@@ -224,23 +224,45 @@ def validate_visual_contract(image_brief, errors):
                 errors.append(
                     f'$.image_tasks[{task_id}] {task_type} requires scene_mode'
                 )
-        if task_type == 'size' and not _non_empty_strings(task.get('dimension_labels')):
-            errors.append(
-                f'$.image_tasks[{task_id}] size task requires dimension_labels'
-            )
-        elif task_type == 'size':
-            for label in task['dimension_labels']:
-                reason = dimension_label_error(label)
-                if reason:
-                    errors.append(f'$.image_tasks[{task_id}] dimension label {label!r} {reason}')
-                if label not in str(task.get('instructions', '')):
-                    errors.append(f'$.image_tasks[{task_id}] must include dimension label {label!r} in final instructions')
-        final_copy = str(task.get('instructions', '')) + ' ' + str(task.get('on_image_text', ''))
+        instructions = str(task.get('instructions', ''))
+        on_image_text = str(task.get('on_image_text', ''))
+        if task_type == 'size':
+            heading = task.get('size_heading', 'Product Size')
+            override_reason = str(task.get('size_heading_override_reason', '')).strip()
+            if heading != 'Product Size' and not override_reason:
+                errors.append(
+                    f'$.image_tasks[{task_id}] size heading override requires '
+                    'size_heading_override_reason citing the user request'
+                )
+            if not isinstance(heading, str):
+                errors.append(f'$.image_tasks[{task_id}].size_heading must be a string')
+            elif heading and (heading not in instructions or heading not in on_image_text):
+                errors.append(
+                    f'$.image_tasks[{task_id}] size heading {heading!r} must appear '
+                    'in final instructions and on_image_text'
+                )
+            if not _non_empty_strings(task.get('dimension_labels')):
+                errors.append(f'$.image_tasks[{task_id}] size task requires dimension_labels')
+            else:
+                for label in task['dimension_labels']:
+                    reason = dimension_label_error(label)
+                    if reason:
+                        errors.append(f'$.image_tasks[{task_id}] dimension label {label!r} {reason}')
+                    if label not in instructions:
+                        errors.append(f'$.image_tasks[{task_id}] must include dimension label {label!r} in final instructions')
+                    if label not in on_image_text:
+                        errors.append(f'$.image_tasks[{task_id}] must include dimension label {label!r} in on_image_text')
+        for mapping in task.get('content_mappings', []):
+            if not isinstance(mapping, dict):
+                continue
+            output_content = str(mapping.get('output_content', '')).strip()
+            if output_content and output_content not in instructions:
+                errors.append(f'$.image_tasks[{task_id}] final instructions omit mapped content: {output_content}')
         for mapping in task.get('text_mappings', []):
             if not isinstance(mapping, dict):
                 continue
             output_text = str(mapping.get('output_text', '')).strip()
-            if output_text and output_text not in final_copy:
+            if output_text and output_text not in instructions:
                 errors.append(f'$.image_tasks[{task_id}] final instructions omit on-image text: {output_text}')
         if task_type == 'four_grid':
             scene_cells = task.get('scene_cells')
@@ -249,6 +271,17 @@ def validate_visual_contract(image_brief, errors):
                     f'$.image_tasks[{task_id}] four_grid task requires exactly '
                     'four scene_cells'
                 )
+            else:
+                for cell in scene_cells:
+                    if not isinstance(cell, dict):
+                        continue
+                    for field in ('output_scene', 'output_text'):
+                        value = str(cell.get(field, '')).strip()
+                        if value and value not in instructions:
+                            errors.append(
+                                f'$.image_tasks[{task_id}] final instructions omit '
+                                f'four-grid {field}: {value}'
+                            )
 
     main_covered = set()
     for task_id, task in tasks.items():
