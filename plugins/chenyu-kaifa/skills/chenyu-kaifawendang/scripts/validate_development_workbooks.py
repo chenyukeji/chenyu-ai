@@ -48,7 +48,8 @@ CONFIRM_HEADERS = {
     "采购链接1",
     "供应商",
 }
-DETAIL_HEADERS = {"价格/克重", "变体", "产品属性", "产品主图/实拍图"}
+DETAIL_HEADERS = {"价格/克重", "变体", "产品属性", "产品主图/实拍图", "备注"}
+FORBIDDEN_DETAIL_HEADERS = {"内容清单", "listing"}
 
 
 def _relationships(package: zipfile.ZipFile, part: str) -> dict[str, str]:
@@ -159,6 +160,23 @@ def inspect_workbook(path: Path, template: bool = False) -> dict:
             report["errors"].append("产品详情缺少字段：" + "、".join(missing))
         if not any("供应商产品" in header or header == "图片" for header in detail_headers):
             report["errors"].append("产品详情缺少供应商产品名称或图片字段")
+        forbidden = sorted(FORBIDDEN_DETAIL_HEADERS & detail_headers)
+        if forbidden:
+            report["errors"].append("产品详情不应包含字段：" + "、".join(forbidden))
+
+        research_rows = [
+            row
+            for row_number, row in sheets[0]["rows"].items()
+            if row_number > 1 and any(value for value in row.values())
+        ]
+        if not template:
+            if not research_rows:
+                report["errors"].append("参考产品信息调研至少需要一条商品记录")
+            for row in research_rows:
+                if row.get(12) and not row.get(11):
+                    report["errors"].append("参考商品链接缺少对应 ASIN")
+                if row.get(12) and not any(row.get(column) for column in range(2, 8)):
+                    report["errors"].append("参考商品只有链接，缺少已核实的调研数据")
 
         confirm_rows = [
             row
