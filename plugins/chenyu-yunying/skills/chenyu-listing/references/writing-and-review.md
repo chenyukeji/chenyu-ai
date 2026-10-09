@@ -130,6 +130,8 @@ Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805
 
 ## HTML 详情
 
+先对照首条已确认同款竞品五点及其普通/A+描述，把适用于本品的具体细节合并到详情；再查看其他有效竞品五点可补充的表达和信息，但任何新增事实都要有自有或已确认同款证据。没有已确认同款时，也通读全部有效竞品五点提炼相关信息主题，仅以自有已确认事实写详情。首条同款五点逐点映射到详情实际短句，允许两个点合并在同一功能块，不允许漏掉适用内容或照搬原句。
+
 只使用 `<p>`、`<br>`、`<b>`，顺序如下：
 
 ```html
@@ -156,6 +158,7 @@ Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805
 - 包装内容默认只列随货提供的物品和数量，不自动添加“图片中的其他装饰/道具不包含”。只有某个具体配件存在真实误认风险且证据明确时，才在包装后的注意事项中点名说明；不能用笼统免责声明补长度。
 - 注意事项可选；出现时位于包装之后。
 - 允许完整展开标题、Item Highlights 和五点的重点信息，不要求机械去重。
+- 首条同款五点每一项在 `primary_reference_bullet_outline` 记录 `description_excerpt`，其文字必须实际出现在详情中；该点 `own_fact_ids` 必须进入 `field_fact_ids.description`。
 - 详情中的每个具体宣称也必须进入 `field_fact_ids.description`。若五点没有使用某项参考宣称，不能在详情中悄悄补入“活性炭、抑菌、OEM 品质、建议更换周期”等未经确认内容。
 
 ## Search Terms 研究与填写

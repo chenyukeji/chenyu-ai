@@ -25,12 +25,20 @@ package_validator = module('validate_listing_package')
 class ListingTests(unittest.TestCase):
     @staticmethod
     def primary_bullet_outline():
+        excerpts = [
+            'Eine Dekoration aus Papier',
+            'Die Papierdekoration lässt sich auf geeigneten Flächen gezielt anordnen',
+            'Die klare Form setzt einen sichtbaren dekorativen Akzent',
+            'Die Gestaltung ist für bestätigte Feiern und saisonale Innenräume vorgesehen',
+            'Sie kann einzeln stehen oder mit abgestimmten Elementen kombiniert werden',
+        ]
         return [
             {
                 'source_index': index,
                 'source_topic': f'Reference topic {index}',
                 'source_details': [f'Reference detail {index}'],
                 'own_fact_ids': ['F1'],
+                'description_excerpt': excerpts[index - 1],
             }
             for index in range(1, 6)
         ]
@@ -357,6 +365,43 @@ class ListingTests(unittest.TestCase):
             errors, 'DE', 'V1', listing, {data['facts'][0]['id']: data['facts'][0]}
         )
         self.assertTrue(any('uses non-confirmed fact F1' in error for error in errors))
+
+    def test_primary_reference_bullets_must_map_into_html_description(self):
+        data = self.listing_package()
+        listing = data['listings'][0]
+        listing['primary_reference_asin'] = 'B012345678'
+        listing['primary_reference_bullet_outline'] = self.primary_bullet_outline()
+        listing['bullet_references'] = [f'参考 B012345678 第{i}点' for i in range(1, 6)]
+        fact_by_id = {fact['id']: fact for fact in data['facts']}
+
+        listing['primary_reference_bullet_outline'][2]['description_excerpt'] = ''
+        errors = []
+        package_validator.validate_primary_bullet_outline(
+            errors, 'DE', 'V1', listing, fact_by_id
+        )
+        self.assertTrue(any('requires a substantive description_excerpt' in error
+                            for error in errors))
+
+        listing['primary_reference_bullet_outline'][2]['description_excerpt'] = (
+            'Eine neue unbelegte Eigenschaft'
+        )
+        errors = []
+        package_validator.validate_primary_bullet_outline(
+            errors, 'DE', 'V1', listing, fact_by_id
+        )
+        self.assertTrue(any('description_excerpt is absent from HTML description' in error
+                            for error in errors))
+
+        listing['primary_reference_bullet_outline'][2]['description_excerpt'] = (
+            'Die klare Form setzt einen sichtbaren dekorativen Akzent'
+        )
+        listing['field_fact_ids']['description'] = []
+        errors = []
+        package_validator.validate_primary_bullet_outline(
+            errors, 'DE', 'V1', listing, fact_by_id
+        )
+        self.assertTrue(any('own_fact_ids must be included in field_fact_ids.description'
+                            in error for error in errors))
 
     def test_fitment_products_require_confirmed_compatibility_in_front_end_copy(self):
         data = copy.deepcopy(self.listing_package())

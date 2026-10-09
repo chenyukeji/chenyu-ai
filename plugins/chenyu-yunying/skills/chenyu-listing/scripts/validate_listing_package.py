@@ -581,6 +581,29 @@ def validate_primary_bullet_outline(errors, market, variant_id, listing, fact_by
                     f'{market}/{variant_id} primary reference bullet outline {index} '
                     f'uses non-confirmed fact {fact_id}'
                 )
+        excerpt = str(item.get('description_excerpt', '')).strip()
+        if len(words(excerpt)) < 3:
+            errors.append(
+                f'{market}/{variant_id} primary reference bullet outline {index} '
+                'requires a substantive description_excerpt'
+            )
+        elif not contains(visible_html(listing.get('description', '')), excerpt):
+            errors.append(
+                f'{market}/{variant_id} primary reference bullet outline {index} '
+                'description_excerpt is absent from HTML description'
+            )
+        field_fact_ids = listing.get('field_fact_ids')
+        description_fact_ids = (
+            field_fact_ids.get('description', [])
+            if isinstance(field_fact_ids, dict) else []
+        )
+        if not isinstance(description_fact_ids, list):
+            description_fact_ids = []
+        if isinstance(fact_ids, list) and not set(fact_ids).issubset(description_fact_ids):
+            errors.append(
+                f'{market}/{variant_id} primary reference bullet outline {index} '
+                'own_fact_ids must be included in field_fact_ids.description'
+            )
     bullet_references = listing.get('bullet_references', [])
     if isinstance(bullet_references, list) and len(bullet_references) == 5:
         for index, reference in enumerate(bullet_references, 1):

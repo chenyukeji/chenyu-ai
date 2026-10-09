@@ -20,7 +20,7 @@ description: 晨玙运营总入口。接收产品开发 Excel、产品素材和�
 | 目标 | 读取并执行 |
 | --- | --- |
 | 抓取、整理竞品 Listing、产品图册、A+ 和榜单候选 | [chenyu-jingpin](../chenyu-jingpin/SKILL.md)，只交付研究包，不生成自有文案或评论痛点分析 |
-| 根据自有事实和竞品研究生成欧洲站 Item Name、Item Highlights、高信息量五点、HTML 详情、搜索词和变体文案 | [chenyu-listing](../chenyu-listing/SKILL.md)；标题先合并全部有效竞品标题的相关词义，再用自有产品事实和当地语言写恰好三个核心词；不新增竞品标题未提及的描述，并前置关键结构与功能；普通材质和尺寸不挤占主标题，确需展示的一组尺寸只放标题末尾，Item Highlights 自然承接至少一个标题核心关键词并补规格/结构/场景，Search Terms 只收录反查和 Amazon 相关性复核后的增量词；综合 Listing 默认 DE/FR/IT/ES，UK 按需加入 |
+| 根据自有事实和竞品研究生成欧洲站 Item Name、Item Highlights、高信息量五点、HTML 详情、搜索词和变体文案 | [chenyu-listing](../chenyu-listing/SKILL.md)；标题先合并全部有效竞品标题的相关词义，再用自有产品事实和当地语言写恰好三个核心词；不新增竞品标题未提及的描述，并前置关键结构与功能；普通材质和尺寸不挤占主标题，确需展示的一组尺寸只放标题末尾，Item Highlights 自然承接至少一个标题核心关键词并补规格/结构/场景；HTML 详情逐点吸收首条同款竞品五点及普通/A+描述中适用于本品的细节并绑定自有事实，Search Terms 只收录反查和 Amazon 相关性复核后的增量词；综合 Listing 默认 DE/FR/IT/ES，UK 按需加入 |
 | 图片规划、作图单、交给美工的要求 | [chenyu-zuotuyaoqiu](../chenyu-zuotuyaoqiu/SKILL.md) |
 | 自有 Listing 和作图要求 | 先统一产品事实；有竞品链接时只执行一次竞品研究；Listing 读取文字/关键词证据，作图要求读取视觉证据，两者独立生成，不互相改写 |
 | 按已确认 Amazon.fr EUR 订单生成商业发票 | [chenyu-invoice](../chenyu-invoice/SKILL.md)，核对购买日期、收件人、商品及金额，交付订单编号 PDF |
