@@ -91,6 +91,7 @@ def validate_visual_contract(image_brief, errors):
         errors.append('$.products must contain at least one product from 产品内容')
         return
     product_images = {}
+    product_image_sources = {}
     for index, product in enumerate(products):
         if not isinstance(product, dict):
             errors.append(f'$.products[{index}] must be an object')
@@ -105,6 +106,35 @@ def validate_visual_contract(image_brief, errors):
         if product_id in product_images:
             errors.append(f'$.products contains duplicate id: {product_id}')
         product_images[product_id] = image_id
+        image_source = str(product.get('product_content_image_source', '')).strip()
+        if image_source not in ('own_main', 'supplier', 'first_reference_main'):
+            errors.append(
+                f'$.products[{index}].product_content_image_source must be '
+                'own_main, supplier, or first_reference_main'
+            )
+        source_ref = str(product.get('product_content_image_source_ref', '')).strip()
+        if not source_ref:
+            errors.append(f'$.products[{index}].product_content_image_source_ref is required')
+        product_image_sources[product_id] = (image_source, source_ref)
+        if 'own_main_image_id' not in product or 'supplier_image_id' not in product:
+            errors.append(
+                f'$.products[{index}] must record own_main_image_id and '
+                'supplier_image_id candidate checks (empty when unavailable)'
+            )
+        own_main_id = str(product.get('own_main_image_id', '')).strip()
+        supplier_id = str(product.get('supplier_image_id', '')).strip()
+        expected_source = 'own_main' if own_main_id else (
+            'supplier' if supplier_id else 'first_reference_main'
+        )
+        if image_source != expected_source:
+            errors.append(
+                f'$.products[{index}] must choose image source in '
+                'own_main → supplier → first_reference_main order'
+            )
+        if own_main_id and image_id != own_main_id:
+            errors.append(f'$.products[{index}] must use its own_main_image_id')
+        elif not own_main_id and supplier_id and image_id != supplier_id:
+            errors.append(f'$.products[{index}] must use its supplier_image_id')
 
     task_list = image_brief.get('image_tasks')
     if not isinstance(task_list, list) or not task_list:
@@ -240,6 +270,23 @@ def validate_visual_contract(image_brief, errors):
     if not isinstance(images, list) or not images:
         errors.append('$.primary_reference.images must contain the first link gallery')
         return
+    first_reference_main_ids = {
+        str(source.get('id', '')).strip()
+        for source in images if isinstance(source, dict) and source.get('role') == 'main'
+    }
+    primary_asin = str(primary.get('asin', '')).strip()
+    for product_id, (image_source, source_ref) in product_image_sources.items():
+        if image_source == 'first_reference_main':
+            if product_images[product_id] not in first_reference_main_ids:
+                errors.append(
+                    f'$.products[{product_id}] first_reference_main image must match '
+                    'primary_reference main image id'
+                )
+            if primary_asin and primary_asin.upper() not in source_ref.upper():
+                errors.append(
+                    f'$.products[{product_id}] first_reference_main source_ref must cite '
+                    'primary_reference ASIN'
+                )
     seen_image_ids = set()
     has_main = False
     for index, source in enumerate(images):

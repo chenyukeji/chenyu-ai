@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+"""Verify visible product images and handoff-ready text in an exported workbook."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import posixpath
+import re
+from pathlib import Path
+from xml.etree import ElementTree as ET
+from zipfile import BadZipFile, ZipFile
+
+MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+DOC_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+PKG_REL = 'http://schemas.openxmlformats.org/package/2006/relationships'
+XDR = 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing'
+DRAW = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+CELL_REF = re.compile(r'^([A-Z]+)(\d+)$')
+INTERNAL_TEXT = re.compile(
+    r'本次未附|原始开发文档|自有实拍|上传工作簿记载|待确认|待核对|待补充|'
+    r'未提供|竞品图片不作为|不作为.{0,15}依据|需根据.{0,25}核对|'
+    r'根据自有资料核对|销售变体|资料来源|证据状态'
+)
+VISIBLE_TEXT_COLUMNS = {'A', 'C', 'D', 'E', 'F'}
+
+
+def _target(base: str, value: str) -> str:
+    if value.startswith('/'):
+        return value.lstrip('/')
+    return posixpath.normpath(posixpath.join(posixpath.dirname(base), value))
+
+
+def _relations(archive: ZipFile, owner: str) -> dict[str, str]:
+    folder, filename = posixpath.split(owner)
+    rels_path = posixpath.join(folder, '_rels', filename + '.rels')
+    if rels_path not in archive.namelist():
+        return {}
+    root = ET.fromstring(archive.read(rels_path))
+    return {
+        item.get('Id', ''): _target(owner, item.get('Target', ''))
+        for item in root.findall(f'{{{PKG_REL}}}Relationship')
+        if item.get('TargetMode') != 'External'
+    }
+
+
+def _shared_strings(archive: ZipFile) -> list[str]:
+    if 'xl/sharedStrings.xml' not in archive.namelist():
+        return []
+    root = ET.fromstring(archive.read('xl/sharedStrings.xml'))
+    return [
+        ''.join(node.text or '' for node in item.iter(f'{{{MAIN}}}t'))
+        for item in root.findall(f'{{{MAIN}}}si')
+    ]
+
+
+def _cell_value(cell: ET.Element, shared: list[str]) -> str:
+    kind = cell.get('t')
+    if kind == 'inlineStr':
+        return ''.join(node.text or '' for node in cell.iter(f'{{{MAIN}}}t'))
+    value = cell.find(f'{{{MAIN}}}v')
+    if value is None or value.text is None:
+        return ''
+    if kind == 's':
+        try:
+            return shared[int(value.text)]
+        except (IndexError, ValueError):
+            return ''
+    return value.text
+
+
+def _product_sheet(archive: ZipFile) -> str:
+    workbook_path = 'xl/workbook.xml'
+    workbook = ET.fromstring(archive.read(workbook_path))
+    relationships = _relations(archive, workbook_path)
+    for sheet in workbook.findall(f'.//{{{MAIN}}}sheet'):
+        if sheet.get('name') == '产品内容':
+            path = relationships.get(sheet.get(f'{{{DOC_REL}}}id', ''))
+            if path and path in archive.namelist():
+                return path
+    raise ValueError('missing 产品内容 worksheet')
+
+
+def _image_rows(archive: ZipFile, sheet_path: str, sheet: ET.Element) -> set[int]:
+    rows = set()
+    sheet_rels = _relations(archive, sheet_path)
+    for drawing_ref in sheet.findall(f'.//{{{MAIN}}}drawing'):
+        drawing_path = sheet_rels.get(drawing_ref.get(f'{{{DOC_REL}}}id', ''))
+        if not drawing_path or drawing_path not in archive.namelist():
+            continue
+        drawing = ET.fromstring(archive.read(drawing_path))
+        image_rels = _relations(archive, drawing_path)
+        for anchor in drawing:
+            origin = anchor.find(f'{{{XDR}}}from')
+            if origin is None:
+                continue
+            col = origin.find(f'{{{XDR}}}col')
+            row = origin.find(f'{{{XDR}}}row')
+            if col is None or row is None or col.text != '1':
+                continue
+            pic = anchor.find(f'{{{XDR}}}pic')
+            if pic is None:
+                continue
+            blip = pic.find(f'.//{{{DRAW}}}blip')
+            if blip is None:
+                continue
+            media_path = image_rels.get(blip.get(f'{{{DOC_REL}}}embed', ''))
+            if media_path and media_path in archive.namelist() and archive.getinfo(media_path).file_size:
+                rows.add(int(row.text) + 1)
+    return rows
+
+
+def validate(path: Path) -> dict:
+    errors = []
+    try:
+        with ZipFile(path) as archive:
+            sheet_path = _product_sheet(archive)
+            sheet = ET.fromstring(archive.read(sheet_path))
+            shared = _shared_strings(archive)
+            cells = {}
+            for cell in sheet.findall(f'.//{{{MAIN}}}sheetData/{{{MAIN}}}row/{{{MAIN}}}c'):
+                match = CELL_REF.fullmatch(cell.get('r', ''))
+                if match:
+                    cells[(match.group(1), int(match.group(2)))] = _cell_value(cell, shared).strip()
+            product_rows = sorted(
+                row for (column, row), value in cells.items()
+                if column == 'A' and row >= 2 and value
+            )
+            if not product_rows:
+                errors.append('产品内容 has no product rows')
+            image_rows = _image_rows(archive, sheet_path, sheet)
+            for row in product_rows:
+                if row not in image_rows:
+                    errors.append(f'产品内容!B{row} has no embedded product image')
+                for column in VISIBLE_TEXT_COLUMNS:
+                    value = cells.get((column, row), '')
+                    match = INTERNAL_TEXT.search(value)
+                    if match:
+                        errors.append(
+                            f'产品内容!{column}{row} contains internal handoff text: {match.group()}'
+                        )
+    except (BadZipFile, KeyError, OSError, ET.ParseError, ValueError) as exc:
+        errors.append(f'cannot inspect workbook: {exc}')
+        product_rows = []
+    return {'ready_for_delivery': not errors, 'product_rows': len(product_rows), 'errors': errors}
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('workbooks', nargs='+', type=Path)
+    args = parser.parse_args()
+    reports = {str(path): validate(path) for path in args.workbooks}
+    print(json.dumps(reports, ensure_ascii=False, indent=2))
+    return 0 if all(item['ready_for_delivery'] for item in reports.values()) else 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

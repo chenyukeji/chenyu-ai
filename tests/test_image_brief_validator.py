@@ -16,7 +16,10 @@ SPEC.loader.exec_module(VALIDATOR)
 def package():
     return {
         'products': [
-            {'id': 'V1', 'product_content_image_id': 'product-v1'}
+            {'id': 'V1', 'product_content_image_id': 'product-v1',
+             'product_content_image_source': 'own_main',
+             'product_content_image_source_ref': 'development workbook embedded image B2',
+             'own_main_image_id': 'product-v1', 'supplier_image_id': ''}
         ],
         'primary_reference': {
             'asin': 'B012345678',
@@ -114,6 +117,50 @@ def package():
 def test_dynamic_five_task_plan_is_valid():
     result = VALIDATOR.validate(package())
     assert result['ready_for_delivery'], result['errors']
+
+
+def test_first_link_main_image_is_valid_fallback_with_source_trace():
+    data = package()
+    product = data['products'][0]
+    product['own_main_image_id'] = ''
+    product['supplier_image_id'] = ''
+    product['product_content_image_id'] = 'source-main'
+    product['product_content_image_source'] = 'first_reference_main'
+    product['product_content_image_source_ref'] = 'B012345678 main image'
+    data['image_tasks'][0]['product_image_ids'] = ['source-main']
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+    product['product_content_image_id'] = 'source-detail'
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('first_reference_main image must match' in item
+               for item in result['errors'])
+
+
+def test_supplier_image_takes_priority_when_own_main_is_absent():
+    data = package()
+    product = data['products'][0]
+    product['own_main_image_id'] = ''
+    product['supplier_image_id'] = 'supplier-v1'
+    product['product_content_image_id'] = 'supplier-v1'
+    product['product_content_image_source'] = 'supplier'
+    product['product_content_image_source_ref'] = 'supplier listing / V1 variant image'
+    data['image_tasks'][0]['product_image_ids'] = ['supplier-v1']
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+    product['product_content_image_source'] = 'first_reference_main'
+    result = VALIDATOR.validate(data)
+    assert any('must choose image source in' in item for item in result['errors'])
+
+
+def test_product_image_source_is_required():
+    data = package()
+    del data['products'][0]['product_content_image_source']
+    data['products'][0]['product_content_image_source_ref'] = ''
+    result = VALIDATOR.validate(data)
+    assert any('product_content_image_source must be' in item for item in result['errors'])
+    assert any('product_content_image_source_ref is required' in item
+               for item in result['errors'])
 
 
 def test_main_image_must_use_exact_product_content_image_and_identity_lock():

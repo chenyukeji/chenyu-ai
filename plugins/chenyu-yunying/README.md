@@ -46,6 +46,7 @@ README 不重复写具体字符数、文案规则或模板字段；执行时读�
 | `chenyu-listing/scripts/analyze_listing.py` | 分析关键词、字段长度和重复片段 |
 | `chenyu-listing/scripts/validate_listing_package.py` | 核对 Listing 工作包与产品事实、证据和交付合同 |
 | `chenyu-zuotuyaoqiu/scripts/validate_image_brief_boundaries.py` | 校验作图要求边界与必要证据 |
+| `chenyu-yunying/scripts/validate_product_content_workbook.py` | 检查每个产品行实际嵌图，拦截内部不确定性备注 |
 | `chenyu-yunying/scripts/split_delivery_workbooks.mjs` | 使用 Node.js／artifact-tool 拆分已填充运营母版 |
 | `chenyu-invoice/scripts/generate_invoice.py` | 使用 PyMuPDF 填写商业发票 PDF |
 

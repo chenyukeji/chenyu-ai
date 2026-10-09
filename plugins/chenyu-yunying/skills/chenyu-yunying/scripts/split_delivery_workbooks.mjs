@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { FileBlob, SpreadsheetFile } from "@oai/artifact-tool";
 
 const [sourcePath, listingOutput, imageBriefOutput, previewDir] = process.argv.slice(2);
@@ -106,10 +108,23 @@ if (JSON.stringify(listingResult.productValues) !== JSON.stringify(imageBriefRes
   throw new Error("The 产品内容 values differ between the two output workbooks.");
 }
 
+const verifierPath = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "validate_product_content_workbook.py",
+);
+try {
+  execFileSync(process.env.PYTHON ?? "python3", [
+    verifierPath, listingOutput, imageBriefOutput,
+  ], { encoding: "utf8" });
+} catch (error) {
+  throw new Error(`Product image/text verification failed: ${String(error.stdout ?? error.message)}`);
+}
+
 console.log(JSON.stringify({
   listingOutput,
   listingSheets: listingResult.actualSheets,
   imageBriefOutput,
   imageBriefSheets: imageBriefResult.actualSheets,
   sharedProductContentMatches: true,
+  embeddedProductImagesVerified: true,
 }, null, 2));
