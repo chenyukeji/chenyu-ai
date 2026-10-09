@@ -20,6 +20,21 @@ IDENTITY_LOCK_FIELDS = (
     'shape_structure', 'color_pattern', 'quantity_components',
     'accessories_packaging',
 )
+MEASUREMENT = re.compile(r'(?<![\w.])(\d+(?:\.\d+)?)(?:\s*[–—−-]\s*(\d+(?:\.\d+)?))?\s*(cm|in)\b', re.I)
+
+
+def dimension_label_error(label):
+    values = {'cm': [], 'in': []}
+    for first, second, unit in MEASUREMENT.findall(label):
+        values[unit.lower()].append([float(first)] + ([float(second)] if second else []))
+    if len(values['cm']) != 1 or len(values['in']) != 1:
+        return 'must pair one cm value/range with one in value/range'
+    if len(values['cm'][0]) != len(values['in'][0]):
+        return 'cm and in ranges must have the same number of endpoints'
+    if any(abs(cm / 2.54 - inch) > 0.06
+           for cm, inch in zip(values['cm'][0], values['in'][0])):
+        return 'cm and in values do not convert using 2.54'
+    return ''
 
 
 def words(value):
@@ -213,6 +228,20 @@ def validate_visual_contract(image_brief, errors):
             errors.append(
                 f'$.image_tasks[{task_id}] size task requires dimension_labels'
             )
+        elif task_type == 'size':
+            for label in task['dimension_labels']:
+                reason = dimension_label_error(label)
+                if reason:
+                    errors.append(f'$.image_tasks[{task_id}] dimension label {label!r} {reason}')
+                if label not in str(task.get('instructions', '')):
+                    errors.append(f'$.image_tasks[{task_id}] must include dimension label {label!r} in final instructions')
+        final_copy = str(task.get('instructions', '')) + ' ' + str(task.get('on_image_text', ''))
+        for mapping in task.get('text_mappings', []):
+            if not isinstance(mapping, dict):
+                continue
+            output_text = str(mapping.get('output_text', '')).strip()
+            if output_text and output_text not in final_copy:
+                errors.append(f'$.image_tasks[{task_id}] final instructions omit on-image text: {output_text}')
         if task_type == 'four_grid':
             scene_cells = task.get('scene_cells')
             if not isinstance(scene_cells, list) or len(scene_cells) != 4:
@@ -367,6 +396,50 @@ def validate_visual_contract(image_brief, errors):
                     )
     if not has_main:
         errors.append('$.primary_reference.images must include the first link main image')
+
+    additional = image_brief.get('additional_references')
+    if not isinstance(additional, list):
+        errors.append('$.additional_references must list other competitor image inventories (empty when none)')
+        return
+    for ref_index, reference in enumerate(additional):
+        ref_path = f'$.additional_references[{ref_index}]'
+        if not isinstance(reference, dict) or not str(reference.get('asin', '')).strip():
+            errors.append(f'{ref_path}.asin is required')
+            continue
+        ref_images = reference.get('images')
+        if not isinstance(ref_images, list) or not ref_images:
+            errors.append(f'{ref_path}.images must record useful images from this link')
+            continue
+        for image_index, source in enumerate(ref_images):
+            path = f'{ref_path}.images[{image_index}]'
+            if not isinstance(source, dict):
+                errors.append(f'{path} must be an object')
+                continue
+            image_id = str(source.get('id', '')).strip()
+            if not image_id or image_id in seen_image_ids:
+                errors.append(f'{path}.id is missing or duplicated')
+            seen_image_ids.add(image_id)
+            task_ids = source.get('mapped_task_ids', [])
+            omitted = str(source.get('omitted_reason', '')).strip()
+            if bool(task_ids) == bool(omitted):
+                errors.append(f'{path} requires mapped_task_ids or a specific omitted_reason')
+                continue
+            if omitted:
+                continue
+            if not _non_empty_strings(task_ids) or any(item not in tasks for item in task_ids):
+                errors.append(f'{path}.mapped_task_ids must cite existing tasks')
+                continue
+            for field, source_key, message in (
+                    ('content_mappings', 'content_elements', 'content'),
+                    ('text_mappings', 'text_elements', 'detail text')):
+                elements = source.get(source_key, [])
+                if elements and not _non_empty_strings(elements):
+                    errors.append(f'{path}.{source_key} must contain non-empty strings')
+                    continue
+                mapped = _mapping_sources(tasks, task_ids, field)
+                missing = [item for item in elements if item not in mapped]
+                if missing:
+                    errors.append(f'{path} has unmapped {message}: ' + ', '.join(missing))
 
 
 def validate(image_brief, listing_package=None):

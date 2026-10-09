@@ -48,6 +48,7 @@ def package():
                 },
             ],
         },
+        'additional_references': [],
         'image_tasks': [
             {
                 'id': 'T1', 'type': 'main_image', 'product_ids': ['V1'],
@@ -68,7 +69,7 @@ def package():
             {
                 'id': 'T2', 'type': 'closeup_scene', 'product_ids': ['V1'],
                 'scene_mode': '厨房环境局部虚化，产品近照为主体',
-                'instructions': '放大过滤层结构，保留完整结构说明文字。',
+                'instructions': '放大过滤层结构，标签写 Activated Carbon Layer。',
                 'content_mappings': [
                     {'source_content': 'close-up filter layers',
                      'output_content': 'close-up of confirmed V1 filter layers'}
@@ -81,8 +82,8 @@ def package():
             },
             {
                 'id': 'T3', 'type': 'size', 'product_ids': ['V1'],
-                'dimension_labels': ['95 mm', '45 mm', '9 mm'],
-                'instructions': '标注三个测量方向，并在角落保留一个滤层细节窗。',
+                'dimension_labels': ['9.5 cm / 3.74 in', '4.5 cm / 1.77 in', '0.9 cm / 0.35 in'],
+                'instructions': '标注三个测量方向：9.5 cm / 3.74 in、4.5 cm / 1.77 in、0.9 cm / 0.35 in；角落保留滤层细节窗。',
                 'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
             },
             {
@@ -238,3 +239,48 @@ def test_required_scene_and_size_metadata_cannot_be_missing():
     assert any('closeup_scene requires scene_mode' in item for item in result['errors'])
     assert any('size task requires dimension_labels' in item for item in result['errors'])
     assert any('key_scene requires scene_mode' in item for item in result['errors'])
+
+
+def test_size_labels_require_both_units_and_correct_conversion():
+    data = package()
+    data['image_tasks'][2]['dimension_labels'] = ['45–60 cm']
+    result = VALIDATOR.validate(data)
+    assert any('must pair one cm value/range' in item for item in result['errors'])
+    data['image_tasks'][2]['dimension_labels'] = ['45–60 cm / 20–24 in']
+    result = VALIDATOR.validate(data)
+    assert any('do not convert using 2.54' in item for item in result['errors'])
+
+
+def test_competitor_descriptions_can_merge_into_one_final_image():
+    data = package()
+    data['additional_references'] = [{
+        'asin': 'B0OTHER123',
+        'images': [
+            {'id': 'fleece-closeup', 'role': 'detail',
+             'content_elements': ['fleece interior close-up'],
+             'text_elements': ['Warm Fabric'], 'mapped_task_ids': ['T2']},
+            {'id': 'stitched-edge', 'role': 'detail',
+             'content_elements': ['stitched opening'],
+             'text_elements': ['Comfort Fit'], 'mapped_task_ids': ['T2']},
+        ],
+    }]
+    task = data['image_tasks'][1]
+    task['content_mappings'].extend([
+        {'source_content': 'fleece interior close-up', 'output_content': 'own fleece interior'},
+        {'source_content': 'stitched opening', 'output_content': 'own stitched opening'},
+    ])
+    task['text_mappings'].extend([
+        {'source_text': 'Warm Fabric', 'output_text': 'Fleece Lining'},
+        {'source_text': 'Comfort Fit', 'output_text': 'Under Helmet'},
+    ])
+    task['instructions'] += ' 同一张图加入 Fleece Lining 和 Under Helmet 两个短标签。'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    task['instructions'] = task['instructions'].replace('Under Helmet', '')
+    result = VALIDATOR.validate(data)
+    assert any('final instructions omit on-image text: Under Helmet' in item
+               for item in result['errors'])
+    task['instructions'] += ' Under Helmet'
+    task['text_mappings'].pop()
+    result = VALIDATOR.validate(data)
+    assert any('has unmapped detail text: Comfort Fit' in item
+               for item in result['errors'])

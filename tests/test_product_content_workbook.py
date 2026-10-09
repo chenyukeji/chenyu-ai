@@ -85,3 +85,25 @@ def test_unverified_search_terms_note_is_rejected():
     assert not result['ready_for_delivery']
     assert any('DE Listing!D10 contains unverified Search Terms' in error
                for error in result['errors'])
+
+
+def test_size_image_without_inches_is_rejected():
+    def cm_only(content):
+        root = ET.fromstring(content)
+        cell = root.find(f'.//{{{MAIN}}}c[@r="G4"]')
+        for child in list(cell):
+            cell.remove(child)
+        cell.set('t', 'inlineStr')
+        inline = ET.SubElement(cell, f'{{{MAIN}}}is')
+        ET.SubElement(inline, f'{{{MAIN}}}t').text = (
+            '第三张｜尺寸图。头围用闭合测量环，唯一上图数值 45–60 cm。'
+        )
+        return ET.tostring(root, encoding='utf-8')
+
+    with TemporaryDirectory() as temporary:
+        path = Path(temporary) / 'cm-only.xlsx'
+        altered_workbook(path, cm_only, 'xl/worksheets/sheet2.xml')
+        result = VALIDATOR.validate(path)
+    assert not result['ready_for_delivery']
+    assert any('size image requires paired cm / in labels' in error
+               for error in result['errors'])

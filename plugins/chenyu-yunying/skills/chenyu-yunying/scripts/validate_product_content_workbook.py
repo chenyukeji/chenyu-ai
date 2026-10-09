@@ -24,6 +24,7 @@ INTERNAL_TEXT = re.compile(
 )
 VISIBLE_TEXT_COLUMNS = {'A', 'C', 'D', 'E', 'F'}
 LISTING_RESEARCH_GAP = re.compile(r'未取得|未抓取|待验证|待复核|本地同义词候选|卖家精灵.{0,8}(?:不可用|失败|缺失)')
+SIZE_PAIR = re.compile(r'(\d+(?:\.\d+)?)(?:\s*[–—−-]\s*(\d+(?:\.\d+)?))?\s*cm\s*/\s*(\d+(?:\.\d+)?)(?:\s*[–—−-]\s*(\d+(?:\.\d+)?))?\s*in\b', re.I)
 
 
 def _target(base: str, value: str) -> str:
@@ -107,6 +108,42 @@ def _listing_research_errors(archive: ZipFile, shared: list[str]) -> list[str]:
     return errors
 
 
+def _size_image_errors(archive: ZipFile, shared: list[str]) -> list[str]:
+    workbook = ET.fromstring(archive.read('xl/workbook.xml'))
+    relations = _relations(archive, 'xl/workbook.xml')
+    errors = []
+    for entry in workbook.findall(f'.//{{{MAIN}}}sheet'):
+        if entry.get('name') != '作图要求':
+            continue
+        path = relations.get(entry.get(f'{{{DOC_REL}}}id', ''))
+        if not path or path not in archive.namelist():
+            continue
+        sheet = ET.fromstring(archive.read(path))
+        for row in sheet.findall(f'.//{{{MAIN}}}sheetData/{{{MAIN}}}row'):
+            number = row.get('r', '')
+            cells = {cell.get('r', ''): _cell_value(cell, shared).strip()
+                     for cell in row.findall(f'{{{MAIN}}}c')}
+            if not cells.get(f'A{number}', '').startswith('第三张'):
+                continue
+            brief = next((value for address, value in cells.items()
+                          if value and address != f'A{number}'
+                          and ('尺寸图' in value or '头围图' in value)), '')
+            pairs = SIZE_PAIR.findall(brief)
+            if not pairs:
+                errors.append(f'作图要求 row {number} size image requires paired cm / in labels')
+                continue
+            for first_cm, second_cm, first_in, second_in in pairs:
+                if bool(second_cm) != bool(second_in):
+                    errors.append(f'作图要求 row {number} cm / in range endpoints differ')
+                    continue
+                endpoint_pairs = [(float(first_cm), float(first_in))]
+                if second_cm:
+                    endpoint_pairs.append((float(second_cm), float(second_in)))
+                if any(abs(cm / 2.54 - inch) > 0.06 for cm, inch in endpoint_pairs):
+                    errors.append(f'作图要求 row {number} cm / in conversion is incorrect')
+    return errors
+
+
 def _image_rows(archive: ZipFile, sheet_path: str, sheet: ET.Element) -> set[int]:
     rows = set()
     sheet_rels = _relations(archive, sheet_path)
@@ -156,6 +193,7 @@ def validate(path: Path) -> dict:
                 errors.append('产品内容 has no product rows')
             image_rows = _image_rows(archive, sheet_path, sheet)
             errors.extend(_listing_research_errors(archive, shared))
+            errors.extend(_size_image_errors(archive, shared))
             for row in product_rows:
                 if row not in image_rows:
                     errors.append(f'产品内容!B{row} has no embedded product image')
