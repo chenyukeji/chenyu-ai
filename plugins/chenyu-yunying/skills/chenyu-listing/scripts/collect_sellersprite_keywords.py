@@ -71,14 +71,23 @@ def login(page, username: str, password: str) -> None:
 
 def collect(page, market: str, asin: str) -> dict:
     page.goto(f"{BASE_URL}?marketId={MARKET_IDS[market]}", wait_until="domcontentloaded")
-    market_label = page.locator("input:visible").first.input_value()
     expected = {"US": "美国", "UK": "英国", "DE": "德国", "FR": "法国",
                 "IT": "意大利", "ES": "西班牙"}[market]
-    if expected not in market_label:
+    market_label = ""
+    for _ in range(40):
+        market_label = page.locator("input:visible").first.input_value()
+        if expected in market_label:
+            break
+        page.wait_for_timeout(250)
+    else:
         raise RuntimeError(f"SellerSprite market mismatch: expected {market}, got {market_label}")
     page.get_by_placeholder("请输入单个ASIN或产品链接").first.fill(asin)
     page.get_by_role("button", name="立即查询").click()
-    page.wait_for_url(lambda url: f"q={asin}" in url, timeout=30000)
+    try:
+        page.wait_for_url(lambda url: f"q={asin}" in url and
+                          f"marketId={MARKET_IDS[market]}" in url, timeout=30000)
+    except Exception as exc:
+        raise RuntimeError(f"SellerSprite {market}:{asin} query did not complete") from exc
     try:
         page.locator("table tbody tr td:nth-child(2) span.title[title]").first.wait_for(timeout=20000)
     except Exception:
@@ -103,6 +112,7 @@ def main() -> None:
         raise SystemExit("SellerSprite credentials are unavailable to this task")
     from playwright.sync_api import sync_playwright
     results = []
+    failures = []
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
@@ -110,13 +120,19 @@ def main() -> None:
             page = context.new_page()
             login(page, username, password)
             for market, asin in requests:
-                results.append(collect(page, market, asin))
+                try:
+                    results.append(collect(page, market, asin))
+                except Exception as exc:
+                    failures.append({"marketplace": market, "asin": asin,
+                                     "reason": str(exc).splitlines()[0][:240]})
             context.close()
         finally:
             browser.close()
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps({"queries": results}, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Collected {len(results)} SellerSprite ASIN queries into {args.out}")
+    args.out.write_text(json.dumps({"queries": results, "failures": failures}, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Collected {len(results)} SellerSprite ASIN queries; {len(failures)} failed; output: {args.out}")
+    if failures:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
