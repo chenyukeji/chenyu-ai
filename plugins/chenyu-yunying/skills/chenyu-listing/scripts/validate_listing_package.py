@@ -759,7 +759,7 @@ def validate(data):
             warnings.append(
                 f'{market}/{variant_id} title length {len(title)} is below '
                 f'the {TITLE_TARGET_MINIMUM}-{TITLE_LIMIT} editorial target; '
-                'do not add low-value words to fill it'
+                'only add source-backed, relevant words to approach the limit'
             )
         title_measurements = list(TITLE_MEASUREMENT.finditer(title))
         title_size_term = str(listing.get('title_size_term', '')).strip()
@@ -827,6 +827,22 @@ def validate(data):
             title_reference = str(listing.get('title_reference', '')).strip()
             if not title_reference:
                 errors.append(f'{market}/{variant_id} title_reference is required when competitor evidence exists')
+            else:
+                usable_title_asins = sorted({
+                    str(competitor.get('asin', '')).strip().upper()
+                    for competitor in competitors
+                    if ASIN.fullmatch(str(competitor.get('asin', '')).strip())
+                    and str(competitor.get('title', '')).strip()
+                })
+                missing_title_sources = [
+                    asin for asin in usable_title_asins
+                    if asin not in title_reference.upper()
+                ]
+                if missing_title_sources:
+                    errors.append(
+                        f'{market}/{variant_id} title_reference must cite every usable '
+                        'competitor title: ' + ', '.join(missing_title_sources)
+                    )
             description_reference = str(listing.get('description_reference', '')).strip()
             if not description_reference:
                 errors.append(f'{market}/{variant_id} description_reference is required when competitor evidence exists')

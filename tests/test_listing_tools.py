@@ -230,6 +230,10 @@ class ListingTests(unittest.TestCase):
         }
         data['search_term_audits'].append(extra)
         listing['search_terms'] += ' tischschmuck'
+        result = package_validator.validate(data)
+        self.assertTrue(any('title_reference must cite every usable competitor title: B012345679'
+                            in error for error in result['errors']))
+        listing['title_reference'] += '；对比 B012345679 标题的产品词和场景词'
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
         extra['source_asin'] = 'B012345699'
         self.assertTrue(any('title-term audit source_asin' in error for error in

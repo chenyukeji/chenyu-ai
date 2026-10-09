@@ -161,7 +161,7 @@
 
 ### listings
 
-- `title_keywords` 为恰好三个不同核心短语，必须在同站点 `keywords` 中标记 `is_core:true`，并以原词或 alias 自然进入标题。`title_reference` 记录用户提供的竞品标题来源及其产品词、图案/主题、用途/场景、尺寸顺序，注明哪些词因品牌或自有事实不符而排除。
+- `title_keywords` 为恰好三个不同核心短语，必须在同站点 `keywords` 中标记 `is_core:true`，并以原词或 alias 自然进入标题。`title_reference` 列出全部有效竞品标题的 ASIN/站点，记录其产品词、图案/主题、用途/场景、尺寸、采用词义和排除项；标题描述词只使用能在至少一个竞品标题中找到语义对应、且符合自有事实的内容。校验器会检查全部有 ASIN 和标题的竞品是否被引用，语义合并仍须人工复核。
 - `title_size_term`、`title_size_reason` 默认空。仅当尺寸已证实直接影响适配、覆盖或变体选择时填写；标题最多一组尺寸，必须与 `title_size_term` 一致并置于末尾，`title_size_reason` 说明具体购买理由。
 - `critical_differentiators` 只列能影响购买、适配或价格的重要差异；每项必须出现在标题前部。
 - `title_scene` 可空；非空时必须出现在标题。
