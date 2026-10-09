@@ -1,6 +1,6 @@
 interface:
   display_name: "晨玙 Amazon 开发"
-  short_description: "根据自然语言需求自动选择选品分析或开发文档，并协调连续开发任务。"
-  default_prompt: "使用 $chenyu-kaifa，根据我的需求自动选择选品分析、开发文档或两者，并完成对应交付。"
+  short_description: "根据自然语言需求自动选择选品、1688供应商采集或产品开发文档。"
+  default_prompt: "使用 $chenyu-kaifa，根据我的需求自动选择选品分析、1688供应商资料采集或开发文档，并完成对应交付。"
 policy:
   allow_implicit_invocation: true

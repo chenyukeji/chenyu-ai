@@ -1,12 +1,12 @@
 # 晨玙 AI 岗位插件
 
-`chenyu-ai` 保存岗位 Skill、业务规则、模板、采集与文件生成脚本。当前共有 **5 个插件、14 个 Skill**。网站页面、账号权限、任务队列、微调版本和产品任务由独立的 `chenyu-ai-web` 仓库维护。
+`chenyu-ai` 保存岗位 Skill、业务规则、模板、采集与文件生成脚本。当前共有 **5 个插件、15 个 Skill**。网站页面、账号权限、任务队列、微调版本和产品任务由独立的 `chenyu-ai-web` 仓库维护。
 
 ## 当前功能
 
 | 岗位 | 插件与说明 | Skill | 交付 |
 | --- | --- | --- | --- |
-| AI 开发 | [chenyu-kaifa](plugins/chenyu-kaifa/README.md) | 自动选择、选品分析、开发文档 | 开品结果 Excel、每产品独立的开发 Excel |
+| AI 开发 | [chenyu-kaifa](plugins/chenyu-kaifa/README.md) | 自动选择、选品分析、供应商采集、开发文档 | 开品结果 Excel、1688供应商事实包、每产品独立的开发 Excel |
 | AI 运营 | [chenyu-yunying](plugins/chenyu-yunying/README.md) | 自动选择、竞品研究、Listing、作图要求、订单商业发票 | 竞品研究包、独立运营 Excel、订单 PDF |
 | AI 美工 | [chenyu-meigong](plugins/chenyu-meigong/README.md) | 自动选择、整套作图、主图优化、局部精修 | 完整商品图片 |
 | AI 仓库 | [chenyu-cangku](plugins/chenyu-cangku/README.md) | 领星产品录用 | 产品录用表与按 MSKU 配对表 |
@@ -73,6 +73,7 @@ codex plugin add chenyu-wuliu@chenyu-ai
 ## 运行依赖
 
 - 开发浏览器采集：Python、Playwright、Chromium、Pillow、openpyxl；见 [依赖文件](plugins/chenyu-kaifa/requirements-browser.txt)。
+- 1688供应商采集：Node.js、Playwright、Chrome及已授权领星会话；见 [采集接口](plugins/chenyu-kaifa/skills/chenyu-gongyingshang/references/collector.md)。
 - 仓库 Excel：Python 与 openpyxl。
 - 运营订单 PDF：Python 与 PyMuPDF；见 [依赖文件](plugins/chenyu-yunying/skills/chenyu-invoice/scripts/requirements.txt)。
 - 运营工作簿拆分：Node.js 与执行环境提供的 `@oai/artifact-tool`。

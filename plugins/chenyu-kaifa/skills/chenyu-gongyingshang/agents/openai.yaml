@@ -1,0 +1,6 @@
+interface:
+  display_name: "晨玙供应商资料采集"
+  short_description: "提供1688链接和属性，采集供应商、匹配规格图片与报价供开发使用。"
+  default_prompt: "使用 $chenyu-gongyingshang，根据我的1688链接和属性采集供应商名称、对应规格图、主图和报价。"
+policy:
+  allow_implicit_invocation: true

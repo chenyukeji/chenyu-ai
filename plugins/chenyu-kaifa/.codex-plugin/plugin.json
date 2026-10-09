@@ -1,7 +1,7 @@
 {
   "name": "chenyu-kaifa",
-  "version": "1.2.5",
-  "description": "Automatically route Chenyu Amazon development requests to product discovery, development documentation, or both.",
+  "version": "1.3.0",
+  "description": "Chenyu development routing, product discovery, 1688 supplier collection and product documentation.",
   "author": {
     "name": "chenyukeji",
     "url": "https://github.com/chenyukeji"
@@ -13,13 +13,16 @@
     "product-discovery",
     "new-releases",
     "sellersprite",
-    "excel"
+    "excel",
+    "1688",
+    "lingxing",
+    "supplier-data"
   ],
   "skills": "skills",
   "interface": {
     "displayName": "晨玙 Amazon 开发",
-    "shortDescription": "自动选择选品分析或开发文档，协调连续开发任务。",
-    "longDescription": "根据自然语言需求自动选择选品分析、开发文档或两者。选品支持近期 FBM、新品榜和卖家精灵历史季节性采集，并支持导入店铺快照、搜索热词和排名跃升数据进行分析。开发文档按产品生成独立三表 Excel。",
+    "shortDescription": "自动选择选品、1688供应商采集或开发文档。",
+    "longDescription": "根据自然语言需求自动选择选品分析、开发文档或两者。选品支持近期 FBM、新品榜和卖家精灵历史季节性采集，并支持导入店铺快照、搜索热词和排名跃升数据进行分析。开发文档按产品生成独立三表 Excel。 提供1688链接和属性，通过已授权领星读取供应商、匹配规格、图片、报价和库存，可衔接开发文档；不保存配对或下单。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": [
@@ -34,8 +37,10 @@
       "Candidate scoring",
       "Ranked Excel output",
       "One-product-per-workbook development documentation",
-      "Embedded product and supplier images"
+      "Embedded product and supplier images",
+      "Read-only Lingxing 1688 supplier collection",
+      "Exact attribute matching and supplier image handoff"
     ],
-    "defaultPrompt": "使用 $chenyu-kaifa，根据我的需求自动选择选品分析、开发文档或两者，并完成对应交付。"
+    "defaultPrompt": "使用 $chenyu-kaifa，根据我的需求自动选择选品分析、1688供应商资料采集或开发文档，并完成对应交付。"
   }
 }

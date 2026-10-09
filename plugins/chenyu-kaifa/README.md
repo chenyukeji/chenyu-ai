@@ -1,14 +1,15 @@
 # 晨玙 Amazon 开发插件
 
-`chenyu-kaifa` 包含一个总入口和两个专业 Skill。当前版本见 [plugin.json](plugin.json)。
+`chenyu-kaifa` 包含一个总入口和三个专业 Skill。当前版本见 [plugin.json](plugin.json)。
 
 ## 能力
 
 | Skill | 输入 | 交付 |
 | --- | --- | --- |
-| [开发总入口](skills/chenyu-kaifa/SKILL.md) | 自然语言需求、已确认产品和选品资料 | 自动选择选品、开发文档或两者，复用已有证据 |
+| [开发总入口](skills/chenyu-kaifa/SKILL.md) | 自然语言需求、已确认产品、1688链接和选品资料 | 自动选择选品、供应商采集、开发文档或组合，复用已有证据 |
 | [选品分析](skills/chenyu-xuanpin/SKILL.md) | 类目、站点、选品条件或真实候选数据 | 按调研优先级排序的开品 Excel |
 | [开发文档](skills/chenyu-kaifawendang/SKILL.md) | 已确认的产品、竞品、供应商、变体和图片 | 每个产品一个三表工作簿，同产品变体保留在详情表 |
+| [供应商采集](skills/chenyu-gongyingshang/SKILL.md) | 1688链接＋目标属性、已授权领星会话 | 供应商名称、匹配规格/图片/报价/库存、主图及开发事实包 |
 
 ## 选品策略和状态
 
@@ -42,8 +43,10 @@
 
 报价、成本和采购数量只整理用户已有事实，不执行供应商比较、议价、利润核算、下单、试销、Listing 或广告。
 
+供应商采集可以独立使用或衔接开发文档。首次由用户完成领星登录与二次验证，之后复用受保护本机会话；只解析、不保存配对或新增供应商。模糊属性返回候选待确认，不猜规格。依赖Node.js、Playwright和Chrome；命令及字段见 [采集接口](skills/chenyu-gongyingshang/references/collector.md)。服务器/网站执行器需接入可交互浏览器及已授权会话，不承诺无人值守登录。
+
 ## 当前限制与输出
 
 I/C/K 尚无专用实时采集器。采集覆盖依赖站点和账号；站外流量、创新原因及未提供的评论事实不能自动推定。类目来源、评分阈值和字段证据仍需按实际业务核对。
 
-选品与开发文档分别保存到 `product-discovery` 和 `product-development`，见 [输出目录规范](references/output-paths.md)。业务输出不进入插件源码。测试入口见仓库根 README。
+选品、开发文档与供应商资料分别保存到 `product-discovery`、`product-development` 和 `supplier-data`，见 [输出目录规范](references/output-paths.md)。业务输出不进入源码。供应商测试执行 `node --test tests/test_supplier_collector.cjs`，其余测试见仓库根 README。
