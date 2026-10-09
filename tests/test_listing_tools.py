@@ -588,12 +588,17 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('more than 200 visible characters' in error
                             for error in result['errors']))
 
-    def test_listing_package_accepts_two_to_four_core_keywords_and_optional_scene(self):
+    def test_listing_package_requires_three_core_keywords_and_optional_scene(self):
         data = copy.deepcopy(self.listing_package())
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
         data['listings'][0]['title_keywords'] = ['Dekoration', 'Papierdekoration']
-        data['listings'][0]['title_scene'] = ''
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        result = package_validator.validate(data)
+        self.assertTrue(any('title_keywords must contain exactly 3 distinct phrases' in error
+                            for error in result['errors']))
+        data['listings'][0]['title_keywords'] = ['Dekoration', 'Papierdekoration', 'Festschmuck', 'Feierdeko']
+        result = package_validator.validate(data)
+        self.assertTrue(any('title_keywords must contain exactly 3 distinct phrases' in error
+                            for error in result['errors']))
         data = copy.deepcopy(self.listing_package())
         data['keywords'][2]['is_core'] = False
         data['listings'][0]['title_scene'] = 'für Hochzeiten'
@@ -602,6 +607,41 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('title keyword is not marked as core: Festschmuck' in error
                             for error in result['errors']))
         self.assertTrue(any('title does not contain title_scene: für Hochzeiten' in error
+                            for error in result['errors']))
+
+    def test_short_title_is_valid_without_size_padding(self):
+        data = copy.deepcopy(self.listing_package())
+        data['listings'][0]['title'] = 'Dekoration, Papierdekoration und Festschmuck für Feiern'
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+
+    def test_item_highlights_below_target_is_editorial_warning(self):
+        data = copy.deepcopy(self.listing_package())
+        data['listings'][0]['item_highlights'] = (
+            'Papiermaterial für Tisch, Regal und Innenraum mit klarer Form und '
+            'flexibler Platzierung bei saisonalen Feiern'
+        )
+        result = package_validator.validate(data)
+        self.assertTrue(result['ready_for_delivery'])
+        self.assertTrue(any('120-125 editorial target' in warning
+                            for warning in result['warnings']))
+
+    def test_title_size_requires_purchase_reason_and_final_position(self):
+        data = copy.deepcopy(self.listing_package())
+        listing = data['listings'][0]
+        listing['title_scene'] = ''
+        listing['title'] = 'Dekoration, Papierdekoration und Festschmuck, 33 x 183 cm'
+        result = package_validator.validate(data)
+        self.assertTrue(any('title_size_term must match' in error for error in result['errors']))
+        self.assertTrue(any('title_size_reason must explain' in error for error in result['errors']))
+        listing['title_size_term'] = '33 x 183 cm'
+        listing['title_size_reason'] = 'Required for the confirmed table fit'
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        listing['title'] = '33 x 183 cm Dekoration, Papierdekoration und Festschmuck'
+        result = package_validator.validate(data)
+        self.assertTrue(any('title size must appear at the end' in error for error in result['errors']))
+        listing['title'] = 'Dekoration 10 cm, Papierdekoration und Festschmuck, 33 x 183 cm'
+        result = package_validator.validate(data)
+        self.assertTrue(any('title may contain at most one size group' in error
                             for error in result['errors']))
 
     def test_listing_package_requires_html_and_rejects_multicolor_title_terms(self):

@@ -45,6 +45,7 @@
   "keywords": [
     {"marketplace": "DE", "phrase": "Weihnachtsbaumdecke", "aliases": ["Baumdecke"], "is_core": true},
     {"marketplace": "DE", "phrase": "Weihnachtsbaum Rock", "aliases": [], "is_core": true},
+    {"marketplace": "DE", "phrase": "Weihnachtsdeko", "aliases": [], "is_core": true},
     {"marketplace": "DE", "phrase": "Baumschmuck Unterlage", "aliases": [], "decision": "adopt"}
   ],
   "mappings": [
@@ -53,7 +54,7 @@
       "variant_id": "V1",
       "fact_ids": ["F1", "F2"],
       "buying_reasons": ["Abdeckung", "einfache Platzierung"],
-      "keywords": ["Weihnachtsbaumdecke", "Weihnachtsbaum Rock", "Baumschmuck Unterlage"],
+      "keywords": ["Weihnachtsbaumdecke", "Weihnachtsbaum Rock", "Weihnachtsdeko", "Baumschmuck Unterlage"],
       "listing_fields": ["title", "item_highlights", "bullet_1", "bullet_2", "bullet_3", "bullet_4", "bullet_5", "description", "search_terms"]
     }
   ],
@@ -92,7 +93,9 @@
       "language": "de-DE",
       "variant_id": "V1",
       "title": "...",
-      "title_keywords": ["Weihnachtsbaumdecke", "Weihnachtsbaum Rock"],
+      "title_keywords": ["Weihnachtsbaumdecke", "Weihnachtsbaum Rock", "Weihnachtsdeko"],
+      "title_size_term": "",
+      "title_size_reason": "",
       "critical_differentiators": ["5-lagig"],
       "title_scene": "",
       "title_quantity": 1,
@@ -102,7 +105,7 @@
       "compatibility_required": false,
       "primary_compatibility_term": "",
       "compatibility_terms": [],
-      "title_reference": "参考开发表及 B012345678 标题",
+      "title_reference": "B012345678 / DE：产品词→主题词→场景词→末尾尺寸；仅保留与自有事实相符的词",
       "item_highlights": "...",
       "item_highlights_reference": "参考开发表及 B012345678 标题/第2点",
       "bullets": ["...", "...", "...", "...", "..."],
@@ -158,7 +161,8 @@
 
 ### listings
 
-- `title_keywords` 为 2–4 个不同核心短语，必须在同站点 `keywords` 中标记 `is_core:true`，并以原词或 alias 自然进入标题。
+- `title_keywords` 为恰好三个不同核心短语，必须在同站点 `keywords` 中标记 `is_core:true`，并以原词或 alias 自然进入标题。`title_reference` 记录用户提供的竞品标题来源及其产品词、图案/主题、用途/场景、尺寸顺序，注明哪些词因品牌或自有事实不符而排除。
+- `title_size_term`、`title_size_reason` 默认空。仅当尺寸已证实直接影响适配、覆盖或变体选择时填写；标题最多一组尺寸，必须与 `title_size_term` 一致并置于末尾，`title_size_reason` 说明具体购买理由。
 - `critical_differentiators` 只列能影响购买、适配或价格的重要差异；每项必须出现在标题前部。
 - `title_scene` 可空；非空时必须出现在标题。
 - `title_quantity` 为正整数。等于 1 时 `title_quantity_term` 为空；大于 1 时数量短语必须紧贴第一核心产品词。
@@ -188,6 +192,6 @@ python scripts/validate_listing_package.py listing-package.json --out package-re
 python scripts/analyze_listing.py listing-package.json --out listing-analysis.json
 ```
 
-`validate_listing_package.py` 检查站点/变体覆盖、事实与同款证据、逐字段事实绑定、75/125 字符限制、2–4 个核心标题词、数量与关键差异位置、适配型产品在标题/Highlights/五点 1/详情及中文翻译中的兼容标识覆盖、首链接五点具体内容提纲及逐点自有事实映射、内部变体编号泄漏、五点数量/格式/正文长度、HTML 详情结构、Search Terms 增量词、卖家精灵与参考标题来源审计（含额外同类标题），以及已采用增量词是否全部写入。它同时拒绝目标语言和中文翻译中的证据状态、资料来源、参考产品、竞品差异和其他内部审核叙述。`ready_for_delivery=false` 时不得将文案标为已完成审核。
+`validate_listing_package.py` 检查站点/变体覆盖、事实与同款证据、逐字段事实绑定、75/125 字符限制、恰好三个核心标题词及标题尺寸末尾规则、数量与关键差异位置、适配型产品在标题/Highlights/五点 1/详情及中文翻译中的兼容标识覆盖、首链接五点具体内容提纲及逐点自有事实映射、内部变体编号泄漏、五点数量/格式/正文长度、HTML 详情结构、Search Terms 增量词、卖家精灵与参考标题来源审计（含额外同类标题），以及已采用增量词是否全部写入。它同时拒绝目标语言和中文翻译中的证据状态、资料来源、参考产品、竞品差异和其他内部审核叙述。`ready_for_delivery=false` 时不得将文案标为已完成审核。
 
 `analyze_listing.py` 输出竞品独立商品组频次、字段覆盖、Item Name/Item Highlights/五点/Search Terms 长度，以及与竞品连续 8 词重合的人工复核提示。重合提示不等于抄袭判定，也不会禁止同款事实在多个前台字段自然重复。

@@ -28,10 +28,13 @@ BULLET_FORMAT = re.compile(
 SEARCH_TERMS_PUNCTUATION = re.compile(r'[^\w\s]', re.UNICODE)
 BAD_PUNCTUATION_SPACING = re.compile(r'[,;](?=\S)|:(?=[A-Za-zÀ-ÖØ-öø-ÿ])')
 TITLE_LIMIT = 75
-TITLE_MINIMUM = 68
-TITLE_TARGET = (70, 75)
+TITLE_TARGET_MINIMUM = 70
+TITLE_MEASUREMENT = re.compile(
+    r'(?<!\w)\d+(?:[.,]\d+)?(?:\s*[x×]\s*\d+(?:[.,]\d+)?){0,2}'
+    r'\s*(?:mm|cm|m|inches?|in|ft|pouces?|pollici|pulgadas?)\b', re.I
+)
 ITEM_HIGHLIGHTS_LIMIT = 125
-ITEM_HIGHLIGHTS_TARGET_MINIMUM = 115
+ITEM_HIGHLIGHTS_TARGET_MINIMUM = 120
 BULLET_BODY_MINIMUM = 201
 SEARCH_TERMS_MAX_BYTES = 249
 BUYER_FACT_FIELDS = (
@@ -752,15 +755,32 @@ def validate(data):
             errors.append(
                 f'{market}/{variant_id} title uses {len(title)} characters; maximum is {TITLE_LIMIT}'
             )
-        elif title and len(title) < TITLE_MINIMUM:
-            errors.append(
-                f'{market}/{variant_id} title uses {len(title)} characters; minimum internal '
-                f'requirement is {TITLE_MINIMUM}'
-            )
-        elif title and len(title) < TITLE_TARGET[0]:
+        elif title and len(title) < TITLE_TARGET_MINIMUM:
             warnings.append(
-                f'{market}/{variant_id} title length {len(title)} is outside '
-                f'the {TITLE_TARGET[0]}-{TITLE_TARGET[1]} editorial target'
+                f'{market}/{variant_id} title length {len(title)} is below '
+                f'the {TITLE_TARGET_MINIMUM}-{TITLE_LIMIT} editorial target; '
+                'do not add low-value words to fill it'
+            )
+        title_measurements = list(TITLE_MEASUREMENT.finditer(title))
+        title_size_term = str(listing.get('title_size_term', '')).strip()
+        title_size_reason = str(listing.get('title_size_reason', '')).strip()
+        if len(title_measurements) > 1:
+            errors.append(f'{market}/{variant_id} title may contain at most one size group')
+        if title_measurements:
+            measurement = title_measurements[0]
+            if measurement.end() != len(title):
+                errors.append(f'{market}/{variant_id} title size must appear at the end')
+            if not title_size_term or measurement.group().casefold() != title_size_term.casefold():
+                errors.append(f'{market}/{variant_id} title_size_term must match the title size')
+            if not title_size_reason:
+                errors.append(
+                    f'{market}/{variant_id} title_size_reason must explain why the size '
+                    'affects buying choice'
+                )
+        elif title_size_term or title_size_reason:
+            errors.append(
+                f'{market}/{variant_id} title_size_term and title_size_reason '
+                'must be empty without a title size'
             )
         forbidden = sorted(set(title) & FORBIDDEN_TITLE_CHARACTERS)
         if forbidden:
@@ -858,15 +878,17 @@ def validate(data):
             errors, market, variant_id, listing, fact_by_id
         )
         title_keywords = listing.get('title_keywords', [])
+        if not isinstance(title_keywords, list):
+            title_keywords = []
         normalized_title_keywords = [
             unicodedata.normalize('NFC', str(item).strip()).casefold()
             for item in title_keywords
         ]
-        if (not 2 <= len(title_keywords) <= 4
+        if (len(title_keywords) != 3
                 or any(not item for item in normalized_title_keywords)
                 or len(set(normalized_title_keywords)) != len(title_keywords)):
             errors.append(
-                f'{market}/{variant_id} title_keywords must contain 2-4 distinct phrases'
+                f'{market}/{variant_id} title_keywords must contain exactly 3 distinct phrases'
             )
             first_keyword_forms = []
         else:
