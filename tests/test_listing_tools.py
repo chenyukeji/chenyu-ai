@@ -622,6 +622,24 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('lacks explicit same-product confirmation' in error
                             for error in result['errors']))
 
+    def test_same_material_competitor_function_can_be_used(self):
+        data = copy.deepcopy(self.listing_package())
+        data['facts'].append({
+            'id': 'F2', 'source_type': 'material_match_evidence',
+            'status': 'confirmed', 'field': 'function',
+            'value': 'Papierdekoration lässt sich leicht umstellen',
+            'variant_ids': ['V1'],
+            'source': {
+                'asin': 'B012345678', 'field': 'bullet_2',
+                'material': 'Papier', 'own_material_fact_id': 'F1',
+            },
+        })
+        listing = data['listings'][0]
+        listing['claim_fact_ids'].append('F2')
+        listing['field_fact_ids']['description'].append('F2')
+        data['mappings'][0]['fact_ids'].append('F2')
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+
     def test_bullet_copy_has_no_artificial_maximum(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['bullets'][0] = (
@@ -778,7 +796,7 @@ class ListingTests(unittest.TestCase):
         data['listings'][0]['title'] += ' B012345678'
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])
-        self.assertTrue(any('source_type must be own_product or same_product_evidence' in error
+        self.assertTrue(any('source_type must be own_product, same_product_evidence, or material_match_evidence' in error
                             for error in result['errors']))
         self.assertTrue(any('five non-empty bullets' in error for error in result['errors']))
         self.assertTrue(any('uses non-confirmed fact' in error for error in result['errors']))

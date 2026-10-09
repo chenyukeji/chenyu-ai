@@ -659,9 +659,12 @@ def validate(data):
             continue
         fact_by_id[fact_id] = fact
         source_type = fact.get('source_type')
-        if source_type not in ('own_product', 'same_product_evidence'):
+        if source_type not in (
+            'own_product', 'same_product_evidence', 'material_match_evidence'
+        ):
             errors.append(
-                f'fact {fact_id} source_type must be own_product or same_product_evidence'
+                f'fact {fact_id} source_type must be own_product, '
+                'same_product_evidence, or material_match_evidence'
             )
         if fact.get('status') not in ('confirmed', 'unconfirmed', 'conflict'):
             errors.append(f'fact {fact_id} has invalid status')

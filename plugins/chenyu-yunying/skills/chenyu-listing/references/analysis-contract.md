@@ -157,7 +157,8 @@
 
 - `source_type=own_product`：来自开发资料、自有图片或用户明确说明。
 - `source_type=same_product_evidence`：必须同时满足 `same_product_confirmed=true`、`status=confirmed`，并在 `source` 中保存有效 ASIN 和同款确认来源。
-- 同款证据不得用于迁移品牌、冲突规格/数量/配件、认证、质保、售后或竞品独有版本。
+- `source_type=material_match_evidence`：自有材料与竞品材料一致且其功能适用于本品时，可记录竞品 ASIN/五点位置及自有材料来源，并将该功能作为已确认事实用于 Listing；不要求把竞品整体确认为同款。材料匹配说明保留在内部事实记录，不写给买家。
+- 同款或同材料功能依据不得用于迁移品牌、冲突规格/数量/配件、认证、质保、售后或竞品独有版本。
 
 ### listings
 
