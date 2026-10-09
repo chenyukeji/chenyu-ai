@@ -10,6 +10,7 @@ import unicodedata
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from openpyxl import load_workbook
 
@@ -80,6 +81,19 @@ def dimensions(value: object, row: int) -> tuple[Decimal, Decimal, Decimal] | No
     return result
 
 
+def image_url(value: object, row: int) -> str:
+    url = clean(value)
+    if not url:
+        return ""
+    try:
+        parsed = urlsplit(url)
+    except ValueError as exc:
+        raise ValueError(f"第 {row} 行“图片链接”不是有效的 HTTP(S) 链接：{url}") from exc
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname or any(char.isspace() for char in url):
+        raise ValueError(f"第 {row} 行“图片链接”不是有效的 HTTP(S) 链接：{url}")
+    return url
+
+
 def source_records(workbook) -> list[dict]:
     sheet = next((item for item in workbook if any(canonical(cell.value) == "msku" for cell in item[1])), None)
     if sheet is None:
@@ -99,6 +113,7 @@ def source_records(workbook) -> list[dict]:
         "gross": column(headers, "毛重（取最大者）", "毛重(取最大者)"),
         "status": column(headers, "状态", required=False),
         "price": column(headers, "采购价", required=False),
+        "image_url": column(headers, "图片链接", required=False),
     }
     records = []
     seen = set()
@@ -131,6 +146,7 @@ def source_records(workbook) -> list[dict]:
             net=number(get("net"), "单个重量(净重)", row_number),
             gross=number(get("gross"), "毛重(取最大者)", row_number),
             size=dimensions(get("size"), row_number),
+            image_url=image_url(get("image_url"), row_number),
         )
         records.append(record)
     if not records:
@@ -159,7 +175,8 @@ def fill_product(sheet, records: list[dict]) -> None:
         fields = {
             "*SKU": record["msku"], "品名": record["product_name"], "产品类型": "普通产品",
             "状态": record["status"], "单位": "件", "开发人": record["developer"],
-            "产品负责人": record["operator"], "SPU": record["product"],
+            "产品负责人": record["operator"], "SPU": None,
+            "图片链接": record["image_url"] or None,
             "采购成本(CNY)": record["cost"],
             "采购备注": f"原始采购价：{record['price']:.2f} CNY" if record["price"] is not None else None,
             "单品净重": record["net"], "单品净重单位": "g" if record["net"] is not None else None,
@@ -225,7 +242,17 @@ def main() -> None:
         for path in outputs:
             path.unlink(missing_ok=True)
         raise
-    print(json.dumps({"records": len(records), "productOutput": str(outputs[0]), "pairingOutput": str(outputs[1])}, ensure_ascii=False))
+    missing_images = sum(not record["image_url"] for record in records)
+    result = {"records": len(records), "productOutput": str(outputs[0]), "pairingOutput": str(outputs[1]),
+              "imageLinks": len(records) - missing_images, "missingImageLinks": missing_images}
+    warnings = []
+    if missing_images:
+        warnings.append(f"{missing_images} 个产品没有图片链接；配对表中的“是否同步listing图=是”仅在已配对且有图的 Listing 满足领星同步条件时才可能补图。")
+    if result["imageLinks"]:
+        warnings.append("图片链接只做格式校验，未验证领星能否访问和下载；请在导入后核对产品主图。")
+    if warnings:
+        result["warnings"] = warnings
+    print(json.dumps(result, ensure_ascii=False))
 
 
 if __name__ == "__main__":
