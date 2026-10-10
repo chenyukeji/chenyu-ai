@@ -24,26 +24,6 @@ package_validator = module('validate_listing_package')
 
 class ListingTests(unittest.TestCase):
     @staticmethod
-    def primary_bullet_outline():
-        excerpts = [
-            'Eine Dekoration aus Papier',
-            'Die Papierdekoration lässt sich auf geeigneten Flächen gezielt anordnen',
-            'Die klare Form setzt einen sichtbaren dekorativen Akzent',
-            'Die Gestaltung ist für bestätigte Feiern und saisonale Innenräume vorgesehen',
-            'Sie kann einzeln stehen oder mit abgestimmten Elementen kombiniert werden',
-        ]
-        return [
-            {
-                'source_index': index,
-                'source_topic': f'Reference topic {index}',
-                'source_details': [f'Reference detail {index}'],
-                'own_fact_ids': ['F1'],
-                'description_excerpt': excerpts[index - 1],
-            }
-            for index in range(1, 6)
-        ]
-
-    @staticmethod
     def listing_package():
         return {
             'targets': ['DE'],
@@ -219,7 +199,6 @@ class ListingTests(unittest.TestCase):
         listing['description_reference'] = '参考 B012345678 第1-5点'
         listing['search_terms_reference'] = '参考 B012345678 标题及五点'
         listing['primary_reference_asin'] = 'B012345678'
-        listing['primary_reference_bullet_outline'] = self.primary_bullet_outline()
         data['search_term_audits'] = [
             {
                 'marketplace': 'DE', 'variant_id': 'V1',
@@ -263,8 +242,27 @@ class ListingTests(unittest.TestCase):
         result = package_validator.validate(data)
         self.assertTrue(any('title_reference must cite every usable competitor title: B012345679'
                             in error for error in result['errors']))
-        listing['title_reference'] += '；对比 B012345679 标题的产品词和场景词'
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        listing['title_reference'] += '；对比 B012345679 标题的产品搜索短语'
+        # The primary source remains first; output bullets may merge and reorder sources.
+        listing['bullet_references'] = [
+            '参考 B012345678 第3点；B012345679 第2点',
+            '参考 B012345678 第1点及第4点',
+            '参考 B012345679 第5点',
+            '参考开发资料 Product B2',
+            '参考 B012345678 第2点；B012345679 第1点',
+        ]
+        listing['description_reference'] = '综合 B012345678 第1、3点；B012345679 第2、5点'
+        for container in (listing, listing['translations']):
+            container['bullets'][0], container['bullets'][1] = (
+                container['bullets'][1], container['bullets'][0]
+            )
+        result = package_validator.validate(data)
+        self.assertTrue(result['ready_for_delivery'], result['errors'])
+        saved_reference = listing['bullet_references'][2]
+        listing['bullet_references'][2] = ''
+        self.assertTrue(any('bullet_references must contain five' in error
+                            for error in package_validator.validate(data)['errors']))
+        listing['bullet_references'][2] = saved_reference
         extra['source_asin'] = 'B012345699'
         self.assertTrue(any('title-term audit source_asin' in error for error in
                             package_validator.validate(data)['errors']))
@@ -330,78 +328,29 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('translations must be an object' in error
                             for error in result['errors']))
 
-    def test_primary_reference_requires_five_ordered_bullet_topics_and_confirmed_facts(self):
-        data = copy.deepcopy(self.listing_package())
-        listing = data['listings'][0]
-        listing['primary_reference_asin'] = 'B012345678'
-        errors = []
-        fact_by_id = {fact['id']: fact for fact in data['facts']}
-        package_validator.validate_primary_bullet_outline(
-            errors, 'DE', 'V1', listing, fact_by_id
-        )
-        self.assertTrue(any('must contain five ordered source topics' in error
-                            for error in errors))
-
-        listing['primary_reference_bullet_outline'] = self.primary_bullet_outline()
-        listing['bullet_references'] = [f'参考 B012345678 第{i}点' for i in range(1, 6)]
-        errors = []
-        package_validator.validate_primary_bullet_outline(
-            errors, 'DE', 'V1', listing, fact_by_id
-        )
-        self.assertEqual(errors, [])
-
-        del listing['primary_reference_bullet_outline'][0]['source_details']
-        errors = []
-        package_validator.validate_primary_bullet_outline(
-            errors, 'DE', 'V1', listing, fact_by_id
-        )
-        self.assertTrue(any('requires non-empty source_details' in error
-                            for error in errors))
-        listing['primary_reference_bullet_outline'] = self.primary_bullet_outline()
-
-        data['facts'][0]['status'] = 'unconfirmed'
-        errors = []
-        package_validator.validate_primary_bullet_outline(
-            errors, 'DE', 'V1', listing, {data['facts'][0]['id']: data['facts'][0]}
-        )
-        self.assertTrue(any('uses non-confirmed fact F1' in error for error in errors))
-
-    def test_primary_reference_bullets_must_map_into_html_description(self):
+    def test_primary_reference_does_not_require_a_mirrored_outline(self):
         data = self.listing_package()
         listing = data['listings'][0]
         listing['primary_reference_asin'] = 'B012345678'
-        listing['primary_reference_bullet_outline'] = self.primary_bullet_outline()
-        listing['bullet_references'] = [f'参考 B012345678 第{i}点' for i in range(1, 6)]
-        fact_by_id = {fact['id']: fact for fact in data['facts']}
+        result = package_validator.validate(data)
+        self.assertTrue(result['ready_for_delivery'], result['errors'])
 
-        listing['primary_reference_bullet_outline'][2]['description_excerpt'] = ''
-        errors = []
-        package_validator.validate_primary_bullet_outline(
-            errors, 'DE', 'V1', listing, fact_by_id
-        )
-        self.assertTrue(any('requires a substantive description_excerpt' in error
-                            for error in errors))
-
-        listing['primary_reference_bullet_outline'][2]['description_excerpt'] = (
-            'Eine neue unbelegte Eigenschaft'
-        )
-        errors = []
-        package_validator.validate_primary_bullet_outline(
-            errors, 'DE', 'V1', listing, fact_by_id
-        )
-        self.assertTrue(any('description_excerpt is absent from HTML description' in error
-                            for error in errors))
-
-        listing['primary_reference_bullet_outline'][2]['description_excerpt'] = (
-            'Die klare Form setzt einen sichtbaren dekorativen Akzent'
-        )
+    def test_integrated_copy_still_requires_confirmed_field_facts(self):
+        data = self.listing_package()
+        listing = data['listings'][0]
+        listing['primary_reference_asin'] = 'B012345678'
+        listing['field_fact_ids']['bullet_2'] = []
         listing['field_fact_ids']['description'] = []
-        errors = []
-        package_validator.validate_primary_bullet_outline(
-            errors, 'DE', 'V1', listing, fact_by_id
-        )
-        self.assertTrue(any('own_fact_ids must be included in field_fact_ids.description'
-                            in error for error in errors))
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('field_fact_ids.bullet_2 must contain' in error
+                            for error in result['errors']))
+        self.assertTrue(any('field_fact_ids.description must contain' in error
+                            for error in result['errors']))
+        listing['field_fact_ids']['bullet_2'] = ['F1']
+        listing['field_fact_ids']['description'] = ['F1']
+        data['facts'][0]['status'] = 'unconfirmed'
+        self.assertFalse(package_validator.validate(data)['ready_for_delivery'])
 
     def test_fitment_products_require_confirmed_compatibility_in_front_end_copy(self):
         data = copy.deepcopy(self.listing_package())
@@ -541,7 +490,6 @@ class ListingTests(unittest.TestCase):
             'description_reference': '参考 B012345678',
             'search_terms_reference': '参考 B012345678 标题及卖家精灵反查',
             'primary_reference_asin': 'B012345678',
-            'primary_reference_bullet_outline': self.primary_bullet_outline(),
         })
         data['search_term_audits'] = [
             {

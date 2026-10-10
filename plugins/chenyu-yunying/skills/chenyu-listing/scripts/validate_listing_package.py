@@ -526,94 +526,6 @@ def validate_field_fact_ids(errors, market, variant_id, listing, fact_by_id):
         )
 
 
-def validate_primary_bullet_outline(errors, market, variant_id, listing, fact_by_id):
-    """Require a five-topic source outline before mirroring a primary reference."""
-    primary_asin = str(listing.get('primary_reference_asin', '')).strip()
-    if not primary_asin:
-        return
-    outline = listing.get('primary_reference_bullet_outline', [])
-    if not isinstance(outline, list) or len(outline) != 5:
-        errors.append(
-            f'{market}/{variant_id} primary_reference_bullet_outline must contain five '
-            'ordered source topics before drafting bullets'
-        )
-        return
-    for index, item in enumerate(outline, 1):
-        if not isinstance(item, dict):
-            errors.append(
-                f'{market}/{variant_id} primary reference bullet outline {index} '
-                'must be an object'
-            )
-            continue
-        if item.get('source_index') != index:
-            errors.append(
-                f'{market}/{variant_id} primary reference bullet outline {index} '
-                f'must use source_index={index}'
-            )
-        if not str(item.get('source_topic', '')).strip():
-            errors.append(
-                f'{market}/{variant_id} primary reference bullet outline {index} '
-                'requires a non-empty source_topic'
-            )
-        source_details = item.get('source_details')
-        if (not isinstance(source_details, list) or not source_details
-                or any(not str(detail).strip() for detail in source_details)):
-            errors.append(
-                f'{market}/{variant_id} primary reference bullet outline {index} '
-                'requires non-empty source_details captured from that source bullet'
-            )
-        fact_ids = item.get('own_fact_ids', [])
-        if not isinstance(fact_ids, list) or not fact_ids:
-            errors.append(
-                f'{market}/{variant_id} primary reference bullet outline {index} '
-                'requires confirmed own_fact_ids'
-            )
-            continue
-        for fact_id in fact_ids:
-            fact = fact_by_id.get(fact_id)
-            if not fact:
-                errors.append(
-                    f'{market}/{variant_id} primary reference bullet outline {index} '
-                    f'references unknown fact {fact_id}'
-                )
-            elif fact.get('status') != 'confirmed':
-                errors.append(
-                    f'{market}/{variant_id} primary reference bullet outline {index} '
-                    f'uses non-confirmed fact {fact_id}'
-                )
-        excerpt = str(item.get('description_excerpt', '')).strip()
-        if len(words(excerpt)) < 3:
-            errors.append(
-                f'{market}/{variant_id} primary reference bullet outline {index} '
-                'requires a substantive description_excerpt'
-            )
-        elif not contains(visible_html(listing.get('description', '')), excerpt):
-            errors.append(
-                f'{market}/{variant_id} primary reference bullet outline {index} '
-                'description_excerpt is absent from HTML description'
-            )
-        field_fact_ids = listing.get('field_fact_ids')
-        description_fact_ids = (
-            field_fact_ids.get('description', [])
-            if isinstance(field_fact_ids, dict) else []
-        )
-        if not isinstance(description_fact_ids, list):
-            description_fact_ids = []
-        if isinstance(fact_ids, list) and not set(fact_ids).issubset(description_fact_ids):
-            errors.append(
-                f'{market}/{variant_id} primary reference bullet outline {index} '
-                'own_fact_ids must be included in field_fact_ids.description'
-            )
-    bullet_references = listing.get('bullet_references', [])
-    if isinstance(bullet_references, list) and len(bullet_references) == 5:
-        for index, reference in enumerate(bullet_references, 1):
-            if primary_asin.casefold() not in str(reference).casefold():
-                errors.append(
-                    f'{market}/{variant_id} bullet reference {index} must cite primary '
-                    f'reference ASIN {primary_asin} when its five-point structure is mirrored'
-                )
-
-
 def validate(data):
     errors, warnings = [], []
     targets = data.get('targets', [])
@@ -916,9 +828,6 @@ def validate(data):
                         f'{market}/{variant_id} bullet_references must contain five non-empty sources'
                     )
             validate_buyer_copy(errors, market, variant_id, buyer_bullet_texts)
-        validate_primary_bullet_outline(
-            errors, market, variant_id, listing, fact_by_id
-        )
         title_keywords = listing.get('title_keywords', [])
         if not isinstance(title_keywords, list):
             title_keywords = []
