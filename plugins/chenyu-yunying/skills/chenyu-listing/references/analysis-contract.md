@@ -45,7 +45,7 @@
   "keywords": [
     {"marketplace": "DE", "phrase": "Weihnachtsbaumdecke", "aliases": ["Baumdecke"], "is_core": true},
     {"marketplace": "DE", "phrase": "Weihnachtsbaum Rock", "aliases": [], "is_core": true},
-    {"marketplace": "DE", "phrase": "Weihnachtsdeko", "aliases": [], "is_core": true},
+    {"marketplace": "DE", "phrase": "Tannenbaumdecke", "aliases": [], "is_core": true},
     {"marketplace": "DE", "phrase": "Baumschmuck Unterlage", "aliases": [], "decision": "adopt"}
   ],
   "mappings": [
@@ -54,7 +54,7 @@
       "variant_id": "V1",
       "fact_ids": ["F1", "F2"],
       "buying_reasons": ["Abdeckung", "einfache Platzierung"],
-      "keywords": ["Weihnachtsbaumdecke", "Weihnachtsbaum Rock", "Weihnachtsdeko", "Baumschmuck Unterlage"],
+      "keywords": ["Weihnachtsbaumdecke", "Weihnachtsbaum Rock", "Tannenbaumdecke", "Baumschmuck Unterlage"],
       "listing_fields": ["title", "item_highlights", "bullet_1", "bullet_2", "bullet_3", "bullet_4", "bullet_5", "description", "search_terms"]
     }
   ],
@@ -93,7 +93,7 @@
       "language": "de-DE",
       "variant_id": "V1",
       "title": "...",
-      "title_keywords": ["Weihnachtsbaumdecke", "Weihnachtsbaum Rock", "Weihnachtsdeko"],
+      "title_keywords": ["Weihnachtsbaumdecke", "Weihnachtsbaum Rock", "Tannenbaumdecke"],
       "title_size_term": "",
       "title_size_reason": "",
       "critical_differentiators": ["5-lagig"],
@@ -105,7 +105,7 @@
       "compatibility_required": false,
       "primary_compatibility_term": "",
       "compatibility_terms": [],
-      "title_reference": "B012345678 / DE：产品词→主题词→场景词→末尾尺寸；仅保留与自有事实相符的词",
+      "title_reference": "B012345678 / DE：产品名称与同义称呼候选；按搜索证据和自有事实筛选，不预设场景词名额",
       "item_highlights": "...",
       "item_highlights_reference": "参考开发表及 B012345678 标题/第2点",
       "bullets": ["...", "...", "...", "...", "..."],
@@ -162,7 +162,7 @@
 
 ### listings
 
-- `title_keywords` 为恰好三个不同核心短语，必须在同站点 `keywords` 中标记 `is_core:true`，并以原词或 alias 自然进入标题。`title_reference` 列出全部有效竞品标题的 ASIN/站点，记录其产品词、图案/主题、用途/场景、尺寸、采用词义和排除项；标题描述词只使用能在至少一个竞品标题中找到语义对应、且符合自有事实的内容。校验器会检查全部有 ASIN 和标题的竞品是否被引用，语义合并仍须人工复核。
+- `title_keywords` 为恰好三个不同核心短语，必须在同站点 `keywords` 中标记 `is_core:true`，并以原词或 alias 自然进入标题。优先产品名称、同义称呼及图案/主题与产品名称的组合；搜索需求依据记录在关键词来源中，不用标题频次冒充搜索量，不默认选择场景词。核心词相关性和搜索依据须语义复核，脚本只检查数量、标记和覆盖。`title_reference` 列出全部有效竞品标题的 ASIN/站点，记录其产品搜索短语、图案/主题组合、补充属性、采用词义和排除项；标题描述词只使用能在至少一个竞品标题中找到语义对应、且符合自有事实的内容。校验器会检查全部有 ASIN 和标题的竞品是否被引用，语义合并仍须人工复核。
 - `title_size_term`、`title_size_reason` 默认空。仅当尺寸已证实直接影响适配、覆盖或变体选择时填写；标题最多一组尺寸，必须与 `title_size_term` 一致并置于末尾，`title_size_reason` 说明具体购买理由。
 - `critical_differentiators` 只列能影响购买、适配或价格的重要差异；每项必须出现在标题前部。
 - `title_scene` 可空；非空时必须出现在标题。
