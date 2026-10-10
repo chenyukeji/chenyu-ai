@@ -53,6 +53,8 @@ def package():
             {
                 'id': 'T1', 'type': 'main_image', 'product_ids': ['V1'],
                 'product_image_ids': ['product-v1'], 'on_image_text': '',
+                'main_style': 'clean_white',
+                'main_style_reason': '产品轮廓在白底缩略图里清楚可辨',
                 'instructions': '纯白背景，完整展示售卖产品，主体居中。',
                 'identity_lock': {
                     'shape_structure': '与产品内容图片完全一致',
@@ -170,6 +172,24 @@ def test_product_image_source_is_required():
     assert any('product_content_image_source must be' in item for item in result['errors'])
     assert any('product_content_image_source_ref is required' in item
                for item in result['errors'])
+
+
+def test_main_image_requires_a_valid_visual_choice():
+    data = package()
+    data['image_tasks'][0]['main_style'] = 'scene_hero'
+    data['image_tasks'][0]['main_style_reason'] = '桌旗垂落场景展示材质与使用效果'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+    data['image_tasks'][0]['main_style'] = 'unsupported'
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('main_style' in error for error in result['errors'])
+
+    data['image_tasks'][0]['main_style'] = 'scene_hero'
+    data['image_tasks'][0]['main_style_reason'] = ''
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('main_style_reason' in error for error in result['errors'])
 
 
 def test_main_image_must_use_exact_product_content_image_and_identity_lock():

@@ -16,6 +16,7 @@ REFERENCE_NARRATION = re.compile(
     r'(?:参考图(?:片)?\s*\d*\s*(?:用于|作为|展示|提供)|'
     r'按照参考图(?:片)?|照着参考图(?:片)?|同款产品参考|版式参考)'
 )
+MAIN_STYLES = {'clean_white', 'white_with_use_inset', 'scene_hero'}
 IDENTITY_LOCK_FIELDS = (
     'shape_structure', 'color_pattern', 'quantity_components',
     'accessories_packaging',
@@ -333,6 +334,13 @@ def validate_visual_contract(image_brief, errors):
     for task_id, task in tasks.items():
         if task.get('type') != 'main_image':
             continue
+        if task.get('main_style') not in MAIN_STYLES:
+            errors.append(
+                f'$.image_tasks[{task_id}] main_style must be one of: '
+                + ', '.join(sorted(MAIN_STYLES))
+            )
+        if not str(task.get('main_style_reason', '')).strip():
+            errors.append(f'$.image_tasks[{task_id}] requires main_style_reason')
         product_ids = task.get('product_ids', [])
         expected_images = {
             product_images[item] for item in product_ids if item in product_images

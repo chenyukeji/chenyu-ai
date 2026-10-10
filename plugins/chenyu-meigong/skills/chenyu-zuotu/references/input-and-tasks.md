@@ -45,7 +45,7 @@ Excel可能包含ZIP附件图标和OLE嵌入对象，实际高清素材藏在附
 }
 ```
 
-`image_type`必须为`main_image`、`infographic_detail`或`lifestyle_scene`。表头、分区标题或原文出现“主图”时记录为`main_image`；不要根据行号猜测。`main_image`的requirements必须包含以纯白`#FFFFFF`为生成目标的背景、无可见色偏/渐变/纹理/场景/边框/装饰，以及“产品颜色不得扩展到背景或环境光”的检查项；验收时按主 Skill 的中性近白容差记录实测值，微小像素差异可记`pass`。
+`image_type`必须为`main_image`、`infographic_detail`或`lifestyle_scene`。表头、分区标题或原文出现“主图”时记录为`main_image`；不要根据行号猜测。`main_image`另记`main_style`（`clean_white`、`white_with_use_inset`或`scene_hero`）和选择依据。前两种形式的requirements须包含以纯白`#FFFFFF`为生成目标的底色及无可见色偏/渐变/纹理/未经要求的场景；`scene_hero`须记录真实使用关系、主体层级与产品保真检查。白底验收按主 Skill 的中性近白容差记录实测值，微小像素差异可记`pass`。
 
 参考制作或原创概念按主 Skill 记录 production_mode 和 product_confirmation；图像制作检查与实物待确认项分别记录。passed 仅表示当前模式的制作要求全部通过，不将 pending 的实物确认宣称为已通过。
 
