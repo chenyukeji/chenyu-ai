@@ -47,9 +47,9 @@ Excel可能包含ZIP附件图标和OLE嵌入对象，实际高清素材藏在附
 
 `image_type`必须为`main_image`、`infographic_detail`或`lifestyle_scene`。表头、分区标题或原文出现“主图”时记录为`main_image`；不要根据行号猜测。`main_image`另记`main_style`（`clean_white`、`white_with_use_inset`或`scene_hero`）和选择依据。前两种形式的requirements须包含以纯白`#FFFFFF`为生成目标的底色及无可见色偏/渐变/纹理/未经要求的场景；`scene_hero`须记录真实使用关系、主体层级与产品保真检查。白底验收按主 Skill 的中性近白容差记录实测值，微小像素差异可记`pass`。
 
-参考制作或原创概念按主 Skill 记录 production_mode 和 product_confirmation；图像制作检查与实物待确认项分别记录。passed 仅表示当前模式的制作要求全部通过，不将 pending 的实物确认宣称为已通过。
+参考制作或原创概念按主 Skill 记录 production_mode 和 product_confirmation；图像制作检查与实物待确认项分别记录。`passed` 仅表示当前模式的制作要求通过，不将 pending 的实物确认宣称为已通过。
 
-任务状态：planned、ready、generating、reviewing、passed、needs_review、blocked。要求状态：unchecked、pass、fail、unknown。生成前为planned，核实素材和要求后ready；有真实图像结果后才能reviewing；全部要求pass且相关文件检查通过才可passed。若像素规格无法核验则对应要求unknown，任务needs_review。
+任务状态：`planned`、`ready`、`generating`、`reviewing`、`passed`、`deliverable_with_notes`、`needs_revision`、`blocked`。要求状态：`unchecked`、`pass`、`fail`、`unknown`；问题另记关键性和具体依据。生成前为 `planned`，核实素材和要求后 `ready`；有真实图像结果后才能 `reviewing`。全部可见制作要求通过、没有遗留瑕疵，且有本地文件时文件检查符合要求，才可记 `passed`。仅有轻微构图偏差、有独立信息价值的内容相似，或工具只提供展示结果而无法核验像素/格式时，记 `deliverable_with_notes` 并列出具体待复核项；已核实的文件规格不符、产品/文案/尺寸等关键错误记 `needs_revision`。只读文件检查中的 `needs_review` 是文件层面的待核查结果，不自动决定任务状态；不能因没有本地路径而否定已经展示并检查的图片，也不能把未知规格写成已通过。
 
 versions记录真实结果引用/路径、轮次、使用的原始素材、变更范围和检查结果。final_path仅用于真实存在文件；不能填预期文件名冒充交付。所有引用相对本次运行目录或使用绝对路径，源文件不得覆盖。
 
