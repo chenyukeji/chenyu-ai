@@ -61,12 +61,15 @@ def _non_empty_strings(value):
     )
 
 
-def _mapping_sources(tasks, task_ids, field):
+def _mapping_sources(tasks, task_ids, field, image_id):
     values = set()
     for task_id in task_ids:
         task = tasks.get(task_id, {})
-        for item in task.get(field, []):
-            if isinstance(item, dict):
+        items = list(task.get(field, []))
+        if field == 'text_mappings':
+            items.extend(task.get('scene_cells', []))
+        for item in items:
+            if isinstance(item, dict) and item.get('source_image_id') == image_id:
                 source_key = 'source_content' if field == 'content_mappings' else 'source_text'
                 output_key = 'output_content' if field == 'content_mappings' else 'output_text'
                 if str(item.get(source_key, '')).strip() and str(item.get(output_key, '')).strip():
@@ -75,7 +78,7 @@ def _mapping_sources(tasks, task_ids, field):
 
 
 def validate_visual_contract(image_brief, errors):
-    """Validate product identity and first-link image-content coverage."""
+    """Validate product identity, task planning and all reference inventories."""
     if not isinstance(image_brief, dict):
         errors.append('$ image brief must be an object')
         return
@@ -101,15 +104,20 @@ def validate_visual_contract(image_brief, errors):
             errors.append(f'$.products contains duplicate id: {product_id}')
         product_images[product_id] = image_id
         image_source = str(product.get('product_content_image_source', '')).strip()
-        if image_source not in ('own_main', 'supplier', 'first_reference_main'):
+        if image_source not in ('own_main', 'supplier', 'confirmed_reference_main', 'first_reference_main'):
             errors.append(
                 f'$.products[{index}].product_content_image_source must be '
-                'own_main, supplier, or first_reference_main'
+                'own_main, supplier, or confirmed_reference_main (legacy first_reference_main accepted)'
             )
         source_ref = str(product.get('product_content_image_source_ref', '')).strip()
         if not source_ref:
             errors.append(f'$.products[{index}].product_content_image_source_ref is required')
         product_image_sources[product_id] = (image_source, source_ref)
+        if not str(product.get('visual_direction', '')).strip():
+            errors.append(f'$.products[{index}].visual_direction is required')
+        if image_source in ('confirmed_reference_main', 'first_reference_main'):
+            if not str(product.get('matching_basis', '')).strip():
+                errors.append(f'$.products[{index}].matching_basis is required for reference identity')
         if 'own_main_image_id' not in product or 'supplier_image_id' not in product:
             errors.append(
                 f'$.products[{index}] must record own_main_image_id and '
@@ -118,12 +126,13 @@ def validate_visual_contract(image_brief, errors):
         own_main_id = str(product.get('own_main_image_id', '')).strip()
         supplier_id = str(product.get('supplier_image_id', '')).strip()
         expected_source = 'own_main' if own_main_id else (
-            'supplier' if supplier_id else 'first_reference_main'
+            'supplier' if supplier_id else image_source
         )
-        if image_source != expected_source:
+        if image_source != expected_source or (not own_main_id and not supplier_id
+                and image_source not in ('confirmed_reference_main', 'first_reference_main')):
             errors.append(
                 f'$.products[{index}] must choose image source in '
-                'own_main → supplier → first_reference_main order'
+                'own_main → supplier → confirmed_reference_main order'
             )
         if own_main_id and image_id != own_main_id:
             errors.append(f'$.products[{index}] must use its own_main_image_id')
@@ -146,6 +155,9 @@ def validate_visual_contract(image_brief, errors):
         if task_id in tasks:
             errors.append(f'$.image_tasks contains duplicate id: {task_id}')
         tasks[task_id] = task
+        for field in ('buyer_question', 'new_information'):
+            if not str(task.get(field, '')).strip():
+                errors.append(f'$.image_tasks[{index}].{field} is required')
         instructions = str(task.get('instructions', ''))
         if not instructions.strip():
             errors.append(f'$.image_tasks[{index}].instructions is required')
@@ -165,40 +177,34 @@ def validate_visual_contract(image_brief, errors):
                 + ', '.join(unknown_products)
             )
 
-    for product_id in product_images:
+    for product in products:
+        if not isinstance(product, dict) or product.get('id') not in product_images:
+            continue
+        product_id = product['id']
         product_tasks = [
-            task for task in task_list
-            if isinstance(task, dict) and product_id in task.get('product_ids', [])
+            task for task in tasks.values()
+            if product_id in task.get('product_ids', [])
         ]
-        if not 6 <= len(product_tasks) <= 8:
+        if not 6 <= len(product_tasks) <= 8 and not str(product.get('task_count_reason', '')).strip():
             errors.append(
                 f'$.image_tasks must contain 6-8 tasks for product {product_id}; '
-                f'found {len(product_tasks)}'
+                f'found {len(product_tasks)}; otherwise provide task_count_reason'
             )
-            continue
         task_types = [task.get('type') for task in product_tasks]
-        if task_types[:3] != ['main_image', 'closeup_scene', 'size']:
-            errors.append(
-                f'$.image_tasks for product {product_id} must start with '
-                'main_image, closeup_scene, size'
-            )
-        if task_types[-2:] != ['key_scene', 'four_grid']:
-            errors.append(
-                f'$.image_tasks for product {product_id} must end with '
-                'key_scene, four_grid'
-            )
-        middle_types = task_types[3:-2]
-        allowed_middle = {'feature', 'advantage', 'process', 'detail'}
-        invalid_middle = [item for item in middle_types if item not in allowed_middle]
-        if invalid_middle:
-            errors.append(
-                f'$.image_tasks for product {product_id} has unsupported middle task '
-                'types: ' + ', '.join(map(str, invalid_middle))
-            )
+        if not task_types or task_types[0] != 'main_image' or task_types.count('main_image') != 1:
+            errors.append(f'$.image_tasks for product {product_id} must start with exactly one main_image')
+        seen_information = set()
+        for task in product_tasks:
+            information = ' '.join(words(task.get('new_information', '')))
+            if information and information in seen_information:
+                errors.append(f'$.image_tasks for product {product_id} repeats new_information: {task["id"]}')
+            seen_information.add(information)
 
     for task_id, task in tasks.items():
         task_type = task.get('type')
-        if task_type in ('closeup_scene', 'key_scene'):
+        if task_type not in {'main_image', 'detail', 'feature', 'advantage', 'process', 'packaging', 'size', 'scene', 'closeup_scene', 'key_scene', 'four_grid'}:
+            errors.append(f'$.image_tasks[{task_id}] has unsupported type: {task_type}')
+        if task_type in ('scene', 'closeup_scene', 'key_scene'):
             if not str(task.get('scene_mode', '')).strip():
                 errors.append(
                     f'$.image_tasks[{task_id}] {task_type} requires scene_mode'
@@ -206,6 +212,12 @@ def validate_visual_contract(image_brief, errors):
         instructions = str(task.get('instructions', ''))
         on_image_text = str(task.get('on_image_text', ''))
         if task_type == 'size':
+            evidence = task.get('dimension_source', {})
+            if not isinstance(evidence, dict) or evidence.get('kind') not in (
+                    'own_measurement', 'development', 'confirmed_same_product') or not str(evidence.get('source_ref', '')).strip():
+                errors.append(f'$.image_tasks[{task_id}] requires dimension_source from own or confirmed same-product evidence')
+            elif evidence['kind'] == 'confirmed_same_product' and not str(evidence.get('matching_basis', '')).strip():
+                errors.append(f'$.image_tasks[{task_id}] dimension_source requires matching_basis')
             support = task.get('supporting_visual')
             if not isinstance(support, dict):
                 errors.append(
@@ -218,19 +230,15 @@ def validate_visual_contract(image_brief, errors):
                         f'$.image_tasks[{task_id}].supporting_visual.kind must be '
                         'detail, scene, both, or none'
                     )
-                elif kind == 'none':
-                    if not str(support.get('omission_reason', '')).strip():
-                        errors.append(
-                            f'$.image_tasks[{task_id}] pure size image requires '
-                            'a specific supporting_visual.omission_reason'
-                        )
-                else:
+                elif kind != 'none':
                     description = str(support.get('description', '')).strip()
                     if not description or not str(support.get('source_ref', '')).strip():
                         errors.append(
                             f'$.image_tasks[{task_id}] supporting_visual requires '
                             'description and source_ref'
                         )
+                    if not str(support.get('dimension_relevance', '')).strip():
+                        errors.append(f'$.image_tasks[{task_id}] supporting_visual requires dimension_relevance')
                     if description and description not in instructions:
                         errors.append(
                             f'$.image_tasks[{task_id}] final instructions omit '
@@ -298,7 +306,8 @@ def validate_visual_contract(image_brief, errors):
                 )
             else:
                 for cell in scene_cells:
-                    if not isinstance(cell, dict):
+                    if not isinstance(cell, dict) or not str(cell.get('output_scene', '')).strip():
+                        errors.append(f'$.image_tasks[{task_id}] each scene cell requires output_scene')
                         continue
                     for field in ('output_scene', 'output_text'):
                         value = str(cell.get(field, '')).strip()
@@ -354,136 +363,43 @@ def validate_visual_contract(image_brief, errors):
             '$.image_tasks has no main_image task for products: ' + ', '.join(missing_main)
         )
 
+    # primary_reference retains the first inventory for storage compatibility only.
     primary = image_brief.get('primary_reference')
-    if not isinstance(primary, dict):
-        errors.append('$.primary_reference must record the first product link image inventory')
-        return
-    if not str(primary.get('asin', '')).strip():
-        errors.append('$.primary_reference.asin is required')
-    images = primary.get('images')
-    if not isinstance(images, list) or not images:
-        errors.append('$.primary_reference.images must contain the first link gallery')
-        return
-    first_reference_main_ids = {
-        str(source.get('id', '')).strip()
-        for source in images if isinstance(source, dict) and source.get('role') == 'main'
-    }
-    primary_asin = str(primary.get('asin', '')).strip()
-    for product_id, (image_source, source_ref) in product_image_sources.items():
-        if image_source == 'first_reference_main':
-            if product_images[product_id] not in first_reference_main_ids:
-                errors.append(
-                    f'$.products[{product_id}] first_reference_main image must match '
-                    'primary_reference main image id'
-                )
-            if primary_asin and primary_asin.upper() not in source_ref.upper():
-                errors.append(
-                    f'$.products[{product_id}] first_reference_main source_ref must cite '
-                    'primary_reference ASIN'
-                )
-    seen_image_ids = set()
-    has_main = False
-    for index, source in enumerate(images):
-        path = f'$.primary_reference.images[{index}]'
-        if not isinstance(source, dict):
-            errors.append(f'{path} must be an object')
-            continue
-        image_id = str(source.get('id', '')).strip()
-        if not image_id:
-            errors.append(f'{path}.id is required')
-        elif image_id in seen_image_ids:
-            errors.append(f'{path}.id is duplicated: {image_id}')
-        seen_image_ids.add(image_id)
-        role = str(source.get('role', '')).strip()
-        if role == 'main':
-            has_main = True
-        mapped_task_ids = source.get('mapped_task_ids', [])
-        omitted_reason = str(source.get('omitted_reason', '')).strip()
-        if mapped_task_ids and omitted_reason:
-            errors.append(f'{path} cannot be both mapped and omitted')
-        if not mapped_task_ids and not omitted_reason:
-            errors.append(f'{path} requires mapped_task_ids or a specific omitted_reason')
-            continue
-        if mapped_task_ids and not _non_empty_strings(mapped_task_ids):
-            errors.append(f'{path}.mapped_task_ids must be non-empty strings')
-            continue
-        unknown_tasks = [item for item in mapped_task_ids if item not in tasks]
-        if unknown_tasks:
-            errors.append(f'{path} maps to unknown tasks: ' + ', '.join(unknown_tasks))
-            continue
-        if role == 'main' and not any(
-                tasks.get(task_id, {}).get('type') == 'main_image'
-                for task_id in mapped_task_ids):
-            errors.append(f'{path} main source image must map to a main_image task')
-        if omitted_reason:
-            continue
-        content_elements = source.get('content_elements', [])
-        text_elements = source.get('text_elements', [])
-        if content_elements and not _non_empty_strings(content_elements):
-            errors.append(f'{path}.content_elements must contain non-empty strings')
-        if text_elements and not _non_empty_strings(text_elements):
-            errors.append(f'{path}.text_elements must contain non-empty strings')
-        mapped_content = _mapping_sources(tasks, mapped_task_ids, 'content_mappings')
-        mapped_text = _mapping_sources(tasks, mapped_task_ids, 'text_mappings')
-        missing_content = [item for item in content_elements if item not in mapped_content]
-        missing_text = [item for item in text_elements if item not in mapped_text]
-        if missing_content:
-            errors.append(f'{path} has unmapped content: ' + ', '.join(missing_content))
-        if missing_text:
-            errors.append(f'{path} has unmapped detail text: ' + ', '.join(missing_text))
-        scene_cells = source.get('scene_cells', [])
-        if role == 'four_grid':
-            if not isinstance(scene_cells, list) or len(scene_cells) != 4:
-                errors.append(f'{path} four_grid must record exactly four scene_cells')
-                continue
-            target_cells = []
-            for task_id in mapped_task_ids:
-                target_cells.extend(tasks.get(task_id, {}).get('scene_cells', []))
-            for cell_index, cell in enumerate(scene_cells):
-                if not isinstance(cell, dict):
-                    errors.append(f'{path}.scene_cells[{cell_index}] must be an object')
-                    continue
-                source_scene = str(cell.get('source_scene', '')).strip()
-                source_text = str(cell.get('source_text', '')).strip()
-                if not source_scene:
-                    errors.append(
-                        f'{path}.scene_cells[{cell_index}] requires source_scene'
-                    )
-                    continue
-                match = next((item for item in target_cells if isinstance(item, dict)
-                              and str(item.get('source_scene', '')).strip() == source_scene
-                              and str(item.get('source_text', '')).strip() == source_text), None)
-                if (not match or not str(match.get('output_scene', '')).strip()
-                        or (source_text and not str(match.get('output_text', '')).strip())):
-                    errors.append(
-                        f'{path}.scene_cells[{cell_index}] is missing a complete output '
-                        'scene/text mapping'
-                    )
-    if not has_main:
-        errors.append('$.primary_reference.images must include the first link main image')
-
-    additional = image_brief.get('additional_references')
+    additional = image_brief.get('additional_references', [])
     if not isinstance(additional, list):
-        errors.append('$.additional_references must list other competitor image inventories (empty when none)')
+        errors.append('$.additional_references must be a list')
         return
-    for ref_index, reference in enumerate(additional):
-        ref_path = f'$.additional_references[{ref_index}]'
+    references = ([] if primary is None else [('$.primary_reference', primary)]) + [
+        (f'$.additional_references[{i}]', ref) for i, ref in enumerate(additional)
+    ]
+    seen_images = {}
+    for ref_path, reference in references:
         if not isinstance(reference, dict) or not str(reference.get('asin', '')).strip():
             errors.append(f'{ref_path}.asin is required')
             continue
-        ref_images = reference.get('images')
-        if not isinstance(ref_images, list) or not ref_images:
-            errors.append(f'{ref_path}.images must record useful images from this link')
+        status = reference.get('coverage_status')
+        if status not in ('complete', 'partial', 'failed'):
+            errors.append(f'{ref_path}.coverage_status must be complete, partial, or failed')
+        if status in ('partial', 'failed') and not str(reference.get('coverage_note', '')).strip():
+            errors.append(f'{ref_path}.coverage_note must describe missing coverage or failure')
+        images = reference.get('images')
+        if not isinstance(images, list):
+            errors.append(f'{ref_path}.images must be a list')
             continue
-        for image_index, source in enumerate(ref_images):
-            path = f'{ref_path}.images[{image_index}]'
+        if status in ('complete', 'partial') and not images:
+            errors.append(f'{ref_path}.images cannot be empty for readable coverage')
+        if status == 'failed' and images:
+            errors.append(f'{ref_path} has images; use partial coverage instead of failed')
+        for index, source in enumerate(images):
+            path = f'{ref_path}.images[{index}]'
             if not isinstance(source, dict):
                 errors.append(f'{path} must be an object')
                 continue
             image_id = str(source.get('id', '')).strip()
-            if not image_id or image_id in seen_image_ids:
+            if not image_id or image_id in seen_images:
                 errors.append(f'{path}.id is missing or duplicated')
-            seen_image_ids.add(image_id)
+                continue
+            seen_images[image_id] = (reference, source)
             task_ids = source.get('mapped_task_ids', [])
             omitted = str(source.get('omitted_reason', '')).strip()
             if bool(task_ids) == bool(omitted):
@@ -494,17 +410,90 @@ def validate_visual_contract(image_brief, errors):
             if not _non_empty_strings(task_ids) or any(item not in tasks for item in task_ids):
                 errors.append(f'{path}.mapped_task_ids must cite existing tasks')
                 continue
-            for field, source_key, message in (
-                    ('content_mappings', 'content_elements', 'content'),
-                    ('text_mappings', 'text_elements', 'detail text')):
+            omitted_elements = source.get('omitted_elements', [])
+            if not isinstance(omitted_elements, list):
+                errors.append(f'{path}.omitted_elements must be a list')
+                omitted_elements = []
+            exclusions = {'content': set(), 'text': set(), 'scene': set()}
+            for item in omitted_elements:
+                if (not isinstance(item, dict) or item.get('kind') not in exclusions
+                        or not str(item.get('value', '')).strip() or not str(item.get('reason', '')).strip()):
+                    errors.append(f'{path}.omitted_elements require kind, value and reason')
+                    continue
+                exclusions[item['kind']].add(item['value'])
+            # Omitting a source cell also omits its label when repeated in text_elements.
+            scene_labels_omitted = {
+                str(cell.get('source_text', '')).strip()
+                for cell in source.get('scene_cells', []) if isinstance(cell, dict)
+                and cell.get('source_scene') in exclusions['scene']
+            }
+            for field, source_key, kind, message in (
+                    ('content_mappings', 'content_elements', 'content', 'content'),
+                    ('text_mappings', 'text_elements', 'text', 'detail text')):
                 elements = source.get(source_key, [])
-                if elements and not _non_empty_strings(elements):
+                if not isinstance(elements, list) or (elements and not _non_empty_strings(elements)):
                     errors.append(f'{path}.{source_key} must contain non-empty strings')
                     continue
-                mapped = _mapping_sources(tasks, task_ids, field)
-                missing = [item for item in elements if item not in mapped]
+                mapped = _mapping_sources(tasks, task_ids, field, image_id)
+                if exclusions[kind] - set(elements):
+                    errors.append(f'{path} has exclusions for unknown {kind}')
+                if exclusions[kind] & mapped:
+                    errors.append(f'{path} {kind} cannot be both mapped and omitted')
+                omitted_values = exclusions[kind] | (scene_labels_omitted if kind == 'text' else set())
+                missing = [item for item in elements if item not in mapped | omitted_values]
                 if missing:
                     errors.append(f'{path} has unmapped {message}: ' + ', '.join(missing))
+            if source.get('role') == 'four_grid':
+                cells = source.get('scene_cells', [])
+                if not isinstance(cells, list) or len(cells) != 4:
+                    errors.append(f'{path} four_grid must record exactly four scene_cells')
+                    continue
+                target_cells = [cell for task_id in task_ids for cell in tasks[task_id].get('scene_cells', [])
+                                if isinstance(cell, dict) and cell.get('source_image_id') == image_id]
+                known_scenes = {cell.get('source_scene') for cell in cells if isinstance(cell, dict)}
+                if exclusions['scene'] - known_scenes:
+                    errors.append(f'{path} has exclusions for unknown scene')
+                for cell_index, cell in enumerate(cells):
+                    if not isinstance(cell, dict) or not str(cell.get('source_scene', '')).strip():
+                        errors.append(f'{path}.scene_cells[{cell_index}] requires source_scene')
+                        continue
+                    scene, label = cell['source_scene'], str(cell.get('source_text', '')).strip()
+                    match = next((item for item in target_cells if item.get('source_scene') == scene
+                                  and item.get('source_text', '') == label), None)
+                    if scene in exclusions['scene']:
+                        if match:
+                            errors.append(f'{path} scene cannot be both mapped and omitted: {scene}')
+                        continue
+                    if not match or not str(match.get('output_scene', '')).strip() or (label and not str(match.get('output_text', '')).strip()):
+                        errors.append(f'{path}.scene_cells[{cell_index}] is missing a complete output scene/text mapping')
+
+    for product_id, (image_source, source_ref) in product_image_sources.items():
+        if image_source not in ('confirmed_reference_main', 'first_reference_main'):
+            continue
+        reference, source = seen_images.get(product_images[product_id], ({}, {}))
+        if source.get('role') != 'main':
+            errors.append(f'$.products[{product_id}] {image_source} image must match a recorded reference main image')
+        elif str(reference.get('asin', '')).upper() not in source_ref.upper():
+            errors.append(f'$.products[{product_id}] reference source_ref must cite its ASIN')
+
+    # Enforce source identity as well as matching source strings across all links.
+    for task_id, task in tasks.items():
+        for field in ('content_mappings', 'text_mappings', 'scene_cells'):
+            for mapping in task.get(field, []):
+                if not isinstance(mapping, dict):
+                    errors.append(f'$.image_tasks[{task_id}].{field} entries must be objects')
+                    continue
+                if field == 'scene_cells' and not mapping.get('source_scene'):
+                    continue  # An original scene may have no competitor source.
+                image_id = mapping.get('source_image_id')
+                _, source = seen_images.get(image_id, ({}, {}))
+                if not source or task_id not in source.get('mapped_task_ids', []):
+                    errors.append(f'$.image_tasks[{task_id}].{field} requires a mapped source_image_id')
+                if field == 'scene_cells':
+                    for key in ('output_scene', 'output_text'):
+                        value = str(mapping.get(key, '')).strip()
+                        if value and value not in str(task.get('instructions', '')):
+                            errors.append(f'$.image_tasks[{task_id}] final instructions omit scene {key}: {value}')
 
 
 def validate(image_brief):

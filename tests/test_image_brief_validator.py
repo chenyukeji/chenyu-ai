@@ -14,7 +14,7 @@ SPEC.loader.exec_module(VALIDATOR)
 
 
 def package():
-    return {
+    data = {
         'products': [
             {'id': 'V1', 'product_content_image_id': 'product-v1',
              'product_content_image_source': 'own_main',
@@ -124,6 +124,30 @@ def package():
         ],
     }
 
+    data['products'][0]['visual_direction'] = '白底配灰绿标题，左侧主体右侧信息，柔光展现表面，统一短标签层级。'
+    data['primary_reference']['coverage_status'] = 'complete'
+    questions = [
+        ('售卖什么产品？', '外形与售卖件数'),
+        ('内部结构是什么？', '过滤层的组成'),
+        ('能否放入目标位置？', '三个测量方向及接口位置'),
+        ('怎样安装？', '安装动作顺序'),
+        ('在哪里使用？', '冷藏室内的放置位置'),
+        ('还有哪些适用环境？', '四种不同环境的用途'),
+    ]
+    for task, (question, information) in zip(data['image_tasks'], questions):
+        task['buyer_question'], task['new_information'] = question, information
+        task.setdefault('on_image_text', '')
+        for field in ('content_mappings', 'text_mappings'):
+            for mapping in task[field]:
+                mapping['source_image_id'] = {'T1': 'source-main', 'T2': 'source-detail', 'T5': 'source-scenes'}[task['id']]
+        for cell in task.get('scene_cells', []):
+            cell['source_image_id'] = 'source-scenes'
+    data['image_tasks'][3]['type'] = 'process'
+    data['image_tasks'][3]['instructions'] = '分步展示放置产品的动作顺序。'
+    data['image_tasks'][2]['dimension_source'] = {'kind': 'development', 'source_ref': '开发资料 V1 三方向尺寸'}
+    data['image_tasks'][2]['supporting_visual']['dimension_relevance'] = '接口定位帮助理解测量起点'
+    return data
+
 
 def test_dynamic_six_task_plan_is_valid():
     result = VALIDATOR.validate(package())
@@ -137,6 +161,7 @@ def test_first_link_main_image_is_valid_fallback_with_source_trace():
     product['supplier_image_id'] = ''
     product['product_content_image_id'] = 'source-main'
     product['product_content_image_source'] = 'first_reference_main'
+    product['matching_basis'] = '采购资料确认同款及当前规格'
     product['product_content_image_source_ref'] = 'B012345678 main image'
     data['image_tasks'][0]['product_image_ids'] = ['source-main']
     assert VALIDATOR.validate(data)['ready_for_delivery']
@@ -203,8 +228,6 @@ def test_main_image_must_use_exact_product_content_image_and_identity_lock():
     assert any('must exactly match 产品内容 images' in item for item in result['errors'])
     assert any('identity_lock omits: quantity_components' in item
                for item in result['errors'])
-    assert any('main source image must map to a main_image task' in item
-               for item in result['errors'])
 
 
 def test_detail_text_and_four_grid_scene_text_cannot_be_dropped():
@@ -227,7 +250,7 @@ def test_execution_instructions_do_not_narrate_reference_images():
     assert any('narrates source-image usage' in item for item in result['errors'])
 
 
-def test_each_product_requires_six_to_eight_tasks_in_fixed_outer_order():
+def test_default_count_is_per_product_with_explicit_exception():
     data = package()
     assert VALIDATOR.validate(data)['ready_for_delivery']
 
@@ -241,7 +264,8 @@ def test_each_product_requires_six_to_eight_tasks_in_fixed_outer_order():
     for task_id, task_type in [('T-M2', 'process'), ('T-M3', 'detail')]:
         data['image_tasks'].insert(-2, {
             'id': task_id, 'type': task_type, 'product_ids': ['V1'],
-            'instructions': '依据竞品图册适用内容，展示本品独立信息。',
+            'instructions': '展示有依据的独立信息。',
+            'buyer_question': task_id + ' 所需判断？', 'new_information': task_id + ' 新增信息',
             'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
         })
     assert VALIDATOR.validate(data)['ready_for_delivery']
@@ -282,7 +306,7 @@ def test_size_labels_require_both_units_and_correct_conversion():
 def test_competitor_descriptions_can_merge_into_one_final_image():
     data = package()
     data['additional_references'] = [{
-        'asin': 'B0OTHER123',
+        'asin': 'B0OTHER123', 'coverage_status': 'complete',
         'images': [
             {'id': 'fleece-closeup', 'role': 'detail',
              'content_elements': ['fleece interior close-up'],
@@ -294,12 +318,12 @@ def test_competitor_descriptions_can_merge_into_one_final_image():
     }]
     task = data['image_tasks'][1]
     task['content_mappings'].extend([
-        {'source_content': 'fleece interior close-up', 'output_content': '本品绒布内里'},
-        {'source_content': 'stitched opening', 'output_content': '本品缝线开口'},
+        {'source_image_id': 'fleece-closeup', 'source_content': 'fleece interior close-up', 'output_content': '本品绒布内里'},
+        {'source_image_id': 'stitched-edge', 'source_content': 'stitched opening', 'output_content': '本品缝线开口'},
     ])
     task['text_mappings'].extend([
-        {'source_text': 'Warm Fabric', 'output_text': 'Fleece Lining'},
-        {'source_text': 'Comfort Fit', 'output_text': 'Under Helmet'},
+        {'source_image_id': 'fleece-closeup', 'source_text': 'Warm Fabric', 'output_text': 'Fleece Lining'},
+        {'source_image_id': 'stitched-edge', 'source_text': 'Comfort Fit', 'output_text': 'Under Helmet'},
     ])
     task['instructions'] += ' 展示本品绒布内里与本品缝线开口；同一张图加入 Fleece Lining 和 Under Helmet 两个短标签。'
     assert VALIDATOR.validate(data)['ready_for_delivery']
@@ -354,7 +378,8 @@ def test_size_visual_adds_distinct_evidence_or_explains_pure_size():
     assert any('size task requires supporting_visual' in item for item in result['errors'])
 
     size['supporting_visual'] = {'kind': 'scene', 'description': '厨房台面使用局部',
-                                 'source_ref': 'V1 verified use photo'}
+                                 'source_ref': 'V1 verified use photo',
+                                 'dimension_relevance': '展示安装空间与产品尺寸的关系'}
     result = VALIDATOR.validate(data)
     assert any('final instructions omit supporting visual' in item for item in result['errors'])
     size['instructions'] += ' 厨房台面使用局部。'
@@ -365,8 +390,130 @@ def test_size_visual_adds_distinct_evidence_or_explains_pure_size():
     assert any('supporting visual repeats task T4' in item for item in result['errors'])
 
     size['supporting_visual'] = {'kind': 'none'}
-    result = VALIDATOR.validate(data)
-    assert any('pure size image requires' in item for item in result['errors'])
-    size['supporting_visual']['omission_reason'] = 'User requested pure size'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
     size['instructions'] = size['instructions'].replace(' 厨房台面使用局部。', '')
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_flexible_order_and_optional_scenes_with_pure_size():
+    data = package()
+    # Six tasks may use a size image second and have no final four-grid or scene.
+    data['image_tasks'][1], data['image_tasks'][2] = data['image_tasks'][2], data['image_tasks'][1]
+    size = data['image_tasks'][1]
+    size['supporting_visual'] = {'kind': 'none'}
+    for task in data['image_tasks']:
+        if task['type'] in ('closeup_scene', 'key_scene', 'four_grid'):
+            task['type'] = 'detail'
+            task.pop('scene_mode', None)
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_short_plan_requires_reason_but_not_filler():
+    data = package()
+    data['image_tasks'].pop(3)
+    data['products'][0]['task_count_reason'] = '五个独立问题已覆盖，追加特点图会重复过滤层结构'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_all_links_have_equal_selection_and_omission_rules():
+    data = package()
+    primary = data['primary_reference']
+    main = primary['images'].pop(0)
+    main['id'] = 'better-main'
+    data['additional_references'] = [{'asin': 'B0BETTER12', 'coverage_status': 'complete', 'images': [main]}]
+    # First link has a poorer main; it is evaluated and omitted.
+    primary['images'].insert(0, {'id': 'poor-main', 'role': 'main', 'omitted_reason': '主体过小，另一来源构图更清楚'})
+    data['image_tasks'][0]['content_mappings'][0]['source_image_id'] = 'better-main'
+    product = data['products'][0]
+    product.update(own_main_image_id='', product_content_image_source='confirmed_reference_main',
+                   product_content_image_id='better-main', product_content_image_source_ref='B0BETTER12 当前变体主图',
+                   matching_basis='采购确认对应同款同规格')
+    data['image_tasks'][0]['product_image_ids'] = ['better-main']
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    del product['matching_basis']
+    assert not VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_partial_content_selection_requires_specific_reason():
+    data = package()
+    source = data['primary_reference']['images'][1]
+    source['text_elements'].append('Premium Quality')
+    assert not VALIDATOR.validate(data)['ready_for_delivery']
+    source['omitted_elements'] = [{'kind': 'text', 'value': 'Premium Quality', 'reason': '泛化品质口号，结构图无法直接证明'}]
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    source['omitted_elements'][0]['reason'] = ''
+    assert not VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_source_grid_can_be_reduced_without_forcing_final_grid():
+    data = package()
+    source = data['primary_reference']['images'][2]
+    task = data['image_tasks'][5]
+    source['text_elements'] = ['Kitchen', 'Office', 'Travel', 'Bedroom']
+    task['type'] = 'scene'
+    task['scene_mode'] = '保留有依据的厨房用途'
+    task['instructions'] = '厨房场景，短标签 Kitchen。'
+    task['scene_cells'] = task['scene_cells'][:1]
+    task['content_mappings'] = []
+    source['omitted_elements'] = [
+        {'kind': 'content', 'value': 'four use scenes', 'reason': '其余用途不适用本品'},
+        *[{'kind': 'scene', 'value': name, 'reason': '无本品使用依据'} for name in ('office', 'travel', 'bedroom')],
+    ]
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    source['omitted_elements'].pop()
+    assert not VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_matching_words_from_another_source_do_not_satisfy_coverage():
+    data = package()
+    source = copy.deepcopy(data['primary_reference']['images'][1])
+    source['id'] = 'other-detail'
+    data['additional_references'] = [{'asin': 'B0OTHER123', 'coverage_status': 'complete', 'images': [source]}]
+    result = VALIDATOR.validate(data)
+    assert any('additional_references[0]' in error and 'unmapped' in error for error in result['errors'])
+
+
+def test_no_reference_assets_and_failed_link_are_supported():
+    data = package()
+    data['primary_reference'] = None
+    for task in data['image_tasks']:
+        task['content_mappings'] = []
+        task['text_mappings'] = []
+        for cell in task['scene_cells']:
+            for key in ('source_image_id', 'source_scene', 'source_text'):
+                cell.pop(key, None)
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    data['additional_references'] = [{'asin': 'B0FAILED12', 'coverage_status': 'failed', 'images': []}]
+    assert not VALIDATOR.validate(data)['ready_for_delivery']
+    data['additional_references'][0]['coverage_note'] = '补查后仍访问失败，主图/图册/A+ 均未读到'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_visual_direction_duplicate_information_and_dimension_evidence():
+    data = package()
+    data['products'][0]['visual_direction'] = ''
+    data['image_tasks'][3]['new_information'] = data['image_tasks'][1]['new_information']
+    data['image_tasks'][2]['dimension_source']['kind'] = 'similar_competitor'
+    data['image_tasks'][2]['supporting_visual']['dimension_relevance'] = ''
+    errors = VALIDATOR.validate(data)['errors']
+    for expected in ('visual_direction', 'repeats new_information', 'dimension_source', 'dimension_relevance'):
+        assert any(expected in error for error in errors)
+
+
+def test_multiple_products_are_not_limited_to_eight_total_tasks():
+    data = package()
+    variant = copy.deepcopy(data['products'][0])
+    variant['id'] = 'V2'
+    data['products'].append(variant)
+    extra = copy.deepcopy(data['image_tasks'])
+    for task in extra:
+        task['id'] += '-V2'
+        task['product_ids'] = ['V2']
+        task['content_mappings'] = []
+        task['text_mappings'] = []
+        for cell in task['scene_cells']:
+            for key in ('source_image_id', 'source_scene', 'source_text'):
+                cell.pop(key, None)
+    data['image_tasks'].extend(extra)
+    assert len(data['image_tasks']) == 12
     assert VALIDATOR.validate(data)['ready_for_delivery']
