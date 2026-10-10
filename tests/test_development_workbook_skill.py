@@ -42,3 +42,28 @@ def test_skill_contract_requires_one_workbook_per_product():
     text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
     assert "每个产品必须独立生成一个 Excel 文件" in text
     assert "同一核心产品的颜色、尺寸、数量或图案变体保留在同一个文件" in text
+
+
+def test_confirmation_requires_available_competitor_links():
+    validator = load_validator()
+    research = [
+        {12: "https://www.amazon.com/dp/B0F9FG1GV5"},
+        {12: "https://www.amazon.com/example/dp/B0FR4P2J4W/ref=tracking?tag=example"},
+    ]
+    errors = validator._confirmation_link_errors(research, {9: "/", 10: "/"})
+    assert any("亚马逊链接为空" in error for error in errors)
+    assert any("亚马逊链接2为空" in error for error in errors)
+    assert any("未带入" in error for error in errors)
+
+    assert validator._confirmation_link_errors(
+        research,
+        {9: research[0][12], 10: "https://www.amazon.com/dp/B0FR4P2J4W", 11: "/"},
+    ) == []
+    assert validator._confirmation_link_errors(
+        research,
+        {9: "https://www.amazon.com/dp/B0OWNASIN01", 10: research[0][12], 11: "B0OWNASIN01"},
+    ) == []
+    assert "产品确认的两条亚马逊链接重复" in validator._confirmation_link_errors(
+        research,
+        {9: research[0][12], 10: research[0][12] + "?tag=tracking"},
+    )

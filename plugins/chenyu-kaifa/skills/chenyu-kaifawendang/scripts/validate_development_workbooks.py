@@ -9,6 +9,7 @@ import re
 import sys
 import zipfile
 from pathlib import Path
+from urllib.parse import urlsplit
 from xml.etree import ElementTree as ET
 
 
@@ -43,6 +44,7 @@ CONFIRM_HEADERS = {
     "成本（元）",
     "重量（g）",
     "亚马逊链接",
+    "亚马逊链接2",
     "ASIN",
     "图片/视频建议",
     "采购链接1",
@@ -106,6 +108,34 @@ def _headers(rows: dict[int, dict[int, str]], row_numbers: tuple[int, ...]) -> s
 
 def _present(value: str | None) -> bool:
     return bool(value and value.strip() != "/")
+
+
+def _amazon_product_key(url: str) -> str:
+    parsed = urlsplit(url.strip())
+    match = re.search(r"/(?:dp|gp/product)/([A-Z0-9]{10})(?:/|$)", parsed.path, re.I)
+    if match and parsed.hostname:
+        return f"{parsed.hostname.lower().removeprefix('www.')}:{match.group(1).upper()}"
+    return url.strip()
+
+
+def _confirmation_link_errors(research_rows: list[dict[int, str]], confirm_row: dict[int, str]) -> list[str]:
+    references = {_amazon_product_key(row[12]) for row in research_rows if _present(row.get(12))}
+    if not references:
+        return []
+    first = confirm_row.get(9, "")
+    second = confirm_row.get(10, "")
+    errors = []
+    if not _present(first):
+        errors.append("产品确认的亚马逊链接为空；应填写本产品链接或主参考商品链接")
+    if len(references) > 1 and not _present(second):
+        errors.append("产品确认的亚马逊链接2为空；应填写另一条参考商品链接")
+    if _present(first) and _present(second) and _amazon_product_key(first) == _amazon_product_key(second):
+        errors.append("产品确认的两条亚马逊链接重复")
+    if not any(_amazon_product_key(link) in references for link in (first, second) if _present(link)):
+        errors.append("产品确认未带入参考产品信息调研中的竞品链接")
+    if len(references) > 1 and _present(second) and _amazon_product_key(second) not in references:
+        errors.append("产品确认的亚马逊链接2应填写另一条参考商品链接")
+    return errors
 
 
 def inspect_workbook(path: Path, template: bool = False) -> dict:
@@ -192,6 +222,8 @@ def inspect_workbook(path: Path, template: bool = False) -> dict:
                 report["warnings"].append("母版产品确认区包含示例值")
         elif len(confirm_rows) != 1:
             report["errors"].append(f"产品确认应只有 1 个产品记录，实际为 {len(confirm_rows)} 个")
+        else:
+            report["errors"].extend(_confirmation_link_errors(research_rows, confirm_rows[0]))
 
         if not template and sheets[2]["name"] in {"产品详情", "产品详情母版", "Sheet3"}:
             report["errors"].append("第三张表必须改为当前产品简称")
