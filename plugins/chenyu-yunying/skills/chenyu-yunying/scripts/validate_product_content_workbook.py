@@ -123,11 +123,13 @@ def _size_image_errors(archive: ZipFile, shared: list[str]) -> list[str]:
             number = row.get('r', '')
             cells = {cell.get('r', ''): _cell_value(cell, shared).strip()
                      for cell in row.findall(f'{{{MAIN}}}c')}
-            if not cells.get(f'A{number}', '').startswith('第三张'):
-                continue
             brief = next((value for address, value in cells.items()
                           if value and address != f'A{number}'
-                          and ('尺寸图' in value or '头围图' in value)), '')
+                          and re.search(r'(?:^|\n|[｜|])\s*(?:图片类型\s*[：:]\s*)?'
+                                        r'(?:尺寸图|头围图|Product Size)(?=$|[\s。；：:｜|])',
+                                        value, re.IGNORECASE)), '')
+            if not brief:
+                continue
             pairs = SIZE_PAIR.findall(brief)
             if not pairs:
                 errors.append(f'作图要求 row {number} size image requires paired cm / in labels')

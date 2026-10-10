@@ -107,3 +107,45 @@ def test_size_image_without_inches_is_rejected():
     assert not result['ready_for_delivery']
     assert any('size image requires paired cm / in labels' in error
                for error in result['errors'])
+
+
+def test_size_checks_follow_task_type_instead_of_third_position():
+    def reorder(content):
+        root = ET.fromstring(content)
+        replacements = {
+            'A4': '第三张',
+            'G4': '图片类型：手托吊坠细节\n只展示吊坠结构，不重复尺寸图。',
+            'A5': '第四张',
+            'G5': '图片类型：尺寸图\n链身 40 cm / 15.75 in，延长 5 cm / 1.97 in。',
+        }
+        for address, value in replacements.items():
+            cell = root.find(f'.//{{{MAIN}}}c[@r="{address}"]')
+            for child in list(cell):
+                cell.remove(child)
+            cell.set('t', 'inlineStr')
+            ET.SubElement(ET.SubElement(cell, f'{{{MAIN}}}is'), f'{{{MAIN}}}t').text = value
+        return ET.tostring(root, encoding='utf-8')
+
+    with TemporaryDirectory() as temporary:
+        path = Path(temporary) / 'reordered.xlsx'
+        altered_workbook(path, reorder, 'xl/worksheets/sheet2.xml')
+        result = VALIDATOR.validate(path)
+    assert result['ready_for_delivery'], result['errors']
+
+
+def test_size_task_outside_third_position_still_requires_inches():
+    def add_size_task(content):
+        root = ET.fromstring(content)
+        for address, value in {'A5': '第四张', 'G5': '图片类型：尺寸图\n链身 40 cm。'}.items():
+            cell = root.find(f'.//{{{MAIN}}}c[@r="{address}"]')
+            for child in list(cell):
+                cell.remove(child)
+            cell.set('t', 'inlineStr')
+            ET.SubElement(ET.SubElement(cell, f'{{{MAIN}}}is'), f'{{{MAIN}}}t').text = value
+        return ET.tostring(root, encoding='utf-8')
+
+    with TemporaryDirectory() as temporary:
+        path = Path(temporary) / 'fourth-size.xlsx'
+        altered_workbook(path, add_size_task, 'xl/worksheets/sheet2.xml')
+        result = VALIDATOR.validate(path)
+    assert any('row 5 size image requires paired cm / in labels' in e for e in result['errors'])
