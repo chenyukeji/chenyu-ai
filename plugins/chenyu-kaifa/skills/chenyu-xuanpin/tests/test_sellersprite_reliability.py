@@ -2,6 +2,7 @@ import json
 import sys
 import tempfile
 import unittest
+import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -283,6 +284,64 @@ class PartialEnrichmentTests(unittest.TestCase):
         self.assertEqual(result['counts']['enriched'], 1)
         self.assertEqual({row['asin'] for row in result['records']}, {other})
         self.assertEqual({(row['asin'], row['status']) for row in result['outcomes']}, {(ASIN, 'query_failed'), (other, 'enriched')})
+
+    def test_one_parse_error_does_not_stop_other_asins(self):
+        other = 'B0HBQ6N1ZC'
+        page = MagicMock()
+        with patch.object(collector, '_require_playwright', return_value=MagicMock()), \
+             patch.object(collector, '_launch_context', return_value=(MagicMock(), page, Path('/tmp/profile'))), \
+             patch.object(collector, '_sellersprite_credentials', return_value=('', '', None)), \
+             patch.object(collector, '_wait_for_sellersprite_session', return_value=None), \
+             patch.object(collector, '_select_sellersprite_market', return_value='德国站'), \
+             patch.object(collector, '_goto'), \
+             patch.object(collector, '_query_sellersprite_batch', return_value=([], 500, 'query_parse_error')), \
+             patch.object(collector, '_wait_sellersprite_query', side_effect=[([], 500, 'query_parse_error'), ([], 500, 'query_parse_error'), ([{'asin': other}], 500, 'matched')]) as query:
+            result = collector.collect_sellersprite_by_asin({'marketplace': 'DE', 'asins': [ASIN, other], 'query_delay_ms': 0})
+        self.assertEqual(query.call_count, 3)
+        self.assertEqual(result['collection_status'], 'partial')
+        self.assertIsNone(result['block_reason'])
+        self.assertEqual({row['asin'] for row in result['records']}, {other})
+        self.assertIn({'asin': ASIN, 'status': 'query_failed', 'record_count': 0, 'elapsed_ms': 500,
+                       'stop_reason': 'query_parse_error', 'query_mode': 'single_fallback'}, result['outcomes'])
+
+    def test_parse_error_skips_workbook_row_and_resume_retries(self):
+        other = 'B0HBQ6N1ZC'
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            requested = [
+                {'marketplace': 'DE', 'asin': ASIN, 'new_release_rank': 2},
+                {'marketplace': 'DE', 'asin': other, 'new_release_rank': 3},
+            ]
+            def enriched(asin):
+                return {'marketplace': 'DE', 'asin': asin, 'product_name': 'Fixture product',
+                        'source_available_date': '2026-09-01', 'review_count': 5, 'price': 19.99,
+                        'bsr': 100, 'category_name': 'Fixture', 'estimated_sales': 300}
+            args = {'request': 'fixture', 'run_dir': str(root), 'output_path': str(root / '开品结果.xlsx'),
+                    'discovery_records': requested, 'as_of_date': '2026-09-24'}
+            first = {'collection_status': 'partial', 'block_reason': None,
+                     'records': [enriched(other)],
+                     'outcomes': [{'asin': ASIN, 'status': 'query_failed', 'stop_reason': 'query_parse_error'},
+                                  {'asin': other, 'status': 'enriched', 'stop_reason': 'matched'}]}
+            with patch.object(run, 'collect_sellersprite_by_asin', return_value=first):
+                partial = run.run_discovery_flow(args)
+            self.assertEqual(partial['status'], 'PARTIAL')
+            self.assertTrue(Path(partial['workbook']['path']).is_file())
+            manifest = json.loads((root / '00-run.json').read_text(encoding='utf-8'))
+            self.assertEqual(manifest['skipped_asins'], [{'marketplace': 'DE', 'asin': ASIN, 'reason': 'query_parse_error'}])
+            self.assertEqual(len(json.loads((root / '09-screening.json').read_text(encoding='utf-8'))['results']), 1)
+            with zipfile.ZipFile(partial['workbook']['path']) as workbook:
+                sheet = workbook.read('xl/worksheets/sheet1.xml').decode('utf-8')
+            self.assertNotIn(ASIN, sheet)
+            self.assertIn(other, sheet)
+            second = {'collection_status': 'complete', 'block_reason': None,
+                      'records': [enriched(ASIN)],
+                      'outcomes': [{'asin': ASIN, 'status': 'enriched', 'stop_reason': 'matched'}]}
+            with patch.object(run, 'collect_sellersprite_by_asin', return_value=second) as query:
+                completed = run.run_discovery_flow(args)
+            self.assertEqual(query.call_args.args[0]['asins'], [ASIN])
+            self.assertEqual(completed['status'], 'COMPLETE')
+            self.assertEqual(len(json.loads((root / '09-screening.json').read_text(encoding='utf-8'))['results']), 2)
+            self.assertFalse(json.loads((root / '00-run.json').read_text(encoding='utf-8')).get('skipped_asins'))
 
     def test_partial_workbook_marks_unmatched_asin_and_resume_clears_warning(self):
         with tempfile.TemporaryDirectory() as folder:

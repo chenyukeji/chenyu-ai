@@ -60,6 +60,7 @@ SELLERSPRITE_FIELDS = (
     "estimated_sales",
     "image_url",
 )
+SKIPPED_ENRICHMENT_REASONS = {"query_parse_error"}
 
 
 class ContractError(ValueError):
@@ -335,6 +336,14 @@ def _enrich_records_from_sellersprite(
                 outcome_by_asin[asin] = outcome
         outcomes = list(outcome_by_asin.values())
         enriched_asins = {key[1] for key in deduped}
+        skipped = [
+            {"marketplace": market, "asin": asin, "reason": outcome.get("stop_reason")}
+            for asin, outcome in outcome_by_asin.items()
+            if asin in target_asins and asin not in enriched_asins
+            and outcome.get("status") == "query_failed"
+            and outcome.get("stop_reason") in SKIPPED_ENRICHMENT_REASONS
+        ]
+        manifest.setdefault("skipped_asins", []).extend(skipped)
         status = "complete" if all(asin in enriched_asins for asin in target_asins) else "partial"
         block_reasons = [result.get("block_reason") for result in query_results if result.get("block_reason")]
         raw_payload = {
@@ -352,6 +361,7 @@ def _enrich_records_from_sellersprite(
                 ]),
                 "enriched": len([asin for asin in target_asins if asin in enriched_asins]),
                 "missing": len([asin for asin in target_asins if asin not in enriched_asins]),
+                "skipped": len(skipped),
             },
         }
         manifest["artifacts"][f"sellersprite_{market.lower()}_raw"] = _write_json(raw_path, raw_payload)
@@ -366,9 +376,15 @@ def _enrich_records_from_sellersprite(
             manifest.setdefault("enrichment_blocking_items", []).extend(block_reasons)
         if raw_payload["collection_status"] != "complete":
             manifest["enrichment_incomplete"] = True
-            manifest["warnings"].append(
-                f"{market} 卖家精灵补数未完整：{raw_payload['counts']['missing']} 个 ASIN 未补齐，相关商品标记待补数据。"
-            )
+            if skipped:
+                manifest["warnings"].append(
+                    f"{market} 卖家精灵补数未完整：{len(skipped)} 个 ASIN 解析失败，已跳过并保留原始查询证据。"
+                )
+            pending = raw_payload["counts"]["missing"] - len(skipped)
+            if pending:
+                manifest["warnings"].append(
+                    f"{market} 卖家精灵补数未完整：{pending} 个 ASIN 未补齐，相关商品标记待补数据。"
+                )
         if block_reasons:
             break
     return output
@@ -717,7 +733,7 @@ def run_discovery_flow(payload: dict) -> dict:
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest = _manifest(task, run_dir)
     previous_enrichment_incomplete = bool(manifest.get("enrichment_incomplete"))
-    for stale in ("enrichment_blocking_items", "enrichment_incomplete", "blocking_items", "strategy_coverage"):
+    for stale in ("enrichment_blocking_items", "enrichment_incomplete", "blocking_items", "strategy_coverage", "skipped_asins"):
         manifest.pop(stale, None)
     manifest["warnings"] = [warning for warning in manifest.get("warnings", []) if "卖家精灵补数未完整" not in warning]
     manifest["timings_ms"] = {}
@@ -887,6 +903,13 @@ def run_discovery_flow(payload: dict) -> dict:
         )
     if manifest.get("enrichment_blocking_items"):
         return _stop(manifest, run_dir, "AWAITING_ENRICHMENT", "sellersprite_enrichment", manifest["enrichment_blocking_items"])
+    skipped_keys = {
+        (item["marketplace"], item["asin"])
+        for item in manifest.get("skipped_asins", [])
+    }
+    if skipped_keys:
+        records = [row for row in records if (str(row.get("marketplace") or "").upper(), str(row.get("asin") or "").upper()) not in skipped_keys]
+        candidates = [row for row in candidates if (str(row.get("marketplace") or "").upper(), str(row.get("asin") or "").upper()) not in skipped_keys]
     stage_started = time.perf_counter()
     candidates = candidates or merge_candidates(records)
     _record_timing(manifest, "candidate_merge", stage_started)

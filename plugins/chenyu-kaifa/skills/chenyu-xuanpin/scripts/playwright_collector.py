@@ -1231,7 +1231,7 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                         records.append(record)
                         outcomes.append({"asin": record["asin"], "status": "enriched", "record_count": 1, "elapsed_ms": elapsed, "stop_reason": "matched", "query_mode": mode})
                     missing = [a for a in group if a not in matched_asins]
-                    if len(group) > 1 and reason in {"partial_match", "query_response_unrecognized", "query_result_mismatch"}:
+                    if len(group) > 1 and reason in {"partial_match", "query_response_unrecognized", "query_result_mismatch", "query_parse_error"}:
                         # Restore the lookup page before retrying a rejected batch query.
                         _goto(page, url)
                         block_reason = _wait_for_sellersprite_session(page)
@@ -1241,9 +1241,8 @@ def collect_sellersprite_by_asin(payload: dict) -> dict:
                         queue[0:0] = [[a] for a in missing]
                     elif reason == "confirmed_empty":
                         outcomes.extend({"asin": a, "status": "not_found", "record_count": 0, "elapsed_ms": elapsed, "stop_reason": reason, "query_mode": mode, "empty_verified": True, "auth_verified": True, "observed_at": _now_iso()} for a in missing)
-                    elif missing and len(group) == 1 and reason == "query_result_mismatch":
-                        # This ASIN received an unrelated default list even after a reset.
-                        # Keep it pending and continue querying the other ASINs.
+                    elif missing and len(group) == 1 and reason in {"query_result_mismatch", "query_parse_error"}:
+                        # Keep the failed ASIN separate so other queries can finish.
                         outcomes.extend({"asin": a, "status": "query_failed", "record_count": 0, "elapsed_ms": elapsed, "stop_reason": reason, "query_mode": mode} for a in missing)
                     elif missing:
                         block_reason = reason
