@@ -19,24 +19,25 @@
 | C–F 参考图片1、参考图片2、参考图片3、参考图片4 | 固定四栏，来源图片直接嵌入，一图一单元格 |
 | G 作图要求 | 买家问题、新增信息、数量、最终画面要求、准确文字和验收条件 |
 
-四个参考图片栏始终保留，未使用的单元格或整列可以留空，不因参考少而删列、参考多而加列。每行最多嵌入四张最有代表性的参考；其他适用来源的独立内容仍须落实到该行执行文字，并在内部保留来源与未嵌图原因，不能直接漏掉。不得用链接代替嵌图、把多图塞进一个单元格或拉伸图片。产品内容页已嵌入的身份图不在作图表重复嵌入。来源用途保留内部映射，最终执行文字不写“参考图片1用于……”等来源解说。
+四个参考图片栏始终保留，未使用的单元格或整列可以留空，不因参考少而删列、参考多而加列。每行最多嵌入四张最有代表性的参考；其他适用来源的独立内容仍须落实到该行执行文字，并在内部保留来源与未嵌图原因，不能直接漏掉。不得用链接代替嵌图、把多图塞进一个单元格或拉伸图片。产品内容页已嵌入的身份图不在作图表重复嵌入。G 列逐张注明同一行“参考图片1–4”各自的借鉴内容及本品调整，编号必须与实际嵌图一致；例如“参考图片1的颈部佩戴近景及吊坠位置，按本品还原爱心与 A”。内部来源映射不能替代这段执行说明。
 
 每个共用构图一个任务区块，注明共用成品或各变体分别出图、替换项及实际数量。执行文字包括：
 
 - 本张解决的问题、新增信息与已确认产品特点。
-- 构图、阅读顺序、产品位置/姿态、背景/光线、场景及道具作用、不可改变特征。
+- 同行每张参考图片的编号、采用的展示方式及本品调整；具体构图、阅读顺序、产品位置/姿态、背景/光线、场景及道具作用、不可改变特征。
 - 准确上图文字与位置；无文字时明确写出。尺寸任务写测量部位、方向、成对 cm / in 数值；有辅助画面时说明其与尺寸/适配的关系。
 - 适用变体、成品数量、画幅规格、验收条件及当前任务的具体缺口。
 
 ## 结构化包
 
-写表前生成 `image-brief-package.json` 并独立校验。内部来源与取舍记录不抄进给美工的执行文字。
+写表前生成 `image-brief-package.json` 并独立校验。完整来源与取舍记录保存在内部；各嵌图的编号、实际借鉴内容及本品调整必须写入 G 列。
 
 ### 产品与任务
 
 - `products[]`：每个变体有唯一 `id`、`product_content_image_id`、`product_content_image_source`、`product_content_image_source_ref`，以及候选 `own_main_image_id`、`supplier_image_id`（无候选填空字符串）。来源为 `own_main`、`supplier`、`confirmed_reference_main`；参考主图可来自任一清单，须有 `matching_basis` 且 source_ref 引用对应 ASIN。旧 `first_reference_main` 值仅作兼容，同样要求匹配依据。
 - 每个产品保存非空 `visual_direction`，其设计要求落实到各行 G 列，不另增顶部行；共用方向可使用相同文本。每个产品默认覆盖 6–8 个任务；超出范围时用 `task_count_reason` 写明具体信息量或用户要求。此范围不限制整个包总任务数，也不等于变体成品总数。
 - `image_tasks[]`：每项有唯一 `id`、`type`、非空 `product_ids`、`buyer_question`、`new_information`、`instructions`、`on_image_text`、`content_mappings`、`text_mappings`。主图第一且每产品一个，其余顺序按任务决定；类型可用 `detail`、`feature`、`advantage`、`process`、`packaging`、`size`、`scene`、`closeup_scene`、`key_scene`、`four_grid`。
+- `reference_images` 按 C–F 实际嵌图顺序保存路径，最多四项；兼容旧字段 `embedded_reference_paths`。执行文字逐一写明“参考图片1”等编号及用途，不能引用空白栏。
 - 主图另有 `main_style`（`clean_white`、`white_with_use_inset`、`scene_hero`）、`main_style_reason`、`product_image_ids`（与本任务适用变体身份图完全一致）和 `identity_lock`。后者记录 `shape_structure`、`color_pattern`、`quantity_components`、`accessories_packaging`。主图 `on_image_text` 为空。
 - 场景任务 `scene`、`closeup_scene`、`key_scene` 另有 `scene_mode`。最终四宫格任务须有四个 `scene_cells`，每格非空 `output_scene`，文字需要时有 `output_text`，并写入执行文字。四格不是必需图类。
 - 尺寸任务有 `dimension_labels`（每项同一部位成对 cm / in）；`dimension_source` 保存 `kind`（`own_measurement`、`development`、`confirmed_same_product`）和 `source_ref`，同款另有 `matching_basis`。不同测量值来自不同资料时在 source_ref 内逐项对应。未确认数值在执行文字标具体缺口，补齐前不得标记可交付。

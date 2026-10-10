@@ -11,10 +11,7 @@ COPY_FIELD_STRUCTURE = re.compile(
     r'(?i)\b(?:search terms|seo keywords?|keyword coverage|bullet point [1-5]|bullet [1-5])\b'
     r'|(?:搜索词|关键词覆盖|五点[一二三四五1-5]|卖点[一二三四五1-5])'
 )
-REFERENCE_NARRATION = re.compile(
-    r'(?:参考图(?:片)?\s*\d*\s*(?:用于|作为|展示|提供)|'
-    r'按照参考图(?:片)?|照着参考图(?:片)?|同款产品参考|版式参考)'
-)
+REFERENCE_NUMBER = re.compile(r'参考图(?:片)?\s*(\d+)')
 MAIN_STYLES = {'clean_white', 'white_with_use_inset', 'scene_hero'}
 IDENTITY_LOCK_FIELDS = (
     'shape_structure', 'color_pattern', 'quantity_components',
@@ -161,11 +158,17 @@ def validate_visual_contract(image_brief, errors):
         instructions = str(task.get('instructions', ''))
         if not instructions.strip():
             errors.append(f'$.image_tasks[{index}].instructions is required')
-        if REFERENCE_NARRATION.search(instructions):
-            errors.append(
-                f'$.image_tasks[{index}].instructions narrates source-image usage; '
-                'describe the final composition and content directly'
-            )
+        references = task.get('reference_images', task.get('embedded_reference_paths'))
+        if references is not None:
+            if not isinstance(references, list) or len(references) > 4 or any(not isinstance(p, str) or not p.strip() for p in references):
+                errors.append(f'$.image_tasks[{index}].reference_images must list up to four embedded image paths')
+            else:
+                mentioned = {int(number) for number in REFERENCE_NUMBER.findall(instructions)}
+                expected = set(range(1, len(references) + 1))
+                for number in sorted(expected - mentioned):
+                    errors.append(f'$.image_tasks[{index}].instructions missing usage for embedded reference {number}')
+                for number in sorted(mentioned - expected):
+                    errors.append(f'$.image_tasks[{index}].instructions cites non-embedded reference {number}')
         product_ids = task.get('product_ids')
         if not _non_empty_strings(product_ids):
             errors.append(f'$.image_tasks[{index}].product_ids must be non-empty')

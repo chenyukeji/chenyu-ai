@@ -242,12 +242,27 @@ def test_detail_text_and_four_grid_scene_text_cannot_be_dropped():
                for item in result['errors'])
 
 
-def test_execution_instructions_do_not_narrate_reference_images():
-    data = copy.deepcopy(package())
-    data['image_tasks'][1]['instructions'] = '参考图片1用于展示过滤层结构。'
-    result = VALIDATOR.validate(data)
-    assert not result['ready_for_delivery']
-    assert any('narrates source-image usage' in item for item in result['errors'])
+def test_execution_instructions_explain_each_embedded_reference():
+    data = package()
+    task = data['image_tasks'][1]
+    task['reference_images'] = ['filter.jpg', 'lighting.jpg']
+    task['instructions'] += ' 参考图片1的过滤层展示方式；参考图片2的局部柔光，按本品层数与结构调整。'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    task['instructions'] = task['instructions'].replace('参考图片2', '第二个来源')
+    assert any('missing usage for embedded reference 2' in e for e in VALIDATOR.validate(data)['errors'])
+    task['instructions'] += ' 参考图片3的背景。'
+    assert any('cites non-embedded reference 3' in e for e in VALIDATOR.validate(data)['errors'])
+
+
+def test_legacy_embedded_reference_paths_also_require_usage():
+    data = package()
+    task = data['image_tasks'][1]
+    task['embedded_reference_paths'] = ['filter.jpg']
+    assert any('missing usage for embedded reference 1' in e for e in VALIDATOR.validate(data)['errors'])
+    task['instructions'] += ' 参考图片1用于展示过滤层结构，层数按本品调整。'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    task['embedded_reference_paths'] = []
+    assert any('cites non-embedded reference 1' in e for e in VALIDATOR.validate(data)['errors'])
 
 
 def test_default_count_is_per_product_with_explicit_exception():
