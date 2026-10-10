@@ -10,6 +10,7 @@ description: 从开发 Excel、自有产品事实和统一竞品研究包生成�
 开始写作前读取插件根目录的 [Listing 规则](../../LISTING_RULES.md)。输入为开发 Excel、已确认产品事实、竞品文字与关键词证据及目标站点要求；并按需读取：
 
 - [写作与审核](references/writing-and-review.md)：生成或修改任何 Listing 时读取。
+- [产品表达方法](references/product-expression.md)：参考优秀商品组织具体卖点、操作说明或装饰效果时读取。
 - [欧洲站本地化](references/europe-localization.md)：涉及 DE/FR/IT/ES/UK 任一站点时读取。
 - [分析脚本接口](references/analysis-contract.md)：形成、校验或分析 `listing-package.json` 时读取。
 
@@ -67,6 +68,6 @@ description: 从开发 Excel、自有产品事实和统一竞品研究包生成�
 6. HTML 详情
 7. Search Terms
 
-用户要求 Excel 时生成独立副本，不覆盖开发原文件，并读取 [运营交付大母版](../../references/delivery-master.md)。默认仅建立“产品内容”和用户要求的各目标站点 Listing 工作表；同站点多变体并列。每个变体按“目标站点文案、中文翻译、参考”三列成组，Item Name、Item Highlights、五点1–5、HTML 详情和 Search Terms 均提供完整中文翻译。中文翻译必须先写入 `listing-package.json` 并与目标文案一起通过校验，再写入 Excel；字符和字节限制只检查目标站点文案，不计算中文翻译。产品内容页统一使用“产品名称、产品图片、产品尺寸、产品材料、产品规格、补充信息”六列；每个变体必须实际嵌图，依次选择自有主图（含开发 Excel 嵌图）、对应规格供应商图、第一条有效商品链接当前变体主图。图片来源留在内部记录，产品内容页不写待核对、资料缺失或来源免责声明，也不默认增加关键词、审核说明或内部分析工作表。导出后运行 `plugins/chenyu-yunying/skills/chenyu-yunying/scripts/validate_product_content_workbook.py` 检查实际嵌图与内部备注。
+用户要求 Excel 时生成独立副本，不覆盖开发原文件，并读取 [运营交付大母版](../../references/delivery-master.md)。默认仅建立“产品内容”和用户要求的各目标站点 Listing 工作表；同站点多变体并列。每个变体按“目标站点文案、中文翻译、参考”三列成组，Item Name、Item Highlights、五点1–5、HTML 详情和 Search Terms 均提供完整中文翻译。中文翻译必须先写入 `listing-package.json` 并与目标文案一起通过校验，再写入 Excel；字符和字节限制只检查目标站点文案，不计算中文翻译。产品内容页统一使用“产品名称、产品图片、产品尺寸、产品材料、产品规格、补充信息”六列；每个变体必须实际嵌图，依次选择自有主图（含开发 Excel 嵌图）、对应规格供应商图、任一有效链接中已确认同款且匹配当前规格的主图，并记录匹配依据。图片来源留在内部记录，产品内容页不写待核对、资料缺失或来源免责声明，也不默认增加关键词、审核说明或内部分析工作表。导出后运行 `plugins/chenyu-yunying/skills/chenyu-yunying/scripts/validate_product_content_workbook.py` 检查实际嵌图与内部备注。
 
 交付前核对每项客观宣称均可追溯、变体不混用、单位正确、内部采购信息未泄漏，且买家文案不包含竞品身份、内部审核语言、面向卖家的解释、拍摄与排版用语、重复句或默认道具免责声明。
