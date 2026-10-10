@@ -67,3 +67,19 @@ def test_confirmation_requires_available_competitor_links():
         research,
         {9: research[0][12], 10: research[0][12] + "?tag=tracking"},
     )
+
+
+def test_detail_supplier_image_stays_in_variant_row():
+    validator = load_validator()
+    rows = {2: {2: "绿色皮革款", 3: "", 5: ""}}
+    assert validator._detail_image_errors(rows, {(3, 2), (5, 2)}) == []
+
+    misplaced = validator._detail_image_errors(rows, {(3, 3), (5, 3)})
+    assert any("缺少同一行图片" in error for error in misplaced)
+    assert any("应放入对应变体的数据行" in error for error in misplaced)
+
+    text_in_image_cell = validator._detail_image_errors(
+        {2: {2: "绿色皮革款", 3: "供应商产品名称：/", 5: ""}},
+        {(3, 2), (5, 2)},
+    )
+    assert any("应只放图片" in error for error in text_in_image_cell)

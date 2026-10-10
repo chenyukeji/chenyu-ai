@@ -16,7 +16,8 @@ from xml.etree import ElementTree as ET
 MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
-NS = {"s": MAIN_NS, "r": REL_NS, "p": PKG_REL_NS}
+DRAW_NS = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+NS = {"s": MAIN_NS, "r": REL_NS, "p": PKG_REL_NS, "xdr": DRAW_NS}
 RID = f"{{{REL_NS}}}id"
 
 RESEARCH_HEADERS = {
@@ -50,7 +51,7 @@ CONFIRM_HEADERS = {
     "采购链接1",
     "供应商",
 }
-DETAIL_HEADERS = {"价格/克重", "变体", "产品属性", "产品主图/实拍图", "备注"}
+DETAIL_HEADERS = {"价格/克重", "变体", "供应商产品图片", "产品属性", "产品主图/实拍图", "备注"}
 FORBIDDEN_DETAIL_HEADERS = {"内容清单", "listing"}
 
 
@@ -138,6 +139,44 @@ def _confirmation_link_errors(research_rows: list[dict[int, str]], confirm_row: 
     return errors
 
 
+def _drawing_image_anchors(package: zipfile.ZipFile, part: str, root: ET.Element) -> set[tuple[int, int]]:
+    drawing = root.find("s:drawing", NS)
+    if drawing is None:
+        return set()
+    target = _relationships(package, part).get(drawing.get(RID, ""), "")
+    if not target or target not in package.namelist():
+        return set()
+    anchors = set()
+    for anchor in ET.fromstring(package.read(target)):
+        if anchor.find("xdr:pic", NS) is None:
+            continue
+        position = anchor.find("xdr:from", NS)
+        if position is None:
+            continue
+        column = position.findtext("xdr:col", namespaces=NS)
+        row = position.findtext("xdr:row", namespaces=NS)
+        if column is not None and row is not None:
+            anchors.add((int(column) + 1, int(row) + 1))
+    return anchors
+
+
+def _detail_image_errors(rows: dict[int, dict[int, str]], anchors: set[tuple[int, int]]) -> list[str]:
+    variant_rows = {number for number, row in rows.items() if number > 1 and _present(row.get(2))}
+    errors = []
+    for number in sorted(variant_rows):
+        for column, label in ((3, "供应商产品图片"), (5, "产品主图/实拍图")):
+            value = rows[number].get(column, "")
+            if _present(value):
+                errors.append(f"产品详情第 {number} 行的{label}单元格应只放图片")
+            if (column, number) not in anchors and value != "/":
+                errors.append(f"产品详情第 {number} 行的{label}缺少同一行图片或 / 占位")
+    for column, number in sorted(anchors):
+        if column in (3, 5) and number not in variant_rows:
+            label = "供应商产品图片" if column == 3 else "产品主图/实拍图"
+            errors.append(f"产品详情{label}锚定在第 {number} 行；应放入对应变体的数据行")
+    return errors
+
+
 def inspect_workbook(path: Path, template: bool = False) -> dict:
     report = {"path": str(path.resolve()), "errors": [], "warnings": [], "sheets": []}
     if path.suffix.lower() != ".xlsx":
@@ -169,7 +208,8 @@ def inspect_workbook(path: Path, template: bool = False) -> dict:
             root = ET.fromstring(package.read(part))
             rows = _sheet_rows(root, shared)
             has_drawing = root.find("s:drawing", NS) is not None
-            sheets.append({"name": name, "rows": rows, "has_drawing": has_drawing})
+            image_anchors = _drawing_image_anchors(package, part, root)
+            sheets.append({"name": name, "rows": rows, "has_drawing": has_drawing, "image_anchors": image_anchors})
             report["sheets"].append({"name": name, "has_drawing": has_drawing})
 
         if len(sheets) != 3:
@@ -192,8 +232,8 @@ def inspect_workbook(path: Path, template: bool = False) -> dict:
         missing = sorted(DETAIL_HEADERS - detail_headers)
         if missing:
             report["errors"].append("产品详情缺少字段：" + "、".join(missing))
-        if not any("供应商产品" in header or header == "图片" for header in detail_headers):
-            report["errors"].append("产品详情缺少供应商产品名称或图片字段")
+        if sheets[2]["rows"].get(1, {}).get(3) != "供应商产品图片":
+            report["errors"].append("产品详情 C1 必须为“供应商产品图片”")
         forbidden = sorted(FORBIDDEN_DETAIL_HEADERS & detail_headers)
         if forbidden:
             report["errors"].append("产品详情不应包含字段：" + "、".join(forbidden))
@@ -227,6 +267,8 @@ def inspect_workbook(path: Path, template: bool = False) -> dict:
 
         if not template and sheets[2]["name"] in {"产品详情", "产品详情母版", "Sheet3"}:
             report["errors"].append("第三张表必须改为当前产品简称")
+        if not template:
+            report["errors"].extend(_detail_image_errors(sheets[2]["rows"], sheets[2]["image_anchors"]))
         if not sheets[1]["has_drawing"]:
             report["warnings"].append("产品确认未检测到嵌入图片")
         if not sheets[2]["has_drawing"]:
