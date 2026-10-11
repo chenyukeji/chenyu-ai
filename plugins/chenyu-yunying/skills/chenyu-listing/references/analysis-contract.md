@@ -156,7 +156,7 @@
 
 ### facts
 
-- `source_type=own_product`：来自开发资料、自有图片或用户明确说明。
+- `source_type=own_product`：来自开发资料、自有图片或用户明确说明。用户明确授权“未给出的属性参考第一条链接”时，适用于当前变体且不与已有事实冲突的细节可作为本次写作采用的产品属性，仍保留 `status=confirmed`，但须在内部 `source` 记录首链接 ASIN、原文点位和用户授权；此状态表示本次可用于草稿，不表示已独立测量实物。交付“产品内容”只显示属性值，供后续人工微调。
 - `source_type=same_product_evidence`：必须同时满足 `same_product_confirmed=true`、`status=confirmed`，并在 `source` 中保存有效 ASIN 和同款确认来源。
 - `source_type=material_match_evidence`：自有材料与竞品材料一致且其功能适用于本品时，可记录竞品 ASIN/五点位置及自有材料来源，并将该功能作为已确认事实用于 Listing；不要求把竞品整体确认为同款。材料匹配说明保留在内部事实记录，不写给买家。
 - 同款或同材料功能依据不得用于迁移品牌、冲突规格/数量/配件、认证、质保、售后或竞品独有版本。

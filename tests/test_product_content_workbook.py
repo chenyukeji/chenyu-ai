@@ -65,6 +65,27 @@ def test_internal_uncertainty_note_is_rejected():
                for error in result['errors'])
 
 
+
+def test_product_attributes_do_not_display_reference_asin():
+    def add_source_note(content):
+        root = ET.fromstring(content)
+        cell = root.find(f'.//{{{MAIN}}}c[@r="D2"]')
+        for child in list(cell):
+            cell.remove(child)
+        cell.set('t', 'inlineStr')
+        inline = ET.SubElement(cell, f'{{{MAIN}}}is')
+        ET.SubElement(inline, f'{{{MAIN}}}t').text = '14K镀金黄铜；参考链接 B0FJ21ZRYS'
+        return ET.tostring(root, encoding='utf-8')
+
+    with TemporaryDirectory() as temporary:
+        path = Path(temporary) / 'source-in-product-content.xlsx'
+        altered_workbook(path, add_source_note)
+        result = VALIDATOR.validate(path)
+    assert not result['ready_for_delivery']
+    assert any('产品内容!D2 contains internal handoff text' in error
+               for error in result['errors'])
+
+
 def test_unverified_search_terms_note_is_rejected():
     def add_note(content):
         root = ET.fromstring(content)
