@@ -463,7 +463,11 @@ def test_size_visual_adds_distinct_evidence_or_explains_pure_size():
     assert any('supporting visual repeats task T4' in item for item in result['errors'])
 
     size['supporting_visual'] = {'kind': 'none'}
-    assert VALIDATOR.validate(data)['ready_for_delivery']
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('pure size image requires supporting_visual.user_instruction' in e
+               for e in result['errors'])
+    size['supporting_visual']['user_instruction'] = '用户明确要求仅展示尺寸，无场景或细节'
     size['instructions'] = size['instructions'].replace(' 厨房台面使用局部。', '')
     assert VALIDATOR.validate(data)['ready_for_delivery']
 
@@ -471,7 +475,6 @@ def test_size_visual_adds_distinct_evidence_or_explains_pure_size():
 def test_middle_image_order_is_flexible_with_final_grid():
     data = package()
     data['image_tasks'][1], data['image_tasks'][2] = data['image_tasks'][2], data['image_tasks'][1]
-    data['image_tasks'][1]['supporting_visual'] = {'kind': 'none'}
     assert VALIDATOR.validate(data)['ready_for_delivery']
 
 
