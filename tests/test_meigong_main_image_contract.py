@@ -17,8 +17,8 @@ def test_main_image_contract_requires_pure_white_background():
 
     assert "product color applies only to the product" in skill
     assert "不能用`blush white`" in skill
-    assert "`clean_white`或`white_with_use_inset`主图额外检查" in production
-    assert "`scene_hero`检查产品是否仍是主角" in production
+    assert "`clean_white`采用无色偏纯白背景" in production
+    assert "`scene_hero`让产品在真实用途的完整场景中占主导" in production
 
 
 def test_task_schema_classifies_main_images_before_prompting():

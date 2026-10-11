@@ -802,3 +802,95 @@ class ListingTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ClauseSourceTests(unittest.TestCase):
+    def setUp(self):
+        self.competitors = [
+            {'asin': 'B012345678', 'title': 'Fine chain',
+             'bullets': ['Three white beads', 'Fine chain'],
+             'description': 'Wear with a shirt.'},
+            {'asin': 'B087654321', 'bullets': ['Central bead is larger.']},
+        ]
+        self.facts = {'F1': {'status': 'confirmed', 'variant_ids': ['V1']}}
+        self.listing = {
+            'bullets': ['【Trois perles】Trois perles blanches. Centre plus grand.'] * 5,
+            'description': '<p>Avec une chemise.</p><p>Longueur : 40 cm.</p>',
+            'field_fact_ids': {**{f'bullet_{i}': ['F1'] for i in range(1, 6)}, 'description': ['F1']},
+            'clause_sources': {}, 'bullet_references': [],
+        }
+        for i in range(1, 6):
+            self.listing['clause_sources'][f'bullet_{i}'] = [
+                {'text': 'Trois perles', 'sources': [{'asin': 'B012345678', 'source_field': 'bullet_1', 'source_phrase': 'Three white beads'}]},
+                {'text': 'Trois perles blanches.', 'sources': [{'asin': 'B012345678', 'source_field': 'bullet_1', 'source_phrase': 'Three white beads'}]},
+                {'text': 'Centre plus grand.', 'sources': [{'asin': 'B087654321', 'source_field': 'bullet_1', 'source_phrase': 'Central bead is larger.'}]},
+            ]
+            self.listing['bullet_references'].append(
+                'Trois perles ← B012345678 第1点（Three white beads）；'
+                'Trois perles blanches. ← B012345678 第1点（Three white beads）；'
+                'Centre plus grand. ← B087654321 第1点（Central bead is larger.）')
+        self.listing['clause_sources']['description'] = [
+            {'text': 'Avec une chemise.', 'sources': [{'asin': 'B012345678', 'source_field': 'description', 'source_phrase': 'Wear with a shirt.'}]},
+            {'text': 'Longueur : 40 cm.', 'sources': [{'fact_id': 'F1'}]},
+        ]
+        self.listing['description_reference'] = 'Avec une chemise. ← B012345678 详情（Wear with a shirt.）；Longueur : 40 cm. ← 自有事实 F1'
+
+    def errors(self):
+        errors = []
+        package_validator.validate_clause_sources(errors, 'FR', 'V1', self.listing, self.competitors, self.facts)
+        return errors
+
+    def test_combines_sources_per_clause_and_handles_html(self):
+        self.assertEqual(self.errors(), [])
+
+    def test_omitted_detail_cannot_hide_behind_bullet_reference(self):
+        self.listing['clause_sources']['bullet_1'].pop()
+        self.assertTrue(any('without source coverage' in error for error in self.errors()))
+
+    def test_wrong_point_and_invented_original_are_rejected(self):
+        source = self.listing['clause_sources']['bullet_1'][0]['sources'][0]
+        source['source_field'] = 'bullet_2'
+        self.assertTrue(any('source_phrase not found' in error for error in self.errors()))
+
+    def test_visible_reference_must_bind_the_actual_clause(self):
+        self.listing['bullet_references'][0] = 'B012345678 第1点；B087654321 第1点'
+        self.assertTrue(any('visible reference must map clause' in error for error in self.errors()))
+
+    def test_wrong_variant_fact_is_rejected(self):
+        self.facts['F1']['variant_ids'] = ['V2']
+        self.assertTrue(any('applicable field fact' in error for error in self.errors()))
+
+    def test_numbered_reference_without_actual_bullet_mapping_is_rejected(self):
+        for entry in self.listing['clause_sources']['bullet_1']:
+            entry['sources'] = [{'fact_id': 'F1'}]
+        self.assertTrue(any('actual competitor bullet source' in error for error in self.errors()))
+
+    def test_v2_full_package_requires_clause_sources(self):
+        data = ListingTests.listing_package()
+        data['source_mapping_version'] = 2
+        self.assertTrue(any('clause_sources must map' in error for error in package_validator.validate(data)['errors']))
+
+    def test_v2_full_package_with_complete_sources(self):
+        import re
+        data = ListingTests.listing_package()
+        data['source_mapping_version'] = 2
+        listing = data['listings'][0]
+        listing['clause_sources'] = {}
+        listing['bullet_references'] = []
+        # This fixture tests structural traceability; factual entailment remains a semantic review.
+        for field in ('title', 'item_highlights'):
+            listing[f'{field}_phrase_sources'] = [{'phrase': listing[field], 'fact_id': 'F1'}]
+            listing[f'{field}_reference'] = listing[field] + ' ← 自有事实 F1'
+        for field in (*(f'bullet_{i}' for i in range(1, 6)), 'description'):
+            text = listing['description'] if field == 'description' else listing['bullets'][int(field[-1]) - 1]
+            clauses = [x.strip() for x in re.split(r'(?<=[.!?])\s+|<[^>]+>|[【】]', text) if x.strip()]
+            listing['clause_sources'][field] = [{'text': x, 'sources': [{'fact_id': 'F1'}]} for x in clauses]
+            reference = '\n'.join(x + ' ← 自有事实 F1' for x in clauses)
+            if field == 'description':
+                listing['description_reference'] = reference
+            else:
+                listing['bullet_references'].append(reference)
+        result = package_validator.validate(data)
+        self.assertTrue(result['ready_for_delivery'], result['errors'])
+        listing['title'] += ' extra'
+        self.assertTrue(any('without source coverage' in error for error in package_validator.validate(data)['errors']))

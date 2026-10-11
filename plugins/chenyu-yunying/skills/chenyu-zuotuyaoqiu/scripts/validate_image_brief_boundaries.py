@@ -187,9 +187,8 @@ def validate_visual_contract(image_brief, errors):
         if task_id in tasks:
             errors.append(f'$.image_tasks contains duplicate id: {task_id}')
         tasks[task_id] = task
-        for field in ('buyer_question', 'new_information'):
-            if not str(task.get(field, '')).strip():
-                errors.append(f'$.image_tasks[{index}].{field} is required')
+        if not str(task.get('new_information', '')).strip():
+            errors.append(f'$.image_tasks[{index}].new_information is required')
         instructions = str(task.get('instructions', ''))
         if not instructions.strip():
             errors.append(f'$.image_tasks[{index}].instructions is required')
@@ -530,9 +529,9 @@ def validate_visual_contract(image_brief, errors):
     validate_omitted_images(seen_images, errors)
 
     schema_version = image_brief.get('schema_version', 1)
-    if schema_version not in (1, 2):
-        errors.append('$.schema_version must be 1 or 2')
-    if schema_version == 2:
+    if schema_version not in (1, 2, 3):
+        errors.append('$.schema_version must be 1, 2 or 3')
+    if schema_version in (2, 3):
         for task_id, task in tasks.items():
             embedded = task.get('reference_images', task.get('embedded_reference_paths', []))
             if not isinstance(embedded, list):
@@ -562,7 +561,7 @@ def validate_visual_contract(image_brief, errors):
                     'must identify an embedded reference image'
                 )
             instructions = str(task.get('instructions', ''))
-            for field in ('retained_layout', 'retained_density', 'replacements'):
+            for field in (('retained_layout', 'retained_density', 'replacements') if schema_version == 2 else ()):
                 value = str(anchor.get(field, '')).strip()
                 if not value or value not in instructions:
                     errors.append(
@@ -575,6 +574,43 @@ def validate_visual_contract(image_brief, errors):
                     f'$.image_tasks[{task_id}].visual_anchor.supplement '
                     'must appear in final instructions'
                 )
+
+    if schema_version == 3:
+        for task_id, task in tasks.items():
+            context = f'$.image_tasks[{task_id}]'
+            instructions = str(task.get('instructions', ''))
+            composition = task.get('composition')
+            if not isinstance(composition, dict):
+                errors.append(f'{context} requires composition with a final integrated design')
+                composition = {}
+            for field in ('final_layout', 'density_plan', 'replacements', 'optimizations'):
+                value = str(composition.get(field, '')).strip()
+                if not value or value not in instructions:
+                    errors.append(f'{context}.composition.{field} must appear in final instructions')
+            for field in ('content_mappings', 'text_mappings'):
+                for mapping in task.get(field, []):
+                    if not isinstance(mapping, dict):
+                        continue  # Existing mapping validation reports invalid entries.
+                    placement = str(mapping.get('placement', '')).strip()
+                    if not placement or placement not in instructions:
+                        errors.append(f'{context}.{field}.placement must appear in final instructions')
+            for field, content_key in (('own_content_mappings', 'output_content'),
+                                       ('product_claim_sources', 'claim')):
+                entries = task.get(field)
+                if not isinstance(entries, list):
+                    errors.append(f'{context}.{field} must be a list (empty when not applicable)')
+                    continue
+                for entry in entries:
+                    if not isinstance(entry, dict):
+                        errors.append(f'{context}.{field} entries must be objects')
+                        continue
+                    content = str(entry.get(content_key, '')).strip()
+                    if not content or content not in instructions or not str(entry.get('source_ref', '')).strip():
+                        errors.append(f'{context}.{field} needs final content and an actual product source_ref')
+                    if field == 'own_content_mappings':
+                        placement = str(entry.get('placement', '')).strip()
+                        if not placement or placement not in instructions:
+                            errors.append(f'{context}.{field}.placement must appear in final instructions')
 
     for product_id, (image_source, source_ref) in product_image_sources.items():
         if image_source not in ('confirmed_reference_main', 'first_reference_main'):

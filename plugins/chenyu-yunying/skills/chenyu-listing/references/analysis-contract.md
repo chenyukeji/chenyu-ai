@@ -6,6 +6,7 @@
 
 ```json
 {
+  "source_mapping_version": 2,
   "targets": ["DE"],
   "variants": [{"id": "V1", "marketplaces": ["DE"]}],
   "facts": [
@@ -163,7 +164,7 @@
 
 ### listings
 
-- `title_keywords` 为恰好三个不同核心短语，必须在同站点 `keywords` 中标记 `is_core:true`，并以原词或 alias 自然进入标题。优先产品名称、同义称呼及图案/主题与产品名称的组合；搜索需求依据记录在关键词来源中，不用标题频次冒充搜索量，不默认选择场景词。核心词相关性和搜索依据须语义复核，脚本只检查数量、标记和覆盖。`title_reference` 列出全部有效竞品标题的 ASIN/站点，记录其产品搜索短语、图案/主题组合、补充属性、采用词义和排除项；标题描述词只使用能在至少一个竞品标题中找到语义对应、且符合自有事实的内容。校验器会检查全部有 ASIN 和标题的竞品是否被引用，语义合并仍须人工复核。
+- `title_keywords` 为恰好三个不同核心短语，必须在同站点 `keywords` 中标记 `is_core:true`，并以原词或 alias 自然进入标题。优先产品名称、同义称呼及图案/主题与产品名称的组合；搜索需求依据记录在关键词来源中，不用标题频次冒充搜索量，不默认选择场景词。核心词相关性和搜索依据须语义复核，脚本只检查数量、标记和覆盖。`title_reference` 列出全部有效竞品标题的 ASIN/站点，记录其产品搜索短语、图案/主题组合、补充属性、采用词义和排除项；标题和 Highlights 的有意义词组可来自全部竞品标题/五点或适用本品事实，先整合共有重点和互补细节。校验器会检查全部有 ASIN 和标题的竞品是否被引用，语义合并仍须人工复核。
 - `title_size_term`、`title_size_reason` 默认空。仅当尺寸已证实直接影响适配、覆盖或变体选择时填写；标题最多一组尺寸，必须与 `title_size_term` 一致并置于末尾，`title_size_reason` 说明具体购买理由。
 - `critical_differentiators` 只列能影响购买、适配或价格的重要差异；每项必须出现在标题前部。
 - `title_scene` 可空；非空时必须出现在标题。
@@ -171,12 +172,32 @@
 - `item_highlights` 与 `item_highlights_reference` 必填。
 - `front_end_attributes` 收录未直接写在文案对象中的已填前台属性，Search Terms 去重时一并计算。
 - `buyer_visible_variant_terms` 默认空数组。只有用户明确确认属于买家公开名称的变体词才可加入；没有进入此清单的 `Design A/B/C` 等内部编号不得出现在买家可见字段。
-- `primary_reference_asin` 保留主要同款与关键词反查身份，不决定五点顺序。按输入链接原始顺序保留参考优先级，越靠前权重越高。五条 `bullet_references` 各自写明至少一个已在 `competitors[].bullets` 读取的 `ASIN 第N点（采用的主题）`；一条可列多个来源，但每个点位分别写完整 ASIN 和编号，自有事实可作为附加依据。校验器检查点位存在，人工复核主题与自有文案的语义对应；标题、图册和开发文档不能替代原始竞品五点。与 `field_fact_ids.bullet_1` 至 `bullet_5` 对应核对本品事实；详情另用 `description_reference` 和 `field_fact_ids.description` 记录。五条不要求与首链接固定映射。
+- `primary_reference_asin` 保留主要同款与关键词反查身份，不决定五点顺序。首条提供主要定位和描述风格；比较全部链接后把适用的共同重点排前，再整合互补与独有内容。五条 `bullet_references` 逐短句映射实际原文来源，且各自至少引用一个已在 `competitors[].bullets` 读取的 `ASIN 第N点（采用的主题）`；一条可列多个来源，但每个点位分别写完整 ASIN 和编号，自有事实可作为附加依据。新包的完整短句结构见下节。校验器检查点位存在，人工复核主题与自有文案的语义对应；标题、图册和开发文档不能替代原始竞品五点。与 `field_fact_ids.bullet_1` 至 `bullet_5` 对应核对本品事实；详情另用 `description_reference` 和 `field_fact_ids.description` 记录。五条不要求与首链接固定映射。
 - `title_phrase_sources`、`item_highlights_phrase_sources` 各为非空数组，将两个字段中所有有购买含义的词组逐一映射。竞品来源项用 `{ "phrase": "目标文案中的词组", "asin": "B012345678", "source_field": "title 或 bullet_1…bullet_5", "source_phrase": "竞品原文中的短语" }`；自有事实项用 `{ "phrase": "目标文案中的词组", "fact_id": "F1" }`。`phrase` 必须出现在相应目标文案，`source_phrase` 必须能在该竞品的对应标题或五点找到；翻译和语义适配另由人工复核。标题三个核心词组须各有竞品来源；目标文案使用同义词形时，可在来源项额外写 `keyword` 指向对应 `title_keywords` 原词。`title_reference` 与 `item_highlights_reference` 逐项显示同一映射，例如 `collier de perles ← B012345678 标题（pearl necklace）；trois perles ← 自有事实 F1`，供卖家直接核对。
 - `field_fact_ids` 必须为 `title`、`item_highlights`、`bullet_1` 至 `bullet_5` 和 `description` 分别提供至少一个已确认事实编号；这些编号必须同时存在于 `claim_fact_ids`，且适用于当前变体。字段新增任何具体宣称时先更新事实映射，再写文案。
 - 适配型产品设置 `compatibility_required=true`。`primary_compatibility_term` 保存必须进入 Item Name 和五点 1 的主要系列/型号/替换件号；`compatibility_terms` 保存必须由 Item Name＋Item Highlights 完整覆盖、并在 HTML 详情完整列出的已确认兼容标识。中文标题＋Item Highlights、五点 1 和详情也必须保留相同标识。非适配型产品保留 `false` 和空值。
 - `translations` 必填，逐字段保存完整中文翻译。它只翻译目标语言买家文案，不得混入事实状态、资料来源、包装核算、竞品差异或审核过程；五点必须正好五条。生成 Excel 前，目标语言和此对象必须一起通过校验。
 - Item Name、Item Highlights、五点和详情可以重复核心词、关键事实、尺寸和场景，不设跨字段机械去重错误。
+
+### 逐短句来源（新包必填）
+
+新生成包顶层设置 `source_mapping_version: 2`。旧包可读取，但修改或重新交付时升级；旧版校验通过不代表已满足逐短句溯源。
+
+每个 listing 新增 `clause_sources` 对象，键为 `bullet_1` 至 `bullet_5`、`description`，值为短句数组。条目格式：
+
+```json
+{"text": "目标文案中的一个最小有意义短句", "sources": [
+  {"asin": "B012345678", "source_field": "bullet_2", "source_phrase": "实际读取的原文短句"},
+  {"fact_id": "F1"}
+]}
+```
+
+- 每个独立属性、用途或结果分别映射；同句中的几个分句来自不同位置时拆开。一个不可再拆的表达确实由多个来源共同支持时，sources 可有多项；不要整条五点或整篇详情挂一组混合来源。
+- 竞品 source_field 可为 `title`、`bullet_1`…`bullet_5`、`description`、`aplus_text`；详情/A+ 必须先把实际原文保存到 competitors 对应字段，不得用 URL 或图片描述替代。主要依据仍是竞品标题和五点。
+- 原文 source_phrase 必须真实存在于所指字段；目标 text 必须存在于去 HTML 标签后的目标文案。本品事实必须适用当前变体，且列于该字段 field_fact_ids。
+- 每条 `bullet_references` 与 `description_reference` 逐项写 `目标短句 ← ASIN 第N点（原文短句）`、`目标短句 ← ASIN 详情（原文短句）` 或 `目标短句 ← 自有事实 F1`；融合来源分别列映射。保留现有 Excel 参考列，可换行，不新建审核表。每条五点至少有一个短句实际绑定竞品原始五点，不能靠参考列额外挂个点位充数。
+- 去 HTML 后正文、小标题里的具体卖点及参数都须覆盖。纯栏目标题（如“产品参数”）或语法连接词可写 `{"text":"...", "kind":"editorial", "reason":"栏目标题/语法连接"}`；不能用此类型豁免产品属性、修饰词或用途。标题与 Highlights 继续用已有逐词组映射；冠词/介词可随所属词组一起映射，无须为其寻找独立来源。若有连接词未被词组覆盖，在 `editorial_phrases.title` 或 `editorial_phrases.item_highlights` 数组记 `{"text":"und", "reason":"语法连接词"}`，用于完整覆盖检查。
+- 校验器检查短句覆盖、字段点位、原文存在、事实绑定及可见参考对应；语义是否支持、翻译是否准确、短句是否足够细和 editorial 是否滥用须实际复核。不能声称这些语义问题已被脚本证明。
 
 ### search_term_audits
 

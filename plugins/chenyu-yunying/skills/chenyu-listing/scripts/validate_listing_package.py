@@ -529,8 +529,8 @@ def validate_field_fact_ids(errors, market, variant_id, listing, fact_by_id):
 
 
 def source_text(competitor, source_field):
-    if source_field == 'title':
-        return str(competitor.get('title', ''))
+    if source_field in ('title', 'description', 'aplus_text'):
+        return str(competitor.get(source_field, ''))
     match = re.fullmatch(r'bullet_([1-5])', str(source_field))
     bullets = competitor.get('bullets', [])
     if match and isinstance(bullets, list) and len(bullets) >= int(match.group(1)):
@@ -538,7 +538,7 @@ def source_text(competitor, source_field):
     return ''
 
 
-def validate_phrase_sources(errors, market, variant_id, listing, field, competitors, fact_by_id):
+def validate_phrase_sources(errors, market, variant_id, listing, field, competitors, fact_by_id, strict=False):
     key = f'{field}_phrase_sources'
     sources = listing.get(key)
     if not isinstance(sources, list) or not sources:
@@ -548,7 +548,7 @@ def validate_phrase_sources(errors, market, variant_id, listing, field, competit
     reference = str(listing.get(f'{field}_reference', ''))
     competitor_keywords = set()
     has_competitor_source = False
-    reference_segments = re.split(r'[；;]', reference)
+    reference_segments = re.split(r'[；;\n]', reference)
     for source in sources:
         if not isinstance(source, dict):
             errors.append(f'{market}/{variant_id} {key} entries must be objects')
@@ -574,7 +574,9 @@ def validate_phrase_sources(errors, market, variant_id, listing, field, competit
             label = '标题' if source_field == 'title' else f'第{source_field[-1]}点'
             citation = f'{asin} {label}'
             if not any(phrase.casefold() in segment.casefold()
-                       and citation in segment.upper() for segment in reference_segments):
+                       and citation in segment.upper()
+                       and (not strict or source_phrase.casefold() in segment.casefold())
+                       for segment in reference_segments):
                 errors.append(f'{market}/{variant_id} {key} visible reference must map {phrase} to {citation}')
             has_competitor_source = True
             if field == 'title':
@@ -589,12 +591,110 @@ def validate_phrase_sources(errors, market, variant_id, listing, field, competit
             if not any(phrase.casefold() in segment.casefold()
                        and fact_id in segment for segment in reference_segments):
                 errors.append(f'{market}/{variant_id} {key} visible reference must map {phrase} to fact {fact_id}')
-    if not has_competitor_source:
+    if competitors and not has_competitor_source:
         errors.append(f'{market}/{variant_id} {key} needs at least one competitor title/bullet source')
-    if field == 'title':
+    if competitors and field == 'title':
         for keyword in listing.get('title_keywords', []):
             if str(keyword).strip().casefold() not in competitor_keywords:
                 errors.append(f'{market}/{variant_id} title keyword needs a competitor title/bullet source: {keyword}')
+
+
+def visible_source_text(value):
+    """Normalize HTML boundaries without joining words from adjacent blocks."""
+    return re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', str(value)))).strip()
+
+
+def validate_source_coverage(errors, context, copy, fragments):
+    text = visible_source_text(copy).casefold()
+    covered = [False] * len(text)
+    for fragment in fragments:
+        phrase = visible_source_text(fragment).casefold()
+        if not phrase:
+            continue
+        for match in re.finditer(re.escape(phrase), text):
+            covered[match.start():match.end()] = [True] * len(match.group())
+    missing = [match.group() for match in re.finditer(r'\w+', text)
+               if not all(covered[match.start():match.end()])]
+    if missing:
+        errors.append(f'{context} has text without source coverage: ' + ', '.join(missing[:12]))
+
+
+def validate_clause_sources(errors, market, variant_id, listing, competitors, fact_by_id):
+    mappings = listing.get('clause_sources')
+    if not isinstance(mappings, dict):
+        errors.append(f'{market}/{variant_id} clause_sources must map bullets and description')
+        return
+    for field in (*(f'bullet_{i}' for i in range(1, 6)), 'description'):
+        context = f'{market}/{variant_id} clause_sources.{field}'
+        entries = mappings.get(field)
+        if not isinstance(entries, list) or not entries:
+            errors.append(f'{context} must contain sourced short clauses')
+            continue
+        if field == 'description':
+            copy = listing.get(field, '')
+            reference = str(listing.get('description_reference', ''))
+        else:
+            index = int(field[-1]) - 1
+            bullets, references = listing.get('bullets', []), listing.get('bullet_references', [])
+            copy = bullets[index] if isinstance(bullets, list) and len(bullets) > index else ''
+            reference = str(references[index]) if isinstance(references, list) and len(references) > index else ''
+        fragments = []
+        bullet_source_found = False
+        for entry in entries:
+            if not isinstance(entry, dict):
+                errors.append(f'{context} entries must be objects')
+                continue
+            text = visible_source_text(entry.get('text', ''))
+            if not text or text.casefold() not in visible_source_text(copy).casefold():
+                errors.append(f'{context} text must appear in target copy: {text}')
+                continue
+            fragments.append(text)
+            if entry.get('kind') == 'editorial':
+                if not str(entry.get('reason', '')).strip() or entry.get('sources'):
+                    errors.append(f'{context} editorial text needs a reason and no claimed sources')
+                continue  # Semantic review must reject factual claims disguised as headings/connectives.
+            sources = entry.get('sources')
+            if not isinstance(sources, list) or not sources:
+                errors.append(f'{context} text requires actual sources: {text}')
+                continue
+            for source in sources:
+                if not isinstance(source, dict):
+                    errors.append(f'{context} source must be an object')
+                    continue
+                asin = str(source.get('asin', '')).strip().upper()
+                if asin:
+                    source_field = str(source.get('source_field', ''))
+                    original = visible_source_text(source.get('source_phrase', ''))
+                    allowed = ('title', 'description', 'aplus_text', *(f'bullet_{i}' for i in range(1, 6)))
+                    matches = [item for item in competitors
+                               if str(item.get('asin', '')).upper() == asin]
+                    if source_field not in allowed or not original or not any(
+                        original.casefold() in visible_source_text(source_text(item, source_field)).casefold()
+                        for item in matches
+                    ):
+                        errors.append(f'{context} source_phrase not found in {asin}/{source_field}')
+                    elif source_field.startswith('bullet_'):
+                        bullet_source_found = True
+                    label = {'title': '标题', 'description': '详情', 'aplus_text': 'A+'}.get(source_field)
+                    if label is None:
+                        label = f'第{source_field[-1:]}点'
+                    required = [text, f'{asin} {label}', original]
+                else:
+                    fact_id = str(source.get('fact_id', ''))
+                    fact = fact_by_id.get(fact_id, {})
+                    if (fact.get('status') != 'confirmed'
+                            or variant_id not in fact.get('variant_ids', [])
+                            or fact_id not in listing.get('field_fact_ids', {}).get(field, [])):
+                        errors.append(f'{context} requires a confirmed applicable field fact: {fact_id}')
+                    required = [text, fact_id]
+                # A clause and its source must occur together, not somewhere in a global citation list.
+                segments = re.split(r'[；;\n]', reference)
+                if not any(all(value.casefold() in visible_source_text(segment).casefold()
+                               for value in required) for segment in segments):
+                    errors.append(f'{context} visible reference must map clause and original source: {text}')
+        validate_source_coverage(errors, context, copy, fragments)
+        if competitors and field.startswith('bullet_') and not bullet_source_found:
+            errors.append(f'{context} needs an actual competitor bullet source for a clause')
 
 
 def validate_numbered_bullet_references(errors, market, variant_id, listing, competitors):
@@ -616,6 +716,11 @@ def validate_numbered_bullet_references(errors, market, variant_id, listing, com
 
 def validate(data):
     errors, warnings = [], []
+    mapping_version = data.get('source_mapping_version', 1)
+    if mapping_version not in (1, 2):
+        errors.append('source_mapping_version must be 1 or 2')
+    if mapping_version == 1:
+        warnings.append('Legacy source mapping: upgrade to source_mapping_version=2 for clause-level traceability')
     targets = data.get('targets', [])
     variants = data.get('variants', [])
     facts = data.get('facts', [])
@@ -885,8 +990,31 @@ def validate(data):
                 )
             for field in ('title', 'item_highlights'):
                 validate_phrase_sources(
-                    errors, market, variant_id, listing, field, competitors, fact_by_id
+                    errors, market, variant_id, listing, field, competitors, fact_by_id, strict=mapping_version == 2
                 )
+        if mapping_version == 2:
+            validate_clause_sources(errors, market, variant_id, listing, competitors, fact_by_id)
+            for field in ('title', 'item_highlights'):
+                if not competitors:
+                    validate_phrase_sources(errors, market, variant_id, listing, field, competitors, fact_by_id, strict=True)
+                entries = listing.get(f'{field}_phrase_sources', [])
+                fragments = [entry.get('phrase', '') for entry in entries if isinstance(entry, dict)] if isinstance(entries, list) else []
+                editorial_mapping = listing.get('editorial_phrases', {})
+                if not isinstance(editorial_mapping, dict):
+                    errors.append(f'{market}/{variant_id} editorial_phrases must be an object')
+                    editorial_mapping = {}
+                editorial = editorial_mapping.get(field, [])
+                if not isinstance(editorial, list):
+                    errors.append(f'{market}/{variant_id} editorial_phrases.{field} must be a list')
+                    editorial = []
+                for entry in editorial:
+                    if not isinstance(entry, dict) or not entry.get('text') or not entry.get('reason'):
+                        errors.append(f'{market}/{variant_id} editorial_phrases.{field} needs text and reason')
+                    elif visible_source_text(entry['text']).casefold() not in visible_source_text(listing.get(field, '')).casefold():
+                        errors.append(f'{market}/{variant_id} editorial phrase must appear in {field}')
+                    else:
+                        fragments.append(entry['text'])
+                validate_source_coverage(errors, f'{market}/{variant_id} {field}', listing.get(field, ''), fragments)
         bullets = listing.get('bullets', [])
         buyer_bullet_texts = []
         if len(bullets) != 5 or any(not str(item).strip() for item in bullets):

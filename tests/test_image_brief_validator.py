@@ -126,16 +126,16 @@ def package():
 
     data['products'][0]['visual_direction'] = '白底配灰绿标题，左侧主体右侧信息，柔光展现表面，统一短标签层级。'
     data['primary_reference']['coverage_status'] = 'complete'
-    questions = [
-        ('售卖什么产品？', '外形与售卖件数'),
-        ('内部结构是什么？', '过滤层的组成'),
-        ('能否放入目标位置？', '三个测量方向及接口位置'),
-        ('怎样安装？', '安装动作顺序'),
-        ('在哪里使用？', '冷藏室内的放置位置'),
-        ('还有哪些适用环境？', '四种不同环境的用途'),
+    image_contents = [
+        '外形与售卖件数',
+        '过滤层的组成',
+        '三个测量方向及接口位置',
+        '安装动作顺序',
+        '冷藏室内的放置位置',
+        '四种不同环境的用途',
     ]
-    for task, (question, information) in zip(data['image_tasks'], questions):
-        task['buyer_question'], task['new_information'] = question, information
+    for task, information in zip(data['image_tasks'], image_contents):
+        task['new_information'] = information
         task.setdefault('on_image_text', '')
         for field in ('content_mappings', 'text_mappings'):
             for mapping in task[field]:
@@ -150,7 +150,9 @@ def package():
 
 
 def test_dynamic_six_task_plan_is_valid():
-    result = VALIDATOR.validate(package())
+    data = package()
+    assert all('buyer_question' not in task for task in data['image_tasks'])
+    result = VALIDATOR.validate(data)
     assert result['ready_for_delivery'], result['errors']
 
 
@@ -338,7 +340,7 @@ def test_six_to_eight_tasks_are_required_per_product():
         data['image_tasks'].insert(-2, {
             'id': task_id, 'type': task_type, 'product_ids': ['V1'],
             'instructions': '展示有依据的独立信息。',
-            'buyer_question': task_id + ' 所需判断？', 'new_information': task_id + ' 新增信息',
+            'new_information': task_id + ' 新增信息',
             'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
         })
     assert VALIDATOR.validate(data)['ready_for_delivery']
@@ -659,3 +661,61 @@ def test_failed_image_read_keeps_failure_instead_of_invented_content():
     data['primary_reference']['coverage_status'] = 'partial'
     data['primary_reference']['coverage_note'] = '两张 A+ 图片返回 HTTP 404，其余图册已读取'
     assert VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def integrated_package():
+    data = package()
+    data['schema_version'] = 3
+    for task in data['image_tasks']:
+        task['reference_gap_reason'] = '测试夹具只给主图嵌入参考，其余任务使用已映射内容。'
+        task['composition'] = {
+            'final_layout': '主画面在左侧约65%，右侧整合相关细节模块',
+            'density_plan': '场景覆盖主画面，右侧标签与细节靠近，留出阅读空隙',
+            'replacements': '使用当前变体产品，替换原参考中不适用文字',
+            'optimizations': '模型将原居中构图重排为左右主辅，统一光线和文字层级',
+        }
+        task['instructions'] += '；' + '；'.join(task['composition'].values())
+        for field in ('content_mappings', 'text_mappings'):
+            for mapping in task[field]:
+                mapping['placement'] = '最终右侧辅助区域'
+                task['instructions'] += '；最终右侧辅助区域'
+        task['own_content_mappings'] = []
+        task['product_claim_sources'] = []
+    main = data['image_tasks'][0]
+    main['reference_images'] = ['/tmp/reference.jpg']
+    main['visual_anchor'] = {'source_image_id': 'source-main', 'reference_slot': 1}
+    main['instructions'] += '；参考图片1提供主体方向，按最终左右布局重新组合'
+    return data
+
+
+def test_v3_accepts_recomposed_design_without_preserving_layout():
+    result = VALIDATOR.validate(integrated_package())
+    assert result['ready_for_delivery'], result['errors']
+
+
+def test_v3_rejects_missing_final_layout_and_unplaced_reference_module():
+    data = integrated_package()
+    data['image_tasks'][0]['composition']['final_layout'] = '未写入执行文字的新构图'
+    del data['image_tasks'][0]['content_mappings'][0]['placement']
+    errors = VALIDATOR.validate(data)['errors']
+    assert any('composition.final_layout' in error for error in errors)
+    assert any('content_mappings.placement' in error for error in errors)
+
+
+def test_v3_rejects_unmapped_reference_and_unsourced_claim():
+    data = integrated_package()
+    data['image_tasks'][0]['visual_anchor']['source_image_id'] = 'source-detail'
+    data['image_tasks'][0]['product_claim_sources'] = [{'claim': '未核对的材料'}]
+    errors = VALIDATOR.validate(data)['errors']
+    assert any('visual_anchor.source_image_id' in error for error in errors)
+    assert any('actual product source_ref' in error for error in errors)
+
+
+def test_v3_own_module_requires_source_and_final_placement():
+    data = integrated_package()
+    task = data['image_tasks'][1]
+    task['own_content_mappings'] = [{'output_content': '本品连接结构', 'source_ref': '开发文档 D2', 'placement': '右下细节窗'}]
+    task['instructions'] += '；本品连接结构放入右下细节窗'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    del task['own_content_mappings'][0]['source_ref']
+    assert not VALIDATOR.validate(data)['ready_for_delivery']
