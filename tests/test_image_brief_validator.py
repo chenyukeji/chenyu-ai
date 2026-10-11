@@ -104,6 +104,7 @@ def package():
             },
             {
                 'id': 'T5', 'type': 'four_grid', 'product_ids': ['V1'],
+                'on_image_text': 'Kitchen；Office；Travel；Bedroom',
                 'instructions': '四格分别展示厨房、办公室、旅行和卧室场景，每格写 Kitchen、Office、Travel、Bedroom。',
                 'content_mappings': [
                     {'source_content': 'four use scenes',
@@ -538,6 +539,7 @@ def test_source_grid_can_be_reduced_while_final_grid_uses_other_supported_scenes
     task = data['image_tasks'][5]
     source['text_elements'] = ['Kitchen', 'Office', 'Travel', 'Bedroom']
     task['instructions'] = '四格展示厨房 Kitchen、餐桌 Dining、户外野餐 Picnic、书房 Study 的真实使用场景。'
+    task['on_image_text'] = 'Kitchen；Dining；Picnic；Study'
     task['scene_cells'] = [
         {'source_image_id': 'source-scenes', 'source_scene': 'kitchen', 'source_text': 'Kitchen',
          'output_scene': '厨房', 'output_text': 'Kitchen'},
@@ -732,3 +734,28 @@ def test_v3_own_module_requires_source_and_final_placement():
     assert VALIDATOR.validate(data)['ready_for_delivery']
     del task['own_content_mappings'][0]['source_ref']
     assert not VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_original_grid_scenes_require_individual_titles_even_without_source_text():
+    for value in (None, '', '   ', 123):
+        data = package()
+        data['primary_reference'] = None
+        for task in data['image_tasks']:
+            task['content_mappings'] = []
+            task['text_mappings'] = []
+            for cell in task['scene_cells']:
+                for key in ('source_image_id', 'source_scene', 'source_text'):
+                    cell.pop(key, None)
+        task = data['image_tasks'][-1]
+        task['scene_cells'][0]['output_text'] = value
+        result = VALIDATOR.validate(data)
+        assert not result['ready_for_delivery']
+        assert any('requires a non-empty output_text title' in e for e in result['errors'])
+
+
+def test_grid_titles_must_reach_on_image_text_in_addition_to_instructions():
+    data = package()
+    data['image_tasks'][-1]['on_image_text'] = 'Use Scenarios'
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert sum('on_image_text omits four-grid title' in e for e in result['errors']) == 4

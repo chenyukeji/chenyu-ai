@@ -366,6 +366,11 @@ def validate_visual_contract(image_brief, errors):
                         errors.append(f'$.image_tasks[{task_id}] each scene cell requires output_scene')
                         continue
                     scene_names.append(' '.join(words(cell['output_scene'])))
+                    title = cell.get('output_text')
+                    if not isinstance(title, str) or not title.strip():
+                        errors.append(f'$.image_tasks[{task_id}] each scene cell requires a non-empty output_text title')
+                    elif title.strip() not in on_image_text:
+                        errors.append(f'$.image_tasks[{task_id}] on_image_text omits four-grid title: {title.strip()}')
                     for field in ('output_scene', 'output_text'):
                         value = str(cell.get(field, '')).strip()
                         if value and value not in instructions:
