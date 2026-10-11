@@ -671,8 +671,7 @@ def integrated_package():
     for task in data['image_tasks']:
         task['reference_gap_reason'] = '测试夹具只给主图嵌入参考，其余任务使用已映射内容。'
         task['composition'] = {
-            'final_layout': '主画面在左侧约65%，右侧整合相关细节模块',
-            'density_plan': '场景覆盖主画面，右侧标签与细节靠近，留出阅读空隙',
+            'final_layout': '主画面在左侧占画布宽度约65%，右侧整合相关细节模块',
             'replacements': '使用当前变体产品，替换原参考中不适用文字',
             'optimizations': '模型将原居中构图重排为左右主辅，统一光线和文字层级',
         }
@@ -759,3 +758,13 @@ def test_grid_titles_must_reach_on_image_text_in_addition_to_instructions():
     result = VALIDATOR.validate(data)
     assert not result['ready_for_delivery']
     assert sum('on_image_text omits four-grid title' in e for e in result['errors']) == 4
+
+
+def test_v3_density_is_optional_and_legacy_density_need_not_reach_instructions():
+    data = integrated_package()
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    for task in data['image_tasks']:
+        task['composition']['density_plan'] = '旧包密度备注，不应强制写入交付文字'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    del data['image_tasks'][0]['composition']['final_layout']
+    assert not VALIDATOR.validate(data)['ready_for_delivery']

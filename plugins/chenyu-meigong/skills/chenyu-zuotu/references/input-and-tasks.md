@@ -35,7 +35,7 @@ Excel可能包含ZIP附件图标和OLE嵌入对象，实际高清素材藏在附
     "inputs": [{"id": "photo-01", "path": "absolute path", "role": "product_photo", "reason": "用户标记实拍"}],
     "requirements": [{"id": "r1", "text": "左侧展示两件粉色钻贴", "source": "D2"}],
     "exact_text": [],
-    "output": {"width": 1600, "height": 1600, "format": "JPEG"},
+    "output": {"width": 1254, "height": 1254, "format": "JPEG"},
     "versions": [],
     "final_path": null,
     "display_reference": null,

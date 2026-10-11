@@ -590,7 +590,7 @@ def validate_visual_contract(image_brief, errors):
                 composition = {}
             if not str(composition.get('optimizations', '')).strip():
                 errors.append(f'{context}.composition.optimizations is required for internal design notes')
-            for field in ('final_layout', 'density_plan', 'replacements'):
+            for field in ('final_layout', 'replacements'):
                 value = str(composition.get(field, '')).strip()
                 if not value or value not in instructions:
                     errors.append(f'{context}.composition.{field} must appear in final instructions')
