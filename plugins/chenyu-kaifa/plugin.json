@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "chenyu-kaifa",
-  "version": "1.3.8",
+  "version": "1.4.0",
   "description": "Chenyu development routing, product discovery, 1688 supplier collection and product documentation.",
   "author": {
     "name": "chenyukeji",
@@ -23,7 +23,7 @@
   "interface": {
     "displayName": "晨玙 Amazon 开发",
     "shortDescription": "自动选择选品、1688供应商采集或开发文档。",
-    "longDescription": "根据自然语言需求自动选择选品分析、开发文档或两者。选品支持近期 FBM、新品榜和卖家精灵历史季节性采集，并支持导入店铺快照、搜索热词和排名跃升数据进行分析。开发文档按产品生成独立三表 Excel。 提供1688链接和属性，通过已授权领星读取供应商、匹配规格、图片、报价和库存，可衔接开发文档；不保存配对或下单。",
+    "longDescription": "一个选品 Skill 接收类目、商品链接和店铺链接，综合 Amazon 新品榜、卖家精灵新品及当前/历史销量飙升、关键词月度趋势和只读新品数据库，生成含图片及来源覆盖的开品 Excel。另支持1688供应商资料采集与按产品生成开发文档。实时覆盖以站点、账号和页面结果为准。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": [

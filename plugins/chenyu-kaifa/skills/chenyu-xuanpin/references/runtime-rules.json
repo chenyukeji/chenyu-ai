@@ -109,5 +109,29 @@
     "图片",
     "结论",
     "理由"
-  ]
+  ],
+  "unified_selection": {
+    "entrypoint": "run_selection",
+    "resolver": "resolve_selection_input",
+    "inputs": [
+      "category",
+      "product_url",
+      "seller_store_url",
+      "brand_store_url"
+    ],
+    "sources": [
+      "amazon_new_releases",
+      "sellersprite_new",
+      "sellersprite_surge",
+      "sellersprite_history",
+      "keyword_trends",
+      "new_releases_db"
+    ],
+    "keyword_match": "phrase",
+    "historical_window": "last_year_same_month_plus_2_or_3",
+    "keyword_analysis": "complete_month_mom_yoy_seasonality",
+    "review_required": true,
+    "coverage": "explicit_sample_and_missing_source_status",
+    "legacy_strategy_registry_scope": "run_discovery_flow"
+  }
 }

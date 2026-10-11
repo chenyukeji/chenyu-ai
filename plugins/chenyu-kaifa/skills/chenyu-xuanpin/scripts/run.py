@@ -962,12 +962,20 @@ def handle(payload: dict) -> dict:
     if not isinstance(payload, dict):
         raise ContractError("input must be a JSON object")
     action = payload.get("skill_action") or "run_discovery_flow"
+    if action in {"plan_selection", "run_selection", "resume_selection", "resolve_selection_input"}:
+        from selection_flow import plan_selection, run_selection
+        if action == "plan_selection":
+            return {"ok": True, "plan": plan_selection(payload)}
+        if action == "resolve_selection_input":
+            from selection_collectors import collect_amazon_input
+            return {"ok": True, "input": collect_amazon_input(payload)}
+        return run_selection(payload)
     if action == "status":
         return {
             "ok": True,
             "skill": "chenyu-xuanpin",
             "purpose": "选品、分析评分并生成开品表格",
-            "actions": ["status", "list_strategies", "resolve_request", "analyze_new_releases_db", "run_discovery_flow", "resume_discovery_flow", "enrich_sellersprite", "browser_status", "browser_login_sellersprite"],
+            "actions": ["plan_selection", "run_selection", "resume_selection", "resolve_selection_input", "status", "list_strategies", "resolve_request", "analyze_new_releases_db", "run_discovery_flow", "resume_discovery_flow", "enrich_sellersprite", "browser_status", "browser_login_sellersprite"],
         }
     if action == "list_strategies":
         return {"ok": True, "strategies": list_strategies(load_rules())}

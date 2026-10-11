@@ -7,11 +7,26 @@
 | Skill | 输入 | 交付 |
 | --- | --- | --- |
 | [开发总入口](skills/chenyu-kaifa/SKILL.md) | 自然语言需求、已确认产品、1688链接和选品资料 | 自动选择选品、供应商采集、开发文档或组合，复用已有证据 |
-| [选品分析](skills/chenyu-xuanpin/SKILL.md) | 类目、站点、选品条件或真实候选数据 | 按调研优先级排序的开品 Excel |
+| [选品分析](skills/chenyu-xuanpin/SKILL.md) | 类目、商品链接、店铺链接、条件或真实候选数据 | 商品机会、关键词趋势、季节性和来源覆盖 Excel |
 | [开发文档](skills/chenyu-kaifawendang/SKILL.md) | 已确认的产品、竞品、供应商、变体和图片 | 每个产品一个三表工作簿，同产品变体保留在详情表 |
 | [供应商采集](skills/chenyu-gongyingshang/SKILL.md) | 1688链接＋目标属性、已授权领星会话 | 供应商名称、匹配规格/图片/报价/库存、主图及开发事实包 |
 
-## 选品策略和状态
+## 单一选品入口
+
+选品只需 `chenyu-xuanpin`。自然语言、商品链接和店铺链接使用 [统一选品流程](skills/chenyu-xuanpin/references/unified-selection.md)：
+
+输入解析 → 站点及目录核实 → 多来源采集 → 商品池与关键词需求分别整理 → 相关性和证据审阅 → 含图片的五表 Excel。
+
+- 商品链接自动读取目录，并尝试从同站新品榜首页发现大类、打开同节点榜单验证；找不到时记录缺项。
+- 店铺链接读取实际可见商品，区分卖家目录和品牌展示页；样本不冒充完整店铺快照。
+- 类目查询结合 Amazon 新品榜、卖家精灵研发新品榜、当前及去年同期后2～3个月飙升榜、关键词历史和数据库。
+- 卖家精灵产品筛选使用词组匹配；仍需模型审阅用途。关键词按完整月计算环比/同比，历史销量与当前销量分开。
+- 数据库只按实际覆盖的类目或 ASIN 查询；父类覆盖不能视为细类已收录。
+- 提问示例见 [统一流程中的提问格式](skills/chenyu-xuanpin/references/unified-selection.md#提问格式)。
+
+## 独立策略和状态
+
+以下注册表用于明确调用旧的 `run_discovery_flow`；综合任务使用上面的统一入口。
 
 | 策略 | 当前实现 |
 | --- | --- |
@@ -26,7 +41,7 @@
 
 策略状态唯一来源为 [runtime-rules.json](skills/chenyu-xuanpin/references/runtime-rules.json)。输入字段和历史窗口见 [六种策略](skills/chenyu-xuanpin/references/six-strategies.md)；自定义类目见 [类目说明](skills/chenyu-xuanpin/references/custom-categories.md)。
 
-## 处理流程
+## 独立策略处理流程
 
 `run.py` 解析要求 → 策略路由 → 候选采集／导入 → 卖家精灵补数 → 去重与证据检查 → 评分 → Excel。
 
@@ -47,6 +62,6 @@
 
 ## 当前限制与输出
 
-I/C/K 尚无专用实时采集器。采集覆盖依赖站点和账号；站外流量、创新原因及未提供的评论事实不能自动推定。类目来源、评分阈值和字段证据仍需按实际业务核对。
+独立 I/C/K 策略仍使用导入接口；统一入口已支持店铺可见样本和关键词实时查询，尚未实现自动定期全店跟踪及 K 实时排名跃升采集。采集覆盖依赖站点和账号；站外流量、创新原因及未提供的评论事实不能自动推定。类目来源、评分阈值和字段证据仍需按实际业务核对。
 
 选品、开发文档与供应商资料分别保存到 `product-discovery`、`product-development` 和 `supplier-data`，见 [输出目录规范](references/output-paths.md)。业务输出不进入源码。供应商测试执行 `node --test tests/test_supplier_collector.cjs`，其余测试见仓库根 README。

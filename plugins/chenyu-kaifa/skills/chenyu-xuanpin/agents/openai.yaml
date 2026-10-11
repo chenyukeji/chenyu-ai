@@ -1,7 +1,7 @@
 interface:
   display_name: "晨玙 Amazon 选品"
-  short_description: "自动找品、评分并生成降序开品表格。"
-  default_prompt: "使用 $chenyu-xuanpin，根据我的自然语言要求找产品并生成按得分降序的开品 Excel；未说明策略时默认抓取美国站和德国站新品榜。"
+  short_description: "根据类目或链接调查新品、销量及关键词趋势，生成开品表。"
+  default_prompt: "使用 $chenyu-xuanpin，根据我提供的类目、商品或店铺链接，综合新品榜、当前及历史销量飙升、关键词趋势和新品数据库，核对机会并生成有来源的开品 Excel。"
   icon_small: "./assets/icon.svg"
   icon_large: "./assets/icon.svg"
 policy:

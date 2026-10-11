@@ -1387,7 +1387,7 @@ def _login_sellersprite_in_page(page, username: str, password: str, destination:
             return None
         return "sellersprite_login_required" if state == "guest" else "sellersprite_login_unverified"
 
-    login_url = "https://www.sellersprite.com/cn/w/user/login"
+    login_url = "https://www.sellersprite.com/w/user/login"
     _goto(page, login_url)
     page.wait_for_timeout(800)
     account_input = page.locator("input[name='email']:visible").first
@@ -1441,7 +1441,7 @@ def login_sellersprite(payload: dict) -> dict:
     username, password, credential_source = _sellersprite_credentials()
     if not username or not password:
         raise BrowserCollectionError("请配置 CHENYU_SELLERSPRITE_USERNAME 和 CHENYU_SELLERSPRITE_PASSWORD 环境变量")
-    login_url = validate_url(payload.get("url") or "https://www.sellersprite.com/cn/w/user/login")
+    login_url = validate_url(payload.get("url") or "https://www.sellersprite.com/w/user/login")
     destination = validate_url(
         payload.get("destination_url") or "https://www.sellersprite.com/v3/competitor-lookup"
     )
