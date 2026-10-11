@@ -437,7 +437,8 @@ def test_all_links_have_equal_selection_and_omission_rules():
     main['id'] = 'better-main'
     data['additional_references'] = [{'asin': 'B0BETTER12', 'coverage_status': 'complete', 'images': [main]}]
     # First link has a poorer main; it is evaluated and omitted.
-    primary['images'].insert(0, {'id': 'poor-main', 'role': 'main', 'omitted_reason': '主体过小，另一来源构图更清楚'})
+    primary['images'].insert(0, {'id': 'poor-main', 'role': 'main', 'content_elements': ['白底远景，主体仅占画面一角'],
+                                               'omitted_reason': '主体过小，另一来源构图更清楚'})
     data['image_tasks'][0]['content_mappings'][0]['source_image_id'] = 'better-main'
     product = data['products'][0]
     product.update(own_main_image_id='', product_content_image_source='confirmed_reference_main',
@@ -531,4 +532,57 @@ def test_multiple_products_are_not_limited_to_eight_total_tasks():
                 cell.pop(key, None)
     data['image_tasks'].extend(extra)
     assert len(data['image_tasks']) == 12
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_omitted_readable_images_need_observed_content():
+    data = package()
+    source = {'id': 'unused', 'role': 'gallery', 'omitted_reason': '品牌标志占满画面，没有产品或可借鉴布局'}
+    data['primary_reference']['images'].append(source)
+    assert not VALIDATOR.validate(data)['ready_for_delivery']
+    source['content_elements'] = ['纯色背景正中仅有品牌标志']
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_duplicate_omission_must_point_to_adopted_source_across_links():
+    data = package()
+    source = {'id': 'unused', 'role': 'gallery', 'content_elements': ['白底产品排列，留白过大'],
+              'omitted_reason': '与 source-main 的白底排列重复，保留图主体更大更清楚'}
+    data['additional_references'] = [{'asin': 'B0OTHER123', 'coverage_status': 'complete', 'images': [source]}]
+    assert not VALIDATOR.validate(data)['ready_for_delivery']
+    for target in ['missing', 'unused']:
+        source['duplicate_of'] = [target]
+        assert not VALIDATOR.validate(data)['ready_for_delivery']
+    source['duplicate_of'] = ['source-main']
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    other = {'id': 'also-unused', 'role': 'gallery', 'content_elements': ['模糊的品牌文字'],
+             'omitted_reason': '品牌文字模糊，画面无产品'}
+    data['primary_reference']['images'].append(other)
+    source['duplicate_of'] = ['also-unused']
+    assert not VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_blanket_omissions_are_rejected_without_reference_quotas():
+    data = package()
+    for index, content in enumerate(['颈部佩戴近景', '链扣链节三分区特写']):
+        data['primary_reference']['images'].append({
+            'id': f'unused-{index}', 'role': 'aplus', 'content_elements': [content],
+            'omitted_reason': 'A+品牌、其他字母或礼赠模块与当前A款的独立画面任务无新增价值。'})
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('blanket omitted_reason' in e for e in result['errors'])
+    # Specific exclusions are valid; no minimum reference count is introduced.
+    data['primary_reference']['images'][-2]['omitted_reason'] = '遮挡吊坠的高领衣物使佩戴位置不可见，不能用于比例判断'
+    data['primary_reference']['images'][-1]['omitted_reason'] = '三个特写均为焊死挂环，本品为活动挂环，结构表达不适用'
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_failed_image_read_keeps_failure_instead_of_invented_content():
+    data = package()
+    for index in range(2):
+        data['primary_reference']['images'].append({
+            'id': f'failed-{index}', 'role': 'aplus', 'status': 'failed',
+            'content_elements': [], 'omitted_reason': '原图 URL 返回 HTTP 404，无法读取'})
+    data['primary_reference']['coverage_status'] = 'partial'
+    data['primary_reference']['coverage_note'] = '两张 A+ 图片返回 HTTP 404，其余图册已读取'
     assert VALIDATOR.validate(data)['ready_for_delivery']

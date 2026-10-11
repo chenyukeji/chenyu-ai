@@ -74,6 +74,41 @@ def _mapping_sources(tasks, task_ids, field, image_id):
     return values
 
 
+def validate_omitted_images(seen_images, errors):
+    """Require inspectable omissions; do not infer visual similarity from counts."""
+    reasons = {}
+    for image_id, (_, source) in seen_images.items():
+        reason = str(source.get('omitted_reason', '')).strip()
+        if not reason:
+            continue
+        path = f'$.reference_images[{image_id}]'
+        if source.get('status') == 'failed':
+            continue  # A failed read has no visual content to describe.
+        content = source.get('content_elements', [])
+        if not _non_empty_strings(content):
+            errors.append(f'{path} omitted readable image requires actual content_elements')
+        normalized = ' '.join(words(reason))
+        if normalized in {'重复', '其他变体', '其他字母', '无新增价值', '不适用',
+                          'duplicate', 'irrelevant', 'no added value'}:
+            errors.append(f'{path}.omitted_reason must explain the specific visual decision')
+        duplicates = source.get('duplicate_of', [])
+        if duplicates or re.search(r'重复|近似图|\bduplicat(?:e|es|ed)\b', reason, re.I):
+            if not _non_empty_strings(duplicates):
+                errors.append(f'{path}.duplicate_of must cite retained source image IDs')
+                continue
+            for retained_id in duplicates:
+                _, retained = seen_images.get(retained_id, ({}, {}))
+                if (retained_id == image_id or not retained.get('mapped_task_ids')
+                        or retained.get('omitted_reason') or retained.get('status') == 'failed'):
+                    errors.append(f'{path}.duplicate_of must cite an adopted source: {retained_id}')
+        else:
+            reasons.setdefault(normalized, []).append(image_id)
+    for image_ids in reasons.values():
+        if len(image_ids) > 1:
+            errors.append('$.reference_images reuse a blanket omitted_reason; explain each '
+                          'image or cite duplicate_of: ' + ', '.join(image_ids))
+
+
 def validate_visual_contract(image_brief, errors):
     """Validate product identity, task planning and all reference inventories."""
     if not isinstance(image_brief, dict):
@@ -469,6 +504,8 @@ def validate_visual_contract(image_brief, errors):
                         continue
                     if not match or not str(match.get('output_scene', '')).strip() or (label and not str(match.get('output_text', '')).strip()):
                         errors.append(f'{path}.scene_cells[{cell_index}] is missing a complete output scene/text mapping')
+
+    validate_omitted_images(seen_images, errors)
 
     for product_id, (image_source, source_ref) in product_image_sources.items():
         if image_source not in ('confirmed_reference_main', 'first_reference_main'):
