@@ -232,6 +232,31 @@ def test_product_image_source_is_required():
                for item in result['errors'])
 
 
+
+def test_user_authorized_first_reference_can_supply_size():
+    data = package()
+    size = data['image_tasks'][2]
+    size['dimension_source'] = {
+        'kind': 'user_adopted_primary_reference',
+        'source_ref': 'B012345678 bullet_3',
+        'user_instruction': '未填写的尺寸参考第一条链接',
+    }
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+    size['dimension_source']['source_ref'] = 'B099999999 bullet_3'
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('requires first-reference ASIN and user_instruction' in error
+               for error in result['errors'])
+
+    size['dimension_source']['source_ref'] = 'B012345678 bullet_3'
+    size['dimension_source']['user_instruction'] = ''
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('requires first-reference ASIN and user_instruction' in error
+               for error in result['errors'])
+
+
 def test_main_image_requires_a_valid_visual_choice():
     data = package()
     data['image_tasks'][0]['main_style'] = 'scene_hero'

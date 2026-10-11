@@ -252,10 +252,20 @@ def validate_visual_contract(image_brief, errors):
         if task_type == 'size':
             evidence = task.get('dimension_source', {})
             if not isinstance(evidence, dict) or evidence.get('kind') not in (
-                    'own_measurement', 'development', 'confirmed_same_product') or not str(evidence.get('source_ref', '')).strip():
-                errors.append(f'$.image_tasks[{task_id}] requires dimension_source from own or confirmed same-product evidence')
+                    'own_measurement', 'development', 'confirmed_same_product',
+                    'user_adopted_primary_reference') or not str(evidence.get('source_ref', '')).strip():
+                errors.append(f'$.image_tasks[{task_id}] requires a traceable dimension_source')
             elif evidence['kind'] == 'confirmed_same_product' and not str(evidence.get('matching_basis', '')).strip():
                 errors.append(f'$.image_tasks[{task_id}] dimension_source requires matching_basis')
+            elif evidence['kind'] == 'user_adopted_primary_reference':
+                primary = image_brief.get('primary_reference')
+                asin = str(primary.get('asin', '')).strip().upper() if isinstance(primary, dict) else ''
+                source_ref = str(evidence.get('source_ref', '')).upper()
+                if not asin or asin not in source_ref or not str(evidence.get('user_instruction', '')).strip():
+                    errors.append(
+                        f'$.image_tasks[{task_id}] user_adopted_primary_reference '
+                        'requires first-reference ASIN and user_instruction'
+                    )
             support = task.get('supporting_visual')
             if not isinstance(support, dict):
                 errors.append(

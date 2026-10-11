@@ -6,7 +6,7 @@
 
 ## 产品内容
 
-每个变体一行，固定六列：产品名称、产品图片、产品尺寸、产品材料、产品规格、补充信息。产品名称逐字沿用开发文档产品详情表的“变体/变体名称”单元格（标准三表模板为第三表），不拼接颜色、款式或括号说明，不另设 SKU 名称列；图片每行必填并嵌入，来源顺序按 Skill 的身份图片规则。规格写数量、颜色/图案、重量等已确认事实；补充信息只写须保持的具体外观或结构，无则留空。不放内部来源说明或通用待补项，具体缺口写在受影响任务。
+每个变体一行，固定六列：产品名称、产品图片、产品尺寸、产品材料、产品规格、补充信息。产品名称逐字沿用开发文档产品详情表的“变体/变体名称”单元格（标准三表模板为第三表），不拼接颜色、款式或括号说明，不另设 SKU 名称列；图片每行必填并嵌入，来源顺序按 Skill 的身份图片规则。规格写当前变体的数量、颜色/图案、重量等具体属性，包括用户授权从第一条链接补入的适用细节；补充信息只写须保持的具体外观或结构，无则留空。不放内部来源说明或通用待补项，具体缺口写在受影响任务。
 
 ## 作图要求
 
@@ -40,7 +40,7 @@
 - `reference_images` 按 C–F 实际嵌图顺序保存路径，最多四项；兼容旧字段 `embedded_reference_paths`。执行文字逐一写明“参考图片1”等编号及用途，不能引用空白栏。
 - 主图另有 `main_style`（`clean_white`、`white_with_use_inset`、`scene_hero`）、`main_style_reason`、`product_image_ids`（与本任务适用变体身份图完全一致）和 `identity_lock`。后者记录 `shape_structure`、`color_pattern`、`quantity_components`、`accessories_packaging`。主图 `on_image_text` 为空。
 - 场景任务 `scene`、`closeup_scene`、`key_scene` 另有 `scene_mode`。最终四宫格任务须有四个 `scene_cells`，每格非空 `output_scene`，文字需要时有 `output_text`，并写入执行文字。四格不是必需图类。
-- 尺寸任务有 `dimension_labels`（每项同一部位成对 cm / in）；`dimension_source` 保存 `kind`（`own_measurement`、`development`、`confirmed_same_product`）和 `source_ref`，同款另有 `matching_basis`。不同测量值来自不同资料时在 source_ref 内逐项对应。未确认数值在执行文字标具体缺口，补齐前不得标记可交付。
+- 尺寸任务有 `dimension_labels`（每项同一部位成对 cm / in）；`dimension_source` 保存 `kind`（`own_measurement`、`development`、`confirmed_same_product`、`user_adopted_primary_reference`）和 `source_ref`；已确认同款另有 `matching_basis`，用户授权首链接补充的尺寸另有 `user_instruction`，`source_ref` 指明首链接 ASIN 和原点位。不同测量值来自不同资料时在 source_ref 内逐项对应。未确认数值在执行文字标具体缺口，补齐前不得标记可交付。
 - 尺寸任务的 `supporting_visual.kind` 可为 `detail`、`scene`、`both`、`none`；纯尺寸选 `none`，无需例外说明。有辅助图时另有 `description`、`source_ref`、`dimension_relevance`，并在 instructions 写清内容及尺寸关系。`instructions` 和 `on_image_text` 都含尺寸标签及默认标题 Product Size；用户指定其他标题或无标题时保存 `size_heading`、`size_heading_override_reason`。
 
 ### 全部参考与内容取舍
