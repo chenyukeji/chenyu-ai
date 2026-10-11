@@ -768,3 +768,14 @@ def test_v3_density_is_optional_and_legacy_density_need_not_reach_instructions()
     assert VALIDATOR.validate(data)['ready_for_delivery']
     del data['image_tasks'][0]['composition']['final_layout']
     assert not VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_size_can_omit_extra_panel_with_a_concrete_design_reason():
+    data = package()
+    size = data['image_tasks'][2]
+    size['supporting_visual'] = {'kind': 'none', 'design_reason': '已在单只正面清楚标明两方向尺寸，独立场景不增加适配信息'}
+    result = VALIDATOR.validate(data)
+    assert result['ready_for_delivery'], result['errors']
+    for reason in ('', '   ', None):
+        size['supporting_visual']['design_reason'] = reason
+        assert not VALIDATOR.validate(data)['ready_for_delivery']

@@ -280,10 +280,11 @@ def validate_visual_contract(image_brief, errors):
                         'detail, scene, both, or none'
                     )
                 elif kind == 'none':
-                    if not str(support.get('user_instruction', '')).strip():
+                    if not (str(support.get('user_instruction') or '').strip()
+                            or str(support.get('design_reason') or '').strip()):
                         errors.append(
                             f'$.image_tasks[{task_id}] pure size image requires '
-                            'supporting_visual.user_instruction'
+                            'supporting_visual.user_instruction or design_reason'
                         )
                 else:
                     description = str(support.get('description', '')).strip()
