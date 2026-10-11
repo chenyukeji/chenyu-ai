@@ -10,7 +10,7 @@
 
 ## 作图要求
 
-严格匹配用户原表；未另附模板时直接复用运营交付大母版。固定第一行表头、第二行起为任务，不增加顶部视觉方向行或其他说明区。保留模板的列宽、行高、字体字号、配色、边框、对齐、冻结和打印设置，只替换内容及嵌图、按实际任务数增减数据行。整套视觉方向保存在内部包，并落实到各行执行文字。每个产品 6–8 张，主图第一，四宫格场景图最后；中间任务顺序按内容安排。
+严格匹配用户原表；未另附模板时直接复用运营交付大母版。固定第一行表头、第二行起为任务，不增加顶部视觉方向行或其他说明区。保留模板的列宽、行高、字体字号、配色、边框、对齐、冻结和打印设置，只替换内容及嵌图、按实际任务数增减数据行。整套视觉方向及主题元素风格保存在内部包，并落实到各行执行文字；适用时写清装饰元素、颜色、材质或表现方式及落位，不只写泛化氛围词。每个产品 6–8 张，主图第一，四宫格场景图最后；中间任务顺序按内容安排。
 
 | 列 | 内容 |
 | --- | --- |
@@ -50,7 +50,7 @@
 - `primary_reference` 保存第一条竞品链接，提供主要内容和视觉起点；其余链接在 `additional_references[]`，同样完整比较。逐图可采用任一链接中更清楚、更突出产品、场景更真实或信息安排更饱满的图作主参考，并在设计中吸收其他图的互补内容。没有竞品参考时用 null 与空列表，不编造来源。
 - 每个参考清单保存 `asin`、`marketplace`、原始 `url`、`coverage_status`（`complete`、`partial`、`failed`）和 `images[]`。部分或失败另有具体 `coverage_note`；完全失败可用空图片列表。完整性仍须与原始输入链接及研究包核对，不能用这个字段自证覆盖。
 - 每张来源图保存全包唯一 `id`、`role`、原图内容 `content_elements`、原图文字 `text_elements`、`mapped_task_ids`。整图不采用时改存具体 `omitted_reason`，仍保留实际画面的 `content_elements`；下载或读取失败另记 `status: failed` 及具体失败原因，不虚构画面内容。因重复不采用时另存 `duplicate_of`（已采用来源图 ID 列表），理由说明重复的展示内容与保留图的优势；不能把多个不同画面套用同一句舍弃理由。已用图内舍弃的模块用 `omitted_elements` 记录 `kind`（`content`、`text`、`scene`）、`value`、具体 `reason`。重复、无证明力、无关或已有更清楚表达均可成为理由；“图数已够”不构成理由。
-- 每条 `content_mappings` 写 `source_image_id`、`source_content`、`output_content`、`placement`；`text_mappings` 写 `source_image_id`、`source_text`、`output_text`、`placement`。内容与位置均落实到 instructions，多来源可映射同一模块。每个最终信息模块都须有来源映射；本品独有模块在 `own_content_mappings` 写 `output_content`、`source_ref`、`placement`；上图产品宣称在 `product_claim_sources` 写 `claim`、`source_ref`（具体资料单元格或已授权采用的 ASIN/原点位），无此类内容时为空数组。图片只能证明可见外观和设计方法，材料、尺寸、功能需要对应文字或产品依据。原创光线、排版等写 composition.optimizations，不虚构来源。
+- 每条 `content_mappings` 写 `source_image_id`、`source_content`、`output_content`、`placement`；`text_mappings` 写 `source_image_id`、`source_text`、`output_text`、`placement`。内容与位置均落实到 instructions，多来源可映射同一模块。每个最终产品信息模块都须有来源映射；原创背景、主题道具与装饰图形属于设计选择，记录于 `composition.optimizations`，具体表现和位置写进 `final_layout` 及 instructions，不为它们伪造产品来源；本品独有模块在 `own_content_mappings` 写 `output_content`、`source_ref`、`placement`；上图产品宣称在 `product_claim_sources` 写 `claim`、`source_ref`（具体资料单元格或已授权采用的 ASIN/原点位），无此类内容时为空数组。图片只能证明可见外观和设计方法，材料、尺寸、功能需要对应文字或产品依据。原创光线、排版等写 composition.optimizations，不虚构来源。
 - 来源四宫格保存四项 `scene_cells`（`source_scene`、`source_text`）；采用的格子在目标任务 scene_cells 中写 `source_image_id`、原场景/文字、`output_scene`、`output_text`，末张成品仍须是四宫格，其他格可从不同来源或已确认的自有产品用途补足；不能把来源中不适用的格子硬套到本品。舍弃某格时用 `omitted_elements` 的 scene 项指明场景及原因，涵盖该格标签。采用的有字格须落地准确改写文字。
 - 内部记录实际嵌图所在任务、来源 ASIN/原图编号、参考图重复引用时的独立用途；逐链接统计可用数、实际嵌入数及有适用候选未选的原因。仅借鉴构图/配色时，在内容映射写出实际采用的设计方法；无需继承来源宣传文字。
 
