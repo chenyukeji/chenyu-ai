@@ -507,6 +507,53 @@ def validate_visual_contract(image_brief, errors):
 
     validate_omitted_images(seen_images, errors)
 
+    schema_version = image_brief.get('schema_version', 1)
+    if schema_version not in (1, 2):
+        errors.append('$.schema_version must be 1 or 2')
+    if schema_version == 2:
+        for task_id, task in tasks.items():
+            embedded = task.get('reference_images', task.get('embedded_reference_paths', []))
+            if not isinstance(embedded, list):
+                continue  # Existing reference_images error already covers this.
+            if not embedded:
+                if not str(task.get('reference_gap_reason', '')).strip():
+                    errors.append(
+                        f'$.image_tasks[{task_id}] requires reference_gap_reason '
+                        'when no visual reference is embedded'
+                    )
+                continue
+            anchor = task.get('visual_anchor')
+            if not isinstance(anchor, dict):
+                errors.append(f'$.image_tasks[{task_id}] requires visual_anchor')
+                continue
+            source_id = str(anchor.get('source_image_id', '')).strip()
+            _, source = seen_images.get(source_id, ({}, {}))
+            if not source or task_id not in source.get('mapped_task_ids', []):
+                errors.append(
+                    f'$.image_tasks[{task_id}].visual_anchor.source_image_id '
+                    'must cite a source mapped to this task'
+                )
+            slot = anchor.get('reference_slot')
+            if not isinstance(slot, int) or isinstance(slot, bool) or not 1 <= slot <= len(embedded):
+                errors.append(
+                    f'$.image_tasks[{task_id}].visual_anchor.reference_slot '
+                    'must identify an embedded reference image'
+                )
+            instructions = str(task.get('instructions', ''))
+            for field in ('retained_layout', 'retained_density', 'replacements'):
+                value = str(anchor.get(field, '')).strip()
+                if not value or value not in instructions:
+                    errors.append(
+                        f'$.image_tasks[{task_id}].visual_anchor.{field} '
+                        'must appear in final instructions'
+                    )
+            supplement = str(anchor.get('supplement', '')).strip()
+            if supplement and supplement not in instructions:
+                errors.append(
+                    f'$.image_tasks[{task_id}].visual_anchor.supplement '
+                    'must appear in final instructions'
+                )
+
     for product_id, (image_source, source_ref) in product_image_sources.items():
         if image_source not in ('confirmed_reference_main', 'first_reference_main'):
             continue

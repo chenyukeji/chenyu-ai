@@ -154,6 +154,39 @@ def test_dynamic_six_task_plan_is_valid():
     assert result['ready_for_delivery'], result['errors']
 
 
+
+def test_v2_requires_a_mapped_visual_anchor_and_preserved_density():
+    data = package()
+    data['schema_version'] = 2
+    for task in data['image_tasks'][1:]:
+        task['reference_gap_reason'] = '本单元测试未嵌入该任务参考图'
+    main = data['image_tasks'][0]
+    main['reference_images'] = ['/tmp/visually-inspected-reference.jpg']
+    main['visual_anchor'] = {
+        'source_image_id': 'source-main',
+        'reference_slot': 1,
+        'retained_layout': '保留参考图片1的完整产品居中构图',
+        'retained_density': '保持商品占据画面主要区域',
+        'replacements': '替换为本品外观',
+        'supplement': '',
+    }
+    main['instructions'] += (
+        '保留参考图片1的完整产品居中构图；保持商品占据画面主要区域；替换为本品外观。'
+    )
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+    del main['visual_anchor']['retained_density']
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('visual_anchor.retained_density' in error for error in result['errors'])
+
+    main['visual_anchor']['retained_density'] = '保持商品占据画面主要区域'
+    main['visual_anchor']['source_image_id'] = 'missing-image'
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('visual_anchor.source_image_id' in error for error in result['errors'])
+
+
 def test_first_link_main_image_is_valid_fallback_with_source_trace():
     data = package()
     product = data['products'][0]
