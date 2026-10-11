@@ -182,7 +182,10 @@ class ListingTests(unittest.TestCase):
         data = self.listing_package()
         data['competitors'] = [{'id': 'C1', 'marketplace': 'DE', 'product_group': 'P1',
                                 'status': 'complete', 'asin': 'B012345678',
-                                'title': 'Dekoartikel Schmuckanhänger Festbedarf'}]
+                                'title': 'Dekoration Papierdekoration Festschmuck Dekoartikel Schmuckanhänger Festbedarf',
+                                'bullets': ['Competitor detail 1', 'klarer Form for decoration',
+                                            'Competitor detail 3', 'Competitor detail 4',
+                                            'Competitor detail 5']}]
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('title_reference is required' in error for error in result['errors']))
@@ -193,8 +196,20 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('bullet_references must contain five' in error for error in result['errors']))
 
         listing = data['listings'][0]
-        listing['title_reference'] = '参考 B012345678 标题'
-        listing['item_highlights_reference'] = '参考 B012345678 标题及第2点'
+        listing['title_reference'] = ('Dekoration ← B012345678 标题；Papierdekoration ← B012345678 标题；'
+                                      'Festschmuck ← B012345678 标题')
+        listing['title_phrase_sources'] = [
+            {'phrase': phrase, 'asin': 'B012345678', 'source_field': 'title',
+             'source_phrase': phrase}
+            for phrase in listing['title_keywords']
+        ]
+        listing['item_highlights_reference'] = ('Papiermaterial ← 自有事实 F1；'
+                                                'klarer Form ← B012345678 第2点')
+        listing['item_highlights_phrase_sources'] = [
+            {'phrase': 'Papiermaterial', 'fact_id': 'F1'},
+            {'phrase': 'klarer Form', 'asin': 'B012345678',
+             'source_field': 'bullet_2', 'source_phrase': 'klarer Form'},
+        ]
         listing['bullet_references'] = [f'参考 B012345678 第{i}点' for i in range(1, 6)]
         listing['description_reference'] = '参考 B012345678 第1-5点'
         listing['search_terms_reference'] = '参考 B012345678 标题及五点'
@@ -222,12 +237,31 @@ class ListingTests(unittest.TestCase):
             },
         ]
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        saved_bullet = listing['bullet_references'][0]
+        listing['bullet_references'][0] = '自有开发资料 D2/E2；参考竞品标题与图册'
+        self.assertTrue(any('must cite ASIN 第N点' in error for error in
+                            package_validator.validate(data)['errors']))
+        listing['bullet_references'][0] = saved_bullet
+        data['competitors'][0]['bullets'][0] = ''
+        self.assertTrue(any('cites missing competitor point' in error for error in
+                            package_validator.validate(data)['errors']))
+        data['competitors'][0]['bullets'][0] = 'Competitor detail 1'
+        listing['title_phrase_sources'][0]['source_phrase'] = 'not in competitor title'
+        self.assertTrue(any('source_phrase not found' in error for error in
+                            package_validator.validate(data)['errors']))
+        listing['title_phrase_sources'][0]['source_phrase'] = 'Dekoration'
+        listing['item_highlights_reference'] = '参考 B012345678 标题及第2点'
+        self.assertTrue(any('phrase missing from visible reference' in error for error in
+                            package_validator.validate(data)['errors']))
+        listing['item_highlights_reference'] = ('Papiermaterial ← 自有事实 F1；'
+                                                'klarer Form ← B012345678 第2点')
 
         original_terms = listing['search_terms']
         data['competitors'].append({
             'id': 'C2', 'marketplace': 'DE', 'product_group': 'P2',
             'status': 'complete', 'asin': 'B012345679',
             'title': 'Tischschmuck aus Papier für Feiern',
+            'bullets': [f'Second competitor detail {i}' for i in range(1, 6)],
         })
         extra = {
             'marketplace': 'DE', 'variant_id': 'V1',
@@ -246,9 +280,9 @@ class ListingTests(unittest.TestCase):
         # The primary source remains first; output bullets may merge and reorder sources.
         listing['bullet_references'] = [
             '参考 B012345678 第3点；B012345679 第2点',
-            '参考 B012345678 第1点及第4点',
+            '参考 B012345678 第1点；B012345678 第4点',
             '参考 B012345679 第5点',
-            '参考开发资料 Product B2',
+            '参考 B012345678 第4点；自有开发资料 Product B2',
             '参考 B012345678 第2点；B012345679 第1点',
         ]
         listing['description_reference'] = '综合 B012345678 第1、3点；B012345679 第2、5点'
@@ -480,13 +514,28 @@ class ListingTests(unittest.TestCase):
         data['competitors'] = [{
             'id': 'C1', 'marketplace': 'DE', 'product_group': 'P1',
             'status': 'complete', 'asin': 'B012345678',
-            'title': 'Dekoartikel Schmuckanhänger Festbedarf Wintermotiv',
+            'title': 'Dekoration Papierdekoration Festschmuck Dekoartikel Schmuckanhänger Festbedarf Wintermotiv',
+            'bullets': ['Competitor detail 1', 'klarer Form for decoration',
+                        'Competitor detail 3', 'Competitor detail 4',
+                        'Competitor detail 5'],
         }]
         listing = data['listings'][0]
         listing.update({
-            'title_reference': '参考 B012345678 标题',
-            'item_highlights_reference': '参考 B012345678 标题',
-            'bullet_references': ['参考 B012345678' for _ in range(5)],
+            'title_reference': ('Dekoration ← B012345678 标题；Papierdekoration ← B012345678 标题；'
+                                'Festschmuck ← B012345678 标题'),
+            'title_phrase_sources': [
+                {'phrase': phrase, 'asin': 'B012345678', 'source_field': 'title',
+                 'source_phrase': phrase}
+                for phrase in listing['title_keywords']
+            ],
+            'item_highlights_reference': ('Papiermaterial ← 自有事实 F1；'
+                                          'klarer Form ← B012345678 第2点'),
+            'item_highlights_phrase_sources': [
+                {'phrase': 'Papiermaterial', 'fact_id': 'F1'},
+                {'phrase': 'klarer Form', 'asin': 'B012345678',
+                 'source_field': 'bullet_2', 'source_phrase': 'klarer Form'},
+            ],
+            'bullet_references': [f'参考 B012345678 第{i}点' for i in range(1, 6)],
             'description_reference': '参考 B012345678',
             'search_terms_reference': '参考 B012345678 标题及卖家精灵反查',
             'primary_reference_asin': 'B012345678',

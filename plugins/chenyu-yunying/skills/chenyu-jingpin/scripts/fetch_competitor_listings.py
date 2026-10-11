@@ -237,9 +237,11 @@ def parse_listing(html, expected_asin):
         return {'status': 'failed', 'failure_reason': 'page_asin_mismatch',
                 'observed_asin': observed, 'title': '', 'bullets': [], 'description': ''}
     title = clean(title_node.text()) if title_node else ''
-    bullet_root = ids.get('feature-bullets')
+    # Amazon may render the same five points in the product quick-view block.
     bullets = []
-    if bullet_root:
+    for bullet_root in (ids.get('feature-bullets'), ids.get('pqv-feature-bullets')):
+        if not bullet_root:
+            continue
         for node in bullet_root.walk():
             if node.tag == 'li' and 'aok-hidden' not in node.attrs.get('class', ''):
                 # Avoid nested list duplicates and Amazon's feedback/accessory UI.
@@ -250,6 +252,8 @@ def parse_listing(html, expected_asin):
                 value = clean(node.text())
                 if value and value not in bullets:
                     bullets.append(value)
+        if bullets:
+            break
     description_node = ids.get('productDescription')
     product_description = clean(description_node.text()) if description_node else ''
     aplus = ids.get('aplus') or ids.get('aplus_feature_div')

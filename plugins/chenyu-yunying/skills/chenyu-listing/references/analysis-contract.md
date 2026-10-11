@@ -38,7 +38,7 @@
       "asin": "B012345678",
       "url": "https://www.amazon.de/dp/B012345678",
       "title": "...",
-      "bullets": ["..."],
+      "bullets": ["竞品第1点原文", "竞品第2点原文", "竞品第3点原文", "竞品第4点原文", "竞品第5点原文"],
       "description": "..."
     }
   ],
@@ -105,11 +105,19 @@
       "compatibility_required": false,
       "primary_compatibility_term": "",
       "compatibility_terms": [],
-      "title_reference": "B012345678 / DE：产品名称与同义称呼候选；按搜索证据和自有事实筛选，不预设场景词名额",
+      "title_reference": "Weihnachtsbaumdecke ← B012345678 标题（原文短语）；5-lagig ← 自有事实 F1",
+      "title_phrase_sources": [
+        {"phrase": "Weihnachtsbaumdecke", "asin": "B012345678", "source_field": "title", "source_phrase": "竞品标题原文短语"},
+        {"phrase": "5-lagig", "fact_id": "F1"}
+      ],
       "item_highlights": "...",
-      "item_highlights_reference": "参考开发表及 B012345678 标题/第2点",
+      "item_highlights_reference": "重要词组 ← B012345678 第2点（原文短语）；自有规格 ← 自有事实 F1",
+      "item_highlights_phrase_sources": [
+        {"phrase": "重要词组", "asin": "B012345678", "source_field": "bullet_2", "source_phrase": "竞品第2点原文短语"},
+        {"phrase": "自有规格", "fact_id": "F1"}
+      ],
       "bullets": ["...", "...", "...", "...", "..."],
-      "bullet_references": ["...", "...", "...", "...", "..."],
+      "bullet_references": ["B012345678 第1点（采用的主题）", "B012345678 第2点（采用的主题）", "B012345678 第3点（采用的主题）", "B012345678 第4点（采用的主题）", "B012345678 第5点（采用的主题）"],
       "description": "<p>...</p>",
       "description_reference": "参考开发表及 B012345678 第1-5点",
       "front_end_attributes": ["Rot", "120 cm"],
@@ -163,7 +171,8 @@
 - `item_highlights` 与 `item_highlights_reference` 必填。
 - `front_end_attributes` 收录未直接写在文案对象中的已填前台属性，Search Terms 去重时一并计算。
 - `buyer_visible_variant_terms` 默认空数组。只有用户明确确认属于买家公开名称的变体词才可加入；没有进入此清单的 `Design A/B/C` 等内部编号不得出现在买家可见字段。
-- `primary_reference_asin` 保留主要同款与关键词反查身份，不决定五点顺序。按输入链接原始顺序保留参考优先级，越靠前权重越高；五条 `bullet_references` 各自记录实际采用的 ASIN/原点位，一条可列多个来源，也可引用自有资料。与 `field_fact_ids.bullet_1` 至 `bullet_5` 对应核对适用内容；详情用 `description_reference` 和 `field_fact_ids.description` 记录。无需生成 `primary_reference_bullet_outline` 或逐点 `description_excerpt`，不再校验五条与首链接的固定映射。来源优先级、内容整合、具体信息覆盖及去重须语义复核。
+- `primary_reference_asin` 保留主要同款与关键词反查身份，不决定五点顺序。按输入链接原始顺序保留参考优先级，越靠前权重越高。五条 `bullet_references` 各自写明至少一个已在 `competitors[].bullets` 读取的 `ASIN 第N点（采用的主题）`；一条可列多个来源，但每个点位分别写完整 ASIN 和编号，自有事实可作为附加依据。校验器检查点位存在，人工复核主题与自有文案的语义对应；标题、图册和开发文档不能替代原始竞品五点。与 `field_fact_ids.bullet_1` 至 `bullet_5` 对应核对本品事实；详情另用 `description_reference` 和 `field_fact_ids.description` 记录。五条不要求与首链接固定映射。
+- `title_phrase_sources`、`item_highlights_phrase_sources` 各为非空数组，将两个字段中所有有购买含义的词组逐一映射。竞品来源项用 `{ "phrase": "目标文案中的词组", "asin": "B012345678", "source_field": "title 或 bullet_1…bullet_5", "source_phrase": "竞品原文中的短语" }`；自有事实项用 `{ "phrase": "目标文案中的词组", "fact_id": "F1" }`。`phrase` 必须出现在相应目标文案，`source_phrase` 必须能在该竞品的对应标题或五点找到；翻译和语义适配另由人工复核。标题三个核心词组须各有竞品来源；目标文案使用同义词形时，可在来源项额外写 `keyword` 指向对应 `title_keywords` 原词。`title_reference` 与 `item_highlights_reference` 逐项显示同一映射，例如 `collier de perles ← B012345678 标题（pearl necklace）；trois perles ← 自有事实 F1`，供卖家直接核对。
 - `field_fact_ids` 必须为 `title`、`item_highlights`、`bullet_1` 至 `bullet_5` 和 `description` 分别提供至少一个已确认事实编号；这些编号必须同时存在于 `claim_fact_ids`，且适用于当前变体。字段新增任何具体宣称时先更新事实映射，再写文案。
 - 适配型产品设置 `compatibility_required=true`。`primary_compatibility_term` 保存必须进入 Item Name 和五点 1 的主要系列/型号/替换件号；`compatibility_terms` 保存必须由 Item Name＋Item Highlights 完整覆盖、并在 HTML 详情完整列出的已确认兼容标识。中文标题＋Item Highlights、五点 1 和详情也必须保留相同标识。非适配型产品保留 `false` 和空值。
 - `translations` 必填，逐字段保存完整中文翻译。它只翻译目标语言买家文案，不得混入事实状态、资料来源、包装核算、竞品差异或审核过程；五点必须正好五条。生成 Excel 前，目标语言和此对象必须一起通过校验。

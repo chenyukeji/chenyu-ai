@@ -36,6 +36,20 @@ IMAGE_PAGE = '''<html><body><input id="ASIN" value="B012345678">
 
 
 class CrawlerTests(unittest.TestCase):
+    def test_parse_quick_view_bullets(self):
+        html = ('<span id="productTitle">Pearl necklace</span>'
+                '<input id="ASIN" value="B012345678">'
+                '<div id="feature-bullets"></div>'
+                '<div id="pqv-feature-bullets"><ul>'
+                '<li><span>Pearl necklace worn alone</span></li>'
+                '<li><span>Gold-coloured chain</span></li>'
+                '</ul></div>')
+        result = crawler.parse_listing(html, 'B012345678')
+        self.assertEqual(result['bullets'], [
+            'Pearl necklace worn alone', 'Gold-coloured chain'
+        ])
+        self.assertEqual(result['field_status']['bullets'], 'read')
+
     def test_parse_fields_and_variants(self):
         result = crawler.parse_listing(PAGE, 'B012345678')
         self.assertEqual(result['status'], 'complete')

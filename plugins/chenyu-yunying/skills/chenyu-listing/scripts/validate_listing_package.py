@@ -14,6 +14,7 @@ MARKETS = {
     'UK': ('en-GB', ('Features', 'Product specifications', 'Package contents')),
 }
 ASIN = re.compile(r'\bB0[A-Z0-9]{8}\b', re.I)
+NUMBERED_BULLET_SOURCE = re.compile(r'\b(B0[A-Z0-9]{8})\s*第\s*([1-5])\s*点', re.I)
 PLACEHOLDER = re.compile(r'\[(?:brand|marque|marca|marke|marchio|品牌|待确认|todo)\]', re.I)
 INTERNAL_VARIANT_CODE = re.compile(
     r'\b(?:design|diseño|disegno|modèle|modell|modello|variante|variant|style|stil|motif|muster)'
@@ -526,6 +527,93 @@ def validate_field_fact_ids(errors, market, variant_id, listing, fact_by_id):
         )
 
 
+
+def source_text(competitor, source_field):
+    if source_field == 'title':
+        return str(competitor.get('title', ''))
+    match = re.fullmatch(r'bullet_([1-5])', str(source_field))
+    bullets = competitor.get('bullets', [])
+    if match and isinstance(bullets, list) and len(bullets) >= int(match.group(1)):
+        return str(bullets[int(match.group(1)) - 1])
+    return ''
+
+
+def validate_phrase_sources(errors, market, variant_id, listing, field, competitors, fact_by_id):
+    key = f'{field}_phrase_sources'
+    sources = listing.get(key)
+    if not isinstance(sources, list) or not sources:
+        errors.append(f'{market}/{variant_id} {key} must map meaningful phrases to sources')
+        return
+    copy = str(listing.get(field, ''))
+    reference = str(listing.get(f'{field}_reference', ''))
+    competitor_keywords = set()
+    has_competitor_source = False
+    reference_segments = re.split(r'[；;]', reference)
+    for source in sources:
+        if not isinstance(source, dict):
+            errors.append(f'{market}/{variant_id} {key} entries must be objects')
+            continue
+        phrase = str(source.get('phrase', '')).strip()
+        if not phrase or phrase.casefold() not in copy.casefold():
+            errors.append(f'{market}/{variant_id} {key} phrase must appear in {field}: {phrase}')
+            continue
+        if phrase.casefold() not in reference.casefold():
+            errors.append(f'{market}/{variant_id} {key} phrase missing from visible reference: {phrase}')
+        asin = str(source.get('asin', '')).strip().upper()
+        if asin:
+            source_field = str(source.get('source_field', '')).strip()
+            source_phrase = str(source.get('source_phrase', '')).strip()
+            matches = [item for item in competitors
+                       if str(item.get('asin', '')).strip().upper() == asin]
+            if not matches or source_field not in ('title', *(f'bullet_{i}' for i in range(1, 6))):
+                errors.append(f'{market}/{variant_id} {key} invalid competitor source: {asin}/{source_field}')
+                continue
+            if not source_phrase or not any(source_phrase.casefold() in source_text(item, source_field).casefold()
+                                            for item in matches):
+                errors.append(f'{market}/{variant_id} {key} source_phrase not found in {asin}/{source_field}: {source_phrase}')
+            label = '标题' if source_field == 'title' else f'第{source_field[-1]}点'
+            citation = f'{asin} {label}'
+            if not any(phrase.casefold() in segment.casefold()
+                       and citation in segment.upper() for segment in reference_segments):
+                errors.append(f'{market}/{variant_id} {key} visible reference must map {phrase} to {citation}')
+            has_competitor_source = True
+            if field == 'title':
+                competitor_keywords.add(str(source.get('keyword', phrase)).strip().casefold())
+        else:
+            fact_id = str(source.get('fact_id', '')).strip()
+            fact = fact_by_id.get(fact_id)
+            if not fact or fact.get('status') != 'confirmed' or variant_id not in fact.get('variant_ids', []):
+                errors.append(f'{market}/{variant_id} {key} requires a confirmed applicable fact: {fact_id}')
+            if fact_id not in listing.get('field_fact_ids', {}).get(field, []):
+                errors.append(f'{market}/{variant_id} {key} fact {fact_id} is absent from field_fact_ids.{field}')
+            if not any(phrase.casefold() in segment.casefold()
+                       and fact_id in segment for segment in reference_segments):
+                errors.append(f'{market}/{variant_id} {key} visible reference must map {phrase} to fact {fact_id}')
+    if not has_competitor_source:
+        errors.append(f'{market}/{variant_id} {key} needs at least one competitor title/bullet source')
+    if field == 'title':
+        for keyword in listing.get('title_keywords', []):
+            if str(keyword).strip().casefold() not in competitor_keywords:
+                errors.append(f'{market}/{variant_id} title keyword needs a competitor title/bullet source: {keyword}')
+
+
+def validate_numbered_bullet_references(errors, market, variant_id, listing, competitors):
+    references = listing.get('bullet_references', [])
+    if not isinstance(references, list) or len(references) != 5 or any(not str(item).strip() for item in references):
+        errors.append(f'{market}/{variant_id} bullet_references must contain five non-empty sources')
+        return
+    for index, reference in enumerate(references, 1):
+        pairs = NUMBERED_BULLET_SOURCE.findall(str(reference))
+        if not pairs:
+            errors.append(f'{market}/{variant_id} bullet {index} reference must cite ASIN 第N点 from an actual competitor bullet')
+            continue
+        for asin, number in pairs:
+            if not any(source_text(item, f'bullet_{number}').strip()
+                       for item in competitors
+                       if str(item.get('asin', '')).strip().upper() == asin.upper()):
+                errors.append(f'{market}/{variant_id} bullet {index} cites missing competitor point: {asin.upper()} 第{number}点')
+
+
 def validate(data):
     errors, warnings = [], []
     targets = data.get('targets', [])
@@ -795,6 +883,10 @@ def validate(data):
                     f'{market}/{variant_id} item_highlights_reference is required when '
                     'competitor evidence exists'
                 )
+            for field in ('title', 'item_highlights'):
+                validate_phrase_sources(
+                    errors, market, variant_id, listing, field, competitors, fact_by_id
+                )
         bullets = listing.get('bullets', [])
         buyer_bullet_texts = []
         if len(bullets) != 5 or any(not str(item).strip() for item in bullets):
@@ -821,12 +913,9 @@ def validate(data):
                         '200 visible characters of substantive copy'
                     )
             if competitors:
-                bullet_references = listing.get('bullet_references', [])
-                if (len(bullet_references) != 5
-                        or any(not str(item).strip() for item in bullet_references)):
-                    errors.append(
-                        f'{market}/{variant_id} bullet_references must contain five non-empty sources'
-                    )
+                validate_numbered_bullet_references(
+                    errors, market, variant_id, listing, competitors
+                )
             validate_buyer_copy(errors, market, variant_id, buyer_bullet_texts)
         title_keywords = listing.get('title_keywords', [])
         if not isinstance(title_keywords, list):
