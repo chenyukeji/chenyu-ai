@@ -83,3 +83,20 @@ def test_detail_supplier_image_stays_in_variant_row():
         {(3, 2), (5, 2)},
     )
     assert any("应只放图片" in error for error in text_in_image_cell)
+
+
+def test_detail_variant_column_contains_only_a_name():
+    validator = load_validator()
+    rows = {
+        3: {2: "黑色加绒款\n数量：/"},
+        4: {2: "变体1：紫色"},
+        5: {2: "圣诞8\n产品尺寸：33×183 cm"},
+        6: {2: "8件装混合图案\n每款图案1只"},
+        7: {2: "黑色加绒款"},
+        8: {2: "黑色豹纹，2片装"},
+        9: {2: "8件装混合图案"},
+    }
+    errors = validator._detail_variant_errors(rows)
+    assert len(errors) == 4
+    assert all(f"B{number}" in error for number, error in zip((3, 4, 5, 6), errors))
+    assert validator._detail_variant_errors({7: rows[7], 8: rows[8], 9: rows[9]}) == []

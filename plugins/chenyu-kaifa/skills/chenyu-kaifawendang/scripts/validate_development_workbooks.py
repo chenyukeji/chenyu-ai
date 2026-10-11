@@ -160,6 +160,20 @@ def _drawing_image_anchors(package: zipfile.ZipFile, part: str, root: ET.Element
     return anchors
 
 
+def _detail_variant_errors(rows: dict[int, dict[int, str]]) -> list[str]:
+    """Keep the detail sheet's variant column to one name per data row."""
+    errors = []
+    extra_field = re.compile(r"(?:数量|变体数量|产品尺寸|包装尺寸|克重|采购价|备注)\s*[：:]")
+    variant_number = re.compile(r"^变体\s*(?:\d+|[一二三四五六七八九十]+)\s*[：:]")
+    for number, row in sorted(rows.items()):
+        if number <= 1 or not _present(row.get(2)):
+            continue
+        value = row[2]
+        if "\n" in value or "\r" in value or extra_field.search(value) or variant_number.match(value):
+            errors.append(f"产品详情 B{number}“变体”只填写名称，不要添加编号、数量或其他说明")
+    return errors
+
+
 def _detail_image_errors(rows: dict[int, dict[int, str]], anchors: set[tuple[int, int]]) -> list[str]:
     variant_rows = {number for number, row in rows.items() if number > 1 and _present(row.get(2))}
     errors = []
@@ -268,6 +282,7 @@ def inspect_workbook(path: Path, template: bool = False) -> dict:
         if not template and sheets[2]["name"] in {"产品详情", "产品详情母版", "Sheet3"}:
             report["errors"].append("第三张表必须改为当前产品简称")
         if not template:
+            report["errors"].extend(_detail_variant_errors(sheets[2]["rows"]))
             report["errors"].extend(_detail_image_errors(sheets[2]["rows"], sheets[2]["image_anchors"]))
         if not sheets[1]["has_drawing"]:
             report["warnings"].append("产品确认未检测到嵌入图片")
