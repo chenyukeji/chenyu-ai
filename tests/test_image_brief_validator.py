@@ -323,7 +323,7 @@ def test_legacy_embedded_reference_paths_also_require_usage():
     assert any('cites non-embedded reference 1' in e for e in VALIDATOR.validate(data)['errors'])
 
 
-def test_default_count_is_per_product_with_explicit_exception():
+def test_six_to_eight_tasks_are_required_per_product():
     data = package()
     assert VALIDATOR.validate(data)['ready_for_delivery']
 
@@ -468,24 +468,32 @@ def test_size_visual_adds_distinct_evidence_or_explains_pure_size():
     assert VALIDATOR.validate(data)['ready_for_delivery']
 
 
-def test_flexible_order_and_optional_scenes_with_pure_size():
+def test_middle_image_order_is_flexible_with_final_grid():
     data = package()
-    # Six tasks may use a size image second and have no final four-grid or scene.
     data['image_tasks'][1], data['image_tasks'][2] = data['image_tasks'][2], data['image_tasks'][1]
-    size = data['image_tasks'][1]
-    size['supporting_visual'] = {'kind': 'none'}
-    for task in data['image_tasks']:
-        if task['type'] in ('closeup_scene', 'key_scene', 'four_grid'):
-            task['type'] = 'detail'
-            task.pop('scene_mode', None)
+    data['image_tasks'][1]['supporting_visual'] = {'kind': 'none'}
     assert VALIDATOR.validate(data)['ready_for_delivery']
 
 
-def test_short_plan_requires_reason_but_not_filler():
+def test_short_plan_cannot_bypass_count_with_reason():
     data = package()
     data['image_tasks'].pop(3)
-    data['products'][0]['task_count_reason'] = '五个独立问题已覆盖，追加特点图会重复过滤层结构'
-    assert VALIDATOR.validate(data)['ready_for_delivery']
+    data['products'][0]['task_count_reason'] = '五个独立问题已覆盖'
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('must contain 6-8 tasks for product V1; found 5' in e for e in result['errors'])
+
+
+def test_last_image_must_be_four_grid_with_distinct_scenes():
+    data = package()
+    data['image_tasks'][-2], data['image_tasks'][-1] = data['image_tasks'][-1], data['image_tasks'][-2]
+    result = VALIDATOR.validate(data)
+    assert any('must end with a four_grid scene image' in e for e in result['errors'])
+
+    data = package()
+    data['image_tasks'][-1]['scene_cells'][1]['output_scene'] = '厨房'
+    result = VALIDATOR.validate(data)
+    assert any('must describe four distinct scenes' in e for e in result['errors'])
 
 
 def test_all_links_have_equal_selection_and_omission_rules():
@@ -519,18 +527,22 @@ def test_partial_content_selection_requires_specific_reason():
     assert not VALIDATOR.validate(data)['ready_for_delivery']
 
 
-def test_source_grid_can_be_reduced_without_forcing_final_grid():
+def test_source_grid_can_be_reduced_while_final_grid_uses_other_supported_scenes():
     data = package()
     source = data['primary_reference']['images'][2]
     task = data['image_tasks'][5]
     source['text_elements'] = ['Kitchen', 'Office', 'Travel', 'Bedroom']
-    task['type'] = 'scene'
-    task['scene_mode'] = '保留有依据的厨房用途'
-    task['instructions'] = '厨房场景，短标签 Kitchen。'
-    task['scene_cells'] = task['scene_cells'][:1]
+    task['instructions'] = '四格展示厨房 Kitchen、餐桌 Dining、户外野餐 Picnic、书房 Study 的真实使用场景。'
+    task['scene_cells'] = [
+        {'source_image_id': 'source-scenes', 'source_scene': 'kitchen', 'source_text': 'Kitchen',
+         'output_scene': '厨房', 'output_text': 'Kitchen'},
+        {'output_scene': '餐桌', 'output_text': 'Dining'},
+        {'output_scene': '户外野餐', 'output_text': 'Picnic'},
+        {'output_scene': '书房', 'output_text': 'Study'},
+    ]
     task['content_mappings'] = []
     source['omitted_elements'] = [
-        {'kind': 'content', 'value': 'four use scenes', 'reason': '其余用途不适用本品'},
+        {'kind': 'content', 'value': 'four use scenes', 'reason': '仅厨房场景可直接借鉴，其余选用本品已确认用途'},
         *[{'kind': 'scene', 'value': name, 'reason': '无本品使用依据'} for name in ('office', 'travel', 'bedroom')],
     ]
     assert VALIDATOR.validate(data)['ready_for_delivery']

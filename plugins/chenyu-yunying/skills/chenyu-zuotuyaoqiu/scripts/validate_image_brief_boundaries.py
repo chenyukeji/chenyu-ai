@@ -223,14 +223,16 @@ def validate_visual_contract(image_brief, errors):
             task for task in tasks.values()
             if product_id in task.get('product_ids', [])
         ]
-        if not 6 <= len(product_tasks) <= 8 and not str(product.get('task_count_reason', '')).strip():
+        if not 6 <= len(product_tasks) <= 8:
             errors.append(
                 f'$.image_tasks must contain 6-8 tasks for product {product_id}; '
-                f'found {len(product_tasks)}; otherwise provide task_count_reason'
+                f'found {len(product_tasks)}'
             )
         task_types = [task.get('type') for task in product_tasks]
         if not task_types or task_types[0] != 'main_image' or task_types.count('main_image') != 1:
             errors.append(f'$.image_tasks for product {product_id} must start with exactly one main_image')
+        if not task_types or task_types[-1] != 'four_grid':
+            errors.append(f'$.image_tasks for product {product_id} must end with a four_grid scene image')
         seen_information = set()
         for task in product_tasks:
             information = ' '.join(words(task.get('new_information', '')))
@@ -353,10 +355,12 @@ def validate_visual_contract(image_brief, errors):
                     'four scene_cells'
                 )
             else:
+                scene_names = []
                 for cell in scene_cells:
                     if not isinstance(cell, dict) or not str(cell.get('output_scene', '')).strip():
                         errors.append(f'$.image_tasks[{task_id}] each scene cell requires output_scene')
                         continue
+                    scene_names.append(' '.join(words(cell['output_scene'])))
                     for field in ('output_scene', 'output_text'):
                         value = str(cell.get(field, '')).strip()
                         if value and value not in instructions:
@@ -364,6 +368,8 @@ def validate_visual_contract(image_brief, errors):
                                 f'$.image_tasks[{task_id}] final instructions omit '
                                 f'four-grid {field}: {value}'
                             )
+                if len(scene_names) == 4 and len(set(scene_names)) != 4:
+                    errors.append(f'$.image_tasks[{task_id}] four_grid scene_cells must describe four distinct scenes')
 
     main_covered = set()
     for task_id, task in tasks.items():
