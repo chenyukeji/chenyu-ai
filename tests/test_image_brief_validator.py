@@ -693,6 +693,19 @@ def test_v3_accepts_recomposed_design_without_preserving_layout():
     assert result['ready_for_delivery'], result['errors']
 
 
+def test_v3_keeps_design_notes_internal_without_losing_overlay_text():
+    data = integrated_package()
+    for task in data['image_tasks']:
+        task['instructions'] = task['instructions'].replace(task['composition']['optimizations'], '')
+    result = VALIDATOR.validate(data)
+    assert result['ready_for_delivery'], result['errors']
+    task = next(task for task in data['image_tasks'] if task['text_mappings'])
+    text = task['text_mappings'][0]['output_text']
+    task['instructions'] = task['instructions'].replace(text, '')
+    assert any('final instructions omit on-image text' in error
+               for error in VALIDATOR.validate(data)['errors'])
+
+
 def test_v3_rejects_missing_final_layout_and_unplaced_reference_module():
     data = integrated_package()
     data['image_tasks'][0]['composition']['final_layout'] = '未写入执行文字的新构图'

@@ -583,7 +583,9 @@ def validate_visual_contract(image_brief, errors):
             if not isinstance(composition, dict):
                 errors.append(f'{context} requires composition with a final integrated design')
                 composition = {}
-            for field in ('final_layout', 'density_plan', 'replacements', 'optimizations'):
+            if not str(composition.get('optimizations', '')).strip():
+                errors.append(f'{context}.composition.optimizations is required for internal design notes')
+            for field in ('final_layout', 'density_plan', 'replacements'):
                 value = str(composition.get(field, '')).strip()
                 if not value or value not in instructions:
                     errors.append(f'{context}.composition.{field} must appear in final instructions')

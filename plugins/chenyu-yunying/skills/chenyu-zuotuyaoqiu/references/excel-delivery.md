@@ -17,16 +17,18 @@
 | A 图片顺序 | 第一张、第二张等 |
 | B 产品名称 | 与开发文档对应变体单元格及产品内容页逐字一致 |
 | C–F 参考图片1、参考图片2、参考图片3、参考图片4 | 固定四栏，来源图片直接嵌入，一图一单元格 |
-| G 作图要求 | 本张展示内容、成品数量、最终画面要求、准确文字和验收条件 |
+| G 作图要求 | 本张展示内容、成品数量、最终画面要求和准确上图文字 |
 
-四个参考图片栏始终保留，每行最多嵌入四张有代表性的参考，一图一单元格，不拉伸；空栏可留空，不增删列。其他来源的适用内容落实到执行文字，内部记录原图与未嵌入原因。产品身份图保留在产品内容页。G 列逐项写“参考图片 N 的具体内容 → 最终模块及位置”，编号对应实际嵌图；再说明最终怎样组合、主体占比、文字与局部窗位置，以及相对参考的具体优化。例如：主参考图片1的佩戴近景作为左侧主画面约65%；参考图片2的扣具特写整合到右上细节窗；右下用参考图片3的适用尺寸信息配测量图；模型统一柔光、配色与标签层级。涉及本品扣具与尺寸时另有适用事实依据。不能只罗列图片或写“参考风格”。
+四个参考图片栏始终保留，每行最多嵌入四张有代表性的参考，一图一单元格，不拉伸；空栏可留空，不增删列。其他来源的适用内容落实到执行文字，内部记录原图与未嵌入原因。产品身份图保留在产品内容页。G 列逐项写“参考图片 N 的具体内容 → 最终模块及位置”，编号对应实际嵌图；再说明最终怎样组合、主体占比、文字与局部窗位置，以及相对参考的具体优化。例如：主参考图片1的佩戴近景作为左侧主画面约65%；参考图片2的扣具特写整合到右上细节窗；右下用参考图片3的适用尺寸信息配测量图；画面使用柔光，统一配色与标签层级。涉及本品扣具与尺寸时另有适用事实依据。不能只罗列图片或写“参考风格”。
 
 每个共用构图一个任务区块，注明共用成品或各变体分别出图、替换项及实际数量。执行文字包括：
 
 - 本张具体展示的产品内容与已确认特点。
 - 先写主参考方向及各图片实际贡献，再写最终分区、主体位置/占比、裁切、姿态/朝向、背景、局部窗和文字落点，说明重新组合及优化的具体效果。无需保留参考原有位置或边框。
 - 准确上图文字与位置；无文字时明确写出。尺寸任务写测量部位、方向、成对 cm / in 数值，并写辅助场景/细节的内容、来源、位置、占比及其与尺寸/适配判断的关系；仅在用户明确指定纯尺寸图时记录该指令。
-- 适用变体、成品数量、画幅规格、验收条件及当前任务的具体缺口。
+- 适用变体、成品数量、画幅规格及当前任务的具体缺口。
+
+不另列“设计优化”和“验收”段落；具体设计直接融入画面要求，验收核对留在内部。保留“上图文字”段落，包括“无文字”的说明。
 
 ## 结构化包
 
@@ -36,7 +38,7 @@
 
 - `products[]`：每个变体有唯一 `id`、`product_content_image_id`、`product_content_image_source`、`product_content_image_source_ref`，以及候选 `own_main_image_id`、`supplier_image_id`（无候选填空字符串）。来源为 `own_main`、`supplier`、`confirmed_reference_main`；参考主图可来自任一清单，须有 `matching_basis` 且 source_ref 引用对应 ASIN。旧 `first_reference_main` 值仅作兼容，同样要求匹配依据。
 - 每个产品保存非空 `visual_direction`，其设计要求落实到各行 G 列，不另增顶部行；共用方向可使用相同文本。每个产品必须覆盖 6–8 个任务，对应 6–8 张交付图，首张为主图、末张为四宫格场景图；不能用 `task_count_reason` 绕过数量要求。此范围不限制整个包总任务数；共用任务须核对每个产品的成品数量。
-- 新作图包设置 `schema_version: 3`，旧 1/2 版可读取，重新规划时升级。`image_tasks[]` 每项有唯一 `id`、`type`、非空 `product_ids`、`new_information`、`instructions`、`on_image_text`、`content_mappings`、`text_mappings`。每项新增 `composition`，含非空 `final_layout`、`density_plan`、`replacements`、`optimizations`，四项逐字落实到 G 列，分别描述最终分区与占比、场景/信息密度、本品替换、模型具体设计优化。有嵌图时 `visual_anchor` 含已映射该任务的 `source_image_id` 与本行 `reference_slot`；它只确定主要方向，不限制最终版式。无嵌图记录具体 `reference_gap_reason`，仍写完整最终设计。旧版 `retained_layout/retained_density` 不再作为新包字段。主图第一，其余类型仍可用 `detail`、`feature`、`advantage`、`process`、`packaging`、`size`、`scene`、`closeup_scene`、`key_scene`、`four_grid`。
+- 新作图包设置 `schema_version: 3`，旧 1/2 版可读取，重新规划时升级。`image_tasks[]` 每项有唯一 `id`、`type`、非空 `product_ids`、`new_information`、`instructions`、`on_image_text`、`content_mappings`、`text_mappings`。每项新增 `composition`，含非空 `final_layout`、`density_plan`、`replacements`、`optimizations`，前三项逐字落实到 G 列，分别描述最终分区与占比、场景/信息密度、本品替换；`optimizations` 仅保存内部设计依据，不强制写入 G 列，也不输出独立设计优化段落。有嵌图时 `visual_anchor` 含已映射该任务的 `source_image_id` 与本行 `reference_slot`；它只确定主要方向，不限制最终版式。无嵌图记录具体 `reference_gap_reason`，仍写完整最终设计。旧版 `retained_layout/retained_density` 不再作为新包字段。主图第一，其余类型仍可用 `detail`、`feature`、`advantage`、`process`、`packaging`、`size`、`scene`、`closeup_scene`、`key_scene`、`four_grid`。
 - `reference_images` 按 C–F 实际嵌图顺序保存路径，最多四项；兼容旧字段 `embedded_reference_paths`。执行文字逐一写明“参考图片1”等编号及用途，不能引用空白栏。
 - 主图另有 `main_style`（`clean_white`、`white_with_use_inset`、`scene_hero`）、`main_style_reason`、`product_image_ids`（与本任务适用变体身份图完全一致）和 `identity_lock`。后者记录 `shape_structure`、`color_pattern`、`quantity_components`、`accessories_packaging`。主图 `on_image_text` 为空。
 - 场景任务 `scene`、`closeup_scene`、`key_scene` 另有 `scene_mode`。每个产品的最后一个任务必须为 `four_grid`，有四个场景不同的 `scene_cells`；每格非空 `output_scene`，文字需要时有 `output_text`，并写入执行文字。
