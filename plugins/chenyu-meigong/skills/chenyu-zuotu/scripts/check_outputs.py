@@ -53,7 +53,7 @@ def check(manifest):
                 issues.append('cannot read output: ' + str(exc))
         item['status'] = 'needs_review' if issues else 'pass'
         results.append(item)
-    return {'scope': 'local file properties only; visual review required separately', 'task_count': len(results), 'all_file_checks_pass': bool(results) and all(r['status'] == 'pass' for r in results), 'results': results}
+    return {'scope': 'local file properties only; visual content not reviewed', 'task_count': len(results), 'all_file_checks_pass': bool(results) and all(r['status'] == 'pass' for r in results), 'results': results}
 
 
 def main():

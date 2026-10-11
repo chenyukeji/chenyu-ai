@@ -640,6 +640,7 @@ def validate_clause_sources(errors, market, variant_id, listing, competitors, fa
             reference = str(references[index]) if isinstance(references, list) and len(references) > index else ''
         fragments = []
         bullet_source_found = False
+        description_source_found = False
         for entry in entries:
             if not isinstance(entry, dict):
                 errors.append(f'{context} entries must be objects')
@@ -673,8 +674,11 @@ def validate_clause_sources(errors, market, variant_id, listing, competitors, fa
                         for item in matches
                     ):
                         errors.append(f'{context} source_phrase not found in {asin}/{source_field}')
-                    elif source_field.startswith('bullet_'):
-                        bullet_source_found = True
+                    else:
+                        if source_field.startswith('bullet_'):
+                            bullet_source_found = True
+                        if source_field != 'title':
+                            description_source_found = True
                     label = {'title': '标题', 'description': '详情', 'aplus_text': 'A+'}.get(source_field)
                     if label is None:
                         label = f'第{source_field[-1:]}点'
@@ -695,6 +699,8 @@ def validate_clause_sources(errors, market, variant_id, listing, competitors, fa
         validate_source_coverage(errors, context, copy, fragments)
         if competitors and field.startswith('bullet_') and not bullet_source_found:
             errors.append(f'{context} needs an actual competitor bullet source for a clause')
+        if competitors and field == 'description' and not description_source_found:
+            errors.append(f'{context} needs actual competitor bullet/description/A+ content, not only own facts')
 
 
 def validate_numbered_bullet_references(errors, market, variant_id, listing, competitors):
@@ -958,7 +964,9 @@ def validate(data):
             title_reference = str(listing.get('title_reference', '')).strip()
             if not title_reference:
                 errors.append(f'{market}/{variant_id} title_reference is required when competitor evidence exists')
-            else:
+            elif mapping_version == 1:
+                # Legacy references included the candidate audit. V2 visible references
+                # cite only adopted phrases, checked by validate_phrase_sources below.
                 usable_title_asins = sorted({
                     str(competitor.get('asin', '')).strip().upper()
                     for competitor in competitors

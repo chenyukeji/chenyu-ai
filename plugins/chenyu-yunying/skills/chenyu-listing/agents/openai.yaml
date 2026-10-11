@@ -1,6 +1,6 @@
 interface:
   display_name: "晨玙 Listing"
-  short_description: "结合自有事实和竞品研究，生成欧洲站关键词分配型 Listing 与 HTML 详情。"
-  default_prompt: "使用 $chenyu-listing，结合开发文档、关键词和竞品研究包，为指定欧洲站点生成自然可读的 Listing。"
+  short_description: "以参考商品内容为主、自有事实补充校正，生成欧洲站 Listing 与 HTML 详情。"
+  default_prompt: "使用 $chenyu-listing，以参考商品链接的适用卖点和使用细节为主要内容，自有事实补充并校正规格差异，为指定欧洲站点生成自然可读的 Listing。"
 policy:
   allow_implicit_invocation: true

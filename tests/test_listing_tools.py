@@ -276,6 +276,17 @@ class ListingTests(unittest.TestCase):
         result = package_validator.validate(data)
         self.assertTrue(any('title_reference must cite every usable competitor title: B012345679'
                             in error for error in result['errors']))
+        # V2 separates the internal candidate audit from visible content sources.
+        data['source_mapping_version'] = 2
+        v2_errors = package_validator.validate(data)['errors']
+        self.assertFalse(any('title_reference must cite every usable competitor title'
+                             in error for error in v2_errors))
+        reference = listing['title_reference']
+        listing['title_reference'] = 'Only an unrelated candidate B012345679'
+        self.assertTrue(any('title_phrase_sources' in error and 'visible reference' in error
+                            for error in package_validator.validate(data)['errors']))
+        listing['title_reference'] = reference
+        del data['source_mapping_version']
         listing['title_reference'] += '；对比 B012345679 标题的产品搜索短语'
         # The primary source remains first; output bullets may merge and reorder sources.
         listing['bullet_references'] = [
@@ -894,3 +905,27 @@ class ClauseSourceTests(unittest.TestCase):
         self.assertTrue(result['ready_for_delivery'], result['errors'])
         listing['title'] += ' extra'
         self.assertTrue(any('without source coverage' in error for error in package_validator.validate(data)['errors']))
+
+
+    def test_description_cannot_use_only_own_facts_when_references_exist(self):
+        for entry in self.listing['clause_sources']['description']:
+            entry['sources'] = [{'fact_id': 'F1'}]
+        self.listing['description_reference'] = '\n'.join(
+            entry['text'] + ' ← 自有事实 F1'
+            for entry in self.listing['clause_sources']['description'])
+        self.assertTrue(any('needs actual competitor bullet/description/A+ content'
+                            in error for error in self.errors()))
+
+    def test_fact_checks_do_not_need_duplicate_content_source_entries(self):
+        self.assertTrue(self.listing['field_fact_ids']['description'])
+        self.assertEqual(self.errors(), [])
+        self.assertNotIn('fact_id', self.listing['clause_sources']['description'][0]['sources'][0])
+
+    def test_description_can_draw_from_actual_competitor_bullet(self):
+        entry = self.listing['clause_sources']['description'][0]
+        entry['text'] = 'Trois perles blanches.'
+        entry['sources'] = [{'asin': 'B012345678', 'source_field': 'bullet_1',
+                             'source_phrase': 'Three white beads'}]
+        self.listing['description'] = '<p>Trois perles blanches.</p><p>Longueur : 40 cm.</p>'
+        self.listing['description_reference'] = 'Trois perles blanches. ← B012345678 第1点（Three white beads）；Longueur : 40 cm. ← 自有事实 F1'
+        self.assertEqual(self.errors(), [])
