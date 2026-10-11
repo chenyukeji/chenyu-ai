@@ -174,6 +174,46 @@ def _detail_variant_errors(rows: dict[int, dict[int, str]]) -> list[str]:
     return errors
 
 
+def _confirmation_variant_names(value: str) -> list[str]:
+    """Read the names from the confirmation sheet's numbered variant lines."""
+    names = []
+    for line in value.splitlines():
+        match = re.match(r"\s*变体\s*(?:\d+|[一二三四五六七八九十]+)\s*[：:]\s*(.+)", line)
+        if not match:
+            continue
+        name = re.split(r"\s*(?:[＊*]|[；;]\s*(?:数量|变体数量)\s*[：:])", match.group(1), maxsplit=1)[0].strip()
+        if name:
+            names.append(name)
+    return names
+
+
+def _variant_name_errors(
+    detail_rows: dict[int, dict[int, str]],
+    confirmation_value: str = "",
+    expected_variants: list[str] | None = None,
+) -> list[str]:
+    """Compare detail labels with confirmation labels and user-confirmed names."""
+    detail = [
+        (number, row[2])
+        for number, row in sorted(detail_rows.items())
+        if number > 1 and _present(row.get(2))
+    ]
+    errors = []
+    for source, names in (
+        ("产品确认的变体情况", _confirmation_variant_names(confirmation_value)),
+        ("指定的自有变体名称", expected_variants or []),
+    ):
+        if not names:
+            continue
+        if len(detail) != len(names):
+            errors.append(f"产品详情有 {len(detail)} 个变体，{source}有 {len(names)} 个")
+            continue
+        for (number, actual), expected in zip(detail, names):
+            if actual != expected:
+                errors.append(f"产品详情 B{number}“变体”应为“{expected}”，须与{source}一致")
+    return errors
+
+
 def _detail_image_errors(rows: dict[int, dict[int, str]], anchors: set[tuple[int, int]]) -> list[str]:
     variant_rows = {number for number, row in rows.items() if number > 1 and _present(row.get(2))}
     errors = []
@@ -191,7 +231,7 @@ def _detail_image_errors(rows: dict[int, dict[int, str]], anchors: set[tuple[int
     return errors
 
 
-def inspect_workbook(path: Path, template: bool = False) -> dict:
+def inspect_workbook(path: Path, template: bool = False, expected_variants: list[str] | None = None) -> dict:
     report = {"path": str(path.resolve()), "errors": [], "warnings": [], "sheets": []}
     if path.suffix.lower() != ".xlsx":
         report["errors"].append("只支持 .xlsx 文件")
@@ -283,6 +323,10 @@ def inspect_workbook(path: Path, template: bool = False) -> dict:
             report["errors"].append("第三张表必须改为当前产品简称")
         if not template:
             report["errors"].extend(_detail_variant_errors(sheets[2]["rows"]))
+            confirmation_value = confirm_rows[0].get(16, "") if len(confirm_rows) == 1 else ""
+            report["errors"].extend(
+                _variant_name_errors(sheets[2]["rows"], confirmation_value, expected_variants)
+            )
             report["errors"].extend(_detail_image_errors(sheets[2]["rows"], sheets[2]["image_anchors"]))
         if not sheets[1]["has_drawing"]:
             report["warnings"].append("产品确认未检测到嵌入图片")
@@ -296,8 +340,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("files", nargs="+", type=Path)
     parser.add_argument("--template", action="store_true", help="允许空白产品确认区和母版表名")
+    parser.add_argument(
+        "--expected-variant", action="append", default=[], metavar="名称",
+        help="本产品采用的自有变体名称；多变体按产品详情行顺序重复传入，仅限一次校验一个文件",
+    )
     args = parser.parse_args()
-    reports = [inspect_workbook(path, template=args.template) for path in args.files]
+    if args.expected_variant and len(args.files) != 1:
+        parser.error("使用 --expected-variant 时每次只校验一个工作簿")
+    reports = [
+        inspect_workbook(path, template=args.template, expected_variants=args.expected_variant)
+        for path in args.files
+    ]
     print(json.dumps(reports, ensure_ascii=False, indent=2))
     return 1 if any(report["errors"] for report in reports) else 0
 

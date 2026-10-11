@@ -100,3 +100,35 @@ def test_detail_variant_column_contains_only_a_name():
     assert len(errors) == 4
     assert all(f"B{number}" in error for number, error in zip((3, 4, 5, 6), errors))
     assert validator._detail_variant_errors({7: rows[7], 8: rows[8], 9: rows[9]}) == []
+
+
+def test_variant_names_follow_confirmation_and_user_choice():
+    validator = load_validator()
+    detail = {2: {2: "金色款"}}
+    assert validator._variant_name_errors(detail, "变体1：手链装饰-金色；数量：/") == [
+        "产品详情 B2“变体”应为“手链装饰-金色”，须与产品确认的变体情况一致"
+    ]
+    assert validator._variant_name_errors(
+        detail,
+        "变体1：金色款；数量：/",
+        ["手链装饰-金色"],
+    ) == ["产品详情 B2“变体”应为“手链装饰-金色”，须与指定的自有变体名称一致"]
+    assert validator._variant_name_errors(
+        {2: {2: "手链装饰-金色"}},
+        "变体1：手链装饰-金色；数量：/",
+        ["手链装饰-金色"],
+    ) == []
+
+
+def test_multiple_variant_names_match_in_detail_row_order():
+    validator = load_validator()
+    detail = {2: {2: "黑色加绒款"}, 5: {2: "白色款"}}
+    confirmation = "变体1：黑色加绒款*20\n变体2：白色款*10"
+    assert validator._variant_name_errors(
+        detail, confirmation, ["黑色加绒款", "白色款"]
+    ) == []
+    errors = validator._variant_name_errors(
+        detail, confirmation, ["白色款", "黑色加绒款"]
+    )
+    assert len(errors) == 2
+    assert "B2" in errors[0] and "B5" in errors[1]
