@@ -1,12 +1,13 @@
 # 晨玙 Amazon 运营插件
 
-`chenyu-yunying` 从产品资料和订单资料生成运营交付文件。当前版本见 [plugin.json](plugin.json)。
+`chenyu-yunying` 从产品资料和订单资料生成运营交付文件。运营任务入口也可调用开发插件的开发文档 Skill。当前版本见 [plugin.json](plugin.json)。
 
 ## 能力
 
 | Skill | 职责 | 交付 |
 | --- | --- | --- |
-| [运营总入口](skills/chenyu-yunying/SKILL.md) | 根据需求协调专业能力，统一产品事实和变体 | Listing、作图要求或订单商业发票 |
+| [运营总入口](skills/chenyu-yunying/SKILL.md) | 根据需求协调专业能力，统一产品事实和变体 | 开发文档、Listing、作图要求或订单商业发票 |
+| [开发文档](../chenyu-kaifa/skills/chenyu-kaifawendang/SKILL.md) | 复用开发插件的母版、规则和校验脚本 | 每个产品独立一份开发 Excel |
 | [竞品研究](skills/chenyu-jingpin/SKILL.md) | 按站点／ASIN 获取标题、五点、普通／A+描述与图片证据 | 共用研究包；网站不单列任务入口 |
 | [Listing](skills/chenyu-listing/SKILL.md) | 结合确认的自有事实与竞品证据写本地化内容 | 默认 DE／FR／IT／ES 四站 Listing，UK 按需加入 |
 | [作图要求](skills/chenyu-zuotuyaoqiu/SKILL.md) | 明确图号、变体、画面、准确文案、参考图和验收条件 | 含嵌入参考图片的作图 Excel |

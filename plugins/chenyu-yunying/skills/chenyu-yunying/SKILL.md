@@ -1,11 +1,11 @@
 ---
 name: chenyu-yunying
-description: 晨玙运营总入口。接收产品开发 Excel、产品素材和自然语言需求，协调生成自有产品 Listing、作图要求或商业发票，统一产品事实并核对交付一致性。适用于综合运营交付和不确定应选哪个专业 Skill 的请求；广告能力尚未实现。
+description: 晨玙运营总入口。接收产品开发 Excel、产品素材和自然语言需求，协调生成产品开发文档、自有产品 Listing、作图要求或商业发票，统一产品事实并核对交付一致性。适用于综合运营交付和不确定应选哪个专业 Skill 的请求；广告能力尚未实现。
 ---
 
 # 晨玙运营
 
-根据员工本次目标安排工作。用户只要一个成果就只生成该成果；两个都要时先统一产品事实，再分别完成 Listing 和作图要求，并遵守 [Listing 与作图要求边界](../../references/deliverable-boundaries.md)。需要 Excel 时读取并执行 [运营交付大母版](../../references/delivery-master.md)。开发资料缺少属性且用户允许参考第一条链接时，先把该链接中适用于当前变体的具体细节补进“产品内容”，再分别生成 Listing 和作图要求；“产品内容”直接呈现属性，不写参考链接或证据状态。以 [晨玙 Amazon 运营交付大母版](assets/晨玙Amazon运营交付大母版.xlsx) 作为唯一的字段、配色和排版基准。母版包含“产品内容”“作图要求”及 DE、FR、IT、ES 四站 Listing，但它只是内部生成源。Listing 和作图要求同时交付时，默认导出两个独立工作簿：Listing 文件保留“产品内容＋目标站点 Listing”，作图要求文件保留“产品内容＋作图要求”。“产品内容”只生成一次并原样复制到两个文件，内容、图片和格式必须一致。只有用户明确要求合并文件时才保留全部模块在同一工作簿。
+根据员工本次目标安排工作。要求生成产品开发文档时，直接读取并执行开发插件 `plugins/chenyu-kaifa/skills/chenyu-kaifawendang/SKILL.md`，使用该 Skill 的母版与校验脚本，不复制一套开发文档规则到运营插件。网站“开发文档”任务类型只交付开发 Excel；一份产品一份工作簿，同一产品的变体在同一工作簿。开发文档完成后，员工另外要求 Listing 或作图要求时，可将其作为后续任务材料。用户只要一个成果就只生成该成果；两个都要时先统一产品事实，再分别完成 Listing 和作图要求，并遵守 [Listing 与作图要求边界](../../references/deliverable-boundaries.md)。需要 Excel 时读取并执行 [运营交付大母版](../../references/delivery-master.md)。开发资料缺少属性且用户允许参考第一条链接时，先把该链接中适用于当前变体的具体细节补进“产品内容”，再分别生成 Listing 和作图要求；“产品内容”直接呈现属性，不写参考链接或证据状态。以 [晨玙 Amazon 运营交付大母版](assets/晨玙Amazon运营交付大母版.xlsx) 作为唯一的字段、配色和排版基准。母版包含“产品内容”“作图要求”及 DE、FR、IT、ES 四站 Listing，但它只是内部生成源。Listing 和作图要求同时交付时，默认导出两个独立工作簿：Listing 文件保留“产品内容＋目标站点 Listing”，作图要求文件保留“产品内容＋作图要求”。“产品内容”只生成一次并原样复制到两个文件，内容、图片和格式必须一致。只有用户明确要求合并文件时才保留全部模块在同一工作簿。
 
 任务会生成文件时，先读取并遵循 [输出目录规范](../../references/output-paths.md)，并让同一次综合任务在各交付部分下复用同一个日期任务名。
 
@@ -19,6 +19,7 @@ description: 晨玙运营总入口。接收产品开发 Excel、产品素材和�
 
 | 目标 | 读取并执行 |
 | --- | --- |
+| 按已确认产品和调研资料生成产品开发文档 | 读取并执行开发插件 [chenyu-kaifawendang](../../../chenyu-kaifa/skills/chenyu-kaifawendang/SKILL.md)，复用其母版和校验脚本，每个产品独立交付 Excel |
 | 抓取、整理竞品 Listing、产品图册、A+ 和榜单候选 | [chenyu-jingpin](../chenyu-jingpin/SKILL.md)，只交付研究包，不生成自有文案或评论痛点分析 |
 | 以参考商品内容为主、自有事实补充校正，生成欧洲站 Item Name、Item Highlights、高信息量五点、HTML 详情、搜索词和变体文案 | [chenyu-listing](../chenyu-listing/SKILL.md)；标题先合并全部有效竞品标题的相关词义，再用自有产品事实和当地语言写恰好三个核心词；不新增竞品标题未提及的描述，并前置关键结构与功能；普通材质和尺寸不挤占主标题，确需展示的一组尺寸只放标题末尾，Item Highlights 自然承接至少一个标题核心关键词并补规格/结构/场景；HTML 详情以全部适用参考的共同重点与互补细节展开，自有事实另行核对适用性并补充差异，Search Terms 只收录反查和 Amazon 相关性复核后的增量词；综合 Listing 默认 DE/FR/IT/ES，UK 按需加入 |
 | 图片规划、作图单、交给美工的要求 | [chenyu-zuotuyaoqiu](../chenyu-zuotuyaoqiu/SKILL.md) |
