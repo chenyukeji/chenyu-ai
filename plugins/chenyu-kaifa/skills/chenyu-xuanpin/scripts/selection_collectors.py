@@ -69,6 +69,39 @@ def session(payload, url, *, sellersprite=False):
             context.close()
 
 
+def extract_amazon_brand_store(page, market, *, timeout_ms=15000):
+    """Read hydrated brand-store tiles; global navigation is not store membership."""
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+    roots = '.stores-page, .stores-container'
+    anchors = page.locator(roots).locator('a[href*="/dp/"], a[href*="/gp/product/"]')
+    try:
+        anchors.first.wait_for(state='attached', timeout=timeout_ms)
+    except PlaywrightTimeoutError:
+        return []
+    rows = anchors.evaluate_all('''elements => elements.map(a => {
+        const tile = a.closest('[data-testid="mini-editorial-tile"], [class*="EditorialTile__container"], [data-asin]');
+        const img = a.querySelector('img') || tile?.querySelector('img');
+        const names = [a.title, a.getAttribute('aria-label'), a.innerText, img?.alt];
+        const name = names.map(x => (x || '').trim()).find(x => x && !/^(shop (this product|now)|buy now|learn more|jetzt (kaufen|einkaufen))$/i.test(x));
+        return {detail_url:a.href, product_name:name || null, image_url:img?.currentSrc || img?.src || null};
+    })''')
+    records = {}
+    for row in rows:
+        try:
+            identity = amazon_identity(row['detail_url'])
+        except ValueError:
+            continue
+        if identity['kind'] != 'product' or identity['marketplace'] != market:
+            continue
+        asin = identity['asin']
+        record = records.setdefault(asin, {**row, 'asin': asin, 'marketplace': market})
+        for field in ('product_name', 'image_url'):
+            if not record.get(field) and row.get(field):
+                record[field] = row[field]
+    return list(records.values())
+
+
 def collect_amazon_input(payload):
     identity = amazon_identity(payload['url'])
     market, kind = identity['marketplace'], identity['kind']
@@ -81,13 +114,10 @@ def collect_amazon_input(payload):
             if not records or not records[0].get('product_name') or records[0].get('asin') != identity['asin']:
                 raise browser.BrowserCollectionError('amazon_product_identity_unverified')
         elif kind == 'store':
-            records = browser.extract_amazon_search(page, {'marketplace': market})
-            if not records and '/stores' in urlsplit(url).path.lower():
-                records = page.evaluate('''() => [...document.querySelectorAll('a[href*="/dp/"]')].map(a=>({
-                    detail_url:a.href,product_name:a.innerText?.trim() || a.querySelector('img')?.alt,
-                    image_url:a.querySelector('img')?.src}))''')
-                records = [{**row, 'asin': browser._asin_from_url(row['detail_url']), 'marketplace': market}
-                           for row in records if browser._asin_from_url(row['detail_url'])]
+            if '/stores' in urlsplit(url).path.lower():
+                records = extract_amazon_brand_store(page, market)
+            else:
+                records = browser.extract_amazon_search(page, {'marketplace': market})
             if not records:
                 raise browser.BrowserCollectionError('amazon_store_catalog_unavailable')
             records = list({r['asin']: r for r in records if r.get('asin')}.values())

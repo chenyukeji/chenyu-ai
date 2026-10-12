@@ -11,7 +11,7 @@ metadata:
 
 开始执行会生成文件的任务前，先读取并遵循 [输出目录规范](../../references/output-paths.md)。
 
-卖家精灵共用一个常驻浏览器：选品和运营任务在同一默认上下文中各开自己的窗口，Cookie 和登录状态共享；任务结束只关闭自己的窗口。所有卖家精灵操作使用现有采集入口，定制采集须复用 `scripts/sellersprite_session.py` 的 `launch_context` 和 `ensure_login`，不得另起临时浏览器或独立上下文登录。`CHENYU_BROWSER_DATA_DIR` 指向共享目录，未配置时使用用户级固定目录。`scripts/sellersprite_session.py status` 只检查状态，`login` 初始化登录；锁定、密码错误或安全验证会跨任务阻止重登，只有确认解锁、修正凭据或完成验证后才用 `recover` 单次恢复。网络或不明失败冷却 5 分钟，不通过换目录或删状态绕开。
+卖家精灵共用一个浏览器：选品和运营任务在同一默认上下文中各开自己的窗口，Cookie 和登录状态共享；任务结束关闭自己的窗口，最后一个使用者结束后自动关闭浏览器并清理临时页面，保留登录状态和成果。有其他任务或未知页面时不强行关闭。所有卖家精灵操作使用现有采集入口，定制采集须复用 `scripts/sellersprite_session.py` 的 `launch_context` 和 `ensure_login`，不得另起临时浏览器或独立上下文登录。`CHENYU_BROWSER_DATA_DIR` 指向共享目录，未配置时使用用户级固定目录。`scripts/sellersprite_session.py status` 只检查状态，`login` 初始化登录；锁定、密码错误或安全验证会跨任务阻止重登，只有确认解锁、修正凭据或完成验证后才用 `recover` 单次恢复。网络或不明失败冷却 5 分钟，不通过换目录或删状态绕开。
 
 ## 统一入口与综合调查
 

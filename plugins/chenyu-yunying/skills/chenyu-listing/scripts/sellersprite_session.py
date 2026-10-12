@@ -1,7 +1,7 @@
 """Shared SellerSprite session contract, bundled identically in both plugins.
 
-One resident browser per account; tasks open separate windows in its default
-context. Only startup and login are serialized. Failures survive task restarts.
+One shared browser per account; tasks own separate windows in its default
+context. The last window closes the browser; login state survives restarts.
 """
 from __future__ import annotations
 
@@ -186,7 +186,7 @@ class SessionStore:
 
 
 class ManagedContext:
-    """A task owns its window, never the shared browser or browser context."""
+    """Close the owned window; stop the shared browser only after its last user."""
     def __init__(self, context, page, browser):
         self.context, self.page, self.browser = context, page, browser
         self.closed = False
@@ -195,10 +195,46 @@ class ManagedContext:
         return getattr(self.context, name)
 
     def close(self):
-        if not self.closed:
-            self.closed = True
+        if self.closed:
+            return
+        store = getattr(self.context, '_chenyu_sellersprite_store', None)
+        if not isinstance(store, SessionStore):
             if not self.page.is_closed():
                 self.page.close()
+            self.closed = True
+            return
+        store.acquire()
+        try:
+            if not self.page.is_closed():
+                self.page.close()
+            self.closed = True
+            close_idle_browser(self.browser, self.context, store)
+        finally:
+            store.release()
+
+
+def close_idle_browser(browser, context, store):
+    """Called under the startup lock; unknown/live task pages prevent shutdown."""
+    state = read_json(store.root / 'browser-process.json')
+    seeds = set(state.get('seed_targets', []))
+    cdp = browser.new_browser_cdp_session()
+    closing = False
+    try:
+        targets = cdp.send('Target.getTargets')['targetInfos']
+        if any(t['type'] == 'page' and (t['targetId'] not in seeds or t.get('url') != 'about:blank')
+               for t in targets):
+            return False
+        save_session(context)
+        closing = True
+        cdp.send('Browser.close')
+        # Keep startup serialized until the browser has disconnected.
+        deadline = time.monotonic() + 10
+        while browser_endpoint(store) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        return True
+    finally:
+        if not closing:
+            cdp.detach()
 
 
 def browser_endpoint(store):
@@ -252,7 +288,7 @@ def start_browser(runtime, store, headless=True):
 
 
 def launch_context(runtime, payload):
-    """Attach to the resident browser and open one task-owned window."""
+    """Create a task window atomically with respect to last-user shutdown."""
     store = SessionStore()
     store.acquire(max(0, min(float(payload.get('session_wait_seconds', 180)), 1200)))
     try:
@@ -263,14 +299,26 @@ def launch_context(runtime, payload):
         context._chenyu_sellersprite_account = store.account
         context._chenyu_sellersprite_session_path = store.state
         if started:
+            cdp = browser.new_browser_cdp_session()
+            try:
+                seeds = [t['targetId'] for t in cdp.send('Target.getTargets')['targetInfos']
+                         if t['type'] == 'page' and t.get('url') == 'about:blank']
+                state = read_json(store.root / 'browser-process.json')
+                private_write(store.root / 'browser-process.json', {**state, 'seed_targets': seeds})
+            finally:
+                cdp.detach()
             candidates = [store.state]
             legacy = [base_dir() / name / 'sellersprite-session.json' for name in ('browser', 'sellersprite')]
             candidates += sorted((p for p in legacy if p.exists()), key=lambda p: p.stat().st_mtime, reverse=True)
             for path in candidates:
                 if restore_session(context, path, store.account):
                     break
+        return _create_task_window(browser, context, store, payload)
     finally:
         store.release()
+
+
+def _create_task_window(browser, context, store, payload):
     cdp = browser.new_browser_cdp_session()
     target = None
     try:

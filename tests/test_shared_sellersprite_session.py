@@ -219,13 +219,20 @@ def test_real_browser_windows_and_driver_disconnect_share_cookies(store):
             assert a.title() == 'First window'
             assert any(c['name'] == 'shared-test' for c in second.cookies())
             first.close()
+            assert ss.browser_endpoint(store) is not None
             assert b.title() == 'Second window'
             second.close()
+            assert ss.browser_endpoint(store) is None
+            assert store.state.exists()
         with sync_playwright() as runtime:
             third, c, _ = ss.launch_context(runtime, {})
             assert any(x['name'] == 'shared-test' for x in third.cookies())
             third.close()
+            assert ss.browser_endpoint(store) is None
     finally:
         data = ss.read_json(store.root / 'browser-process.json')
         if data.get('pid'):
-            os.kill(data['pid'], signal.SIGTERM)
+            try:
+                os.kill(data['pid'], signal.SIGTERM)
+            except ProcessLookupError:
+                pass
