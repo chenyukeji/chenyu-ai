@@ -1,7 +1,7 @@
 interface:
   display_name: "晨玙 Amazon 作图"
-  short_description: "读取作图要求、参考素材与产品实拍图，逐张生成商品图片并直接交付。"
-  default_prompt: "使用 $chenyu-zuotu，根据我提供的作图要求、参考素材和产品实拍图，生成全部独立商品图片，完成文件规格与数量检查后直接交付。"
+  short_description: "读取普通作图及 A+ 要求，按图册或模块槽位生成图片并直接交付。"
+  default_prompt: "使用 $chenyu-zuotu，根据我提供的作图要求、参考素材和产品实拍图，按本次范围生成普通图册或 A+ 独立素材，完成文件规格与数量检查后直接交付。"
   icon_small: "./assets/icon.svg"
   icon_large: "./assets/icon.svg"
 policy:

@@ -8,6 +8,8 @@ Excel可能包含ZIP附件图标和OLE嵌入对象，实际高清素材藏在附
 
 把每张素材分为product_photo（用户指定的实拍）、product_reference（其他产品证据）、layout_reference、scene_reference、detail_reference或unknown。不要把参考照片自动标成实拍。一个素材可以支持多个任务；一个任务可以有多个例图。依据原文、标签和视觉内容作匹配，并写明原因。判断不确定必须保留unknown，不按“最近行”强行归属。
 
+运营新版可含“产品内容”“作图要求”“A+要求”或“FR A+要求”等页。其要求页常用 A 列图序、B 列产品名称、C–F 列参考图片、G 列要求；依据实际表头识别，不沿用旧单的 D 列定位。A+ 每行是一个模块，须按 [A+ 执行规则](aplus-production.md) 拆成实际素材任务，不能把一行当成一张或把参考图张数当成产出数。
+
 本用户常见作图单可有A列图序、B/C列例图、D列要求、F列产品内容，但该布局只是读取线索，不是解析硬编码。第七张可能明确有两张例图；尺寸例图可能跨两个行块。变体仅做部分图片时依原文生成那些图片，不复制整套作为新增任务。
 
 ## 任务文件
@@ -26,6 +28,7 @@ Excel可能包含ZIP附件图标和OLE嵌入对象，实际高清素材藏在附
   "tasks": [{
     "id": "sku-variant-01",
     "product_id": "sku-variant",
+    "content_type": "gallery",
     "image_type": "main_image",
     "production_mode": "verified_render",
     "product_confirmation": "confirmed",
@@ -44,7 +47,9 @@ Excel可能包含ZIP附件图标和OLE嵌入对象，实际高清素材藏在附
 }
 ```
 
-`image_type`必须为`main_image`、`infographic_detail`或`lifestyle_scene`。表头、分区标题或原文出现“主图”时记录为`main_image`；不要根据行号猜测。`main_image`另记`main_style`（`clean_white`、`white_with_use_inset`或`scene_hero`）和选择依据。前两种形式的requirements须包含以纯白`#FFFFFF`为生成目标的底色及无可见色偏/渐变/纹理/未经要求的场景；`scene_hero`须记录真实使用关系、主体层级与产品外观约束。这些内容用于生图前输入，不要求生成后视觉复核或白底像素复查。
+普通图册的 `image_type`必须为`main_image`、`infographic_detail`或`lifestyle_scene`。普通图册的表头、分区标题或原文出现“主图”时记录为`main_image`；不要根据行号猜测。`main_image`另记`main_style`（`clean_white`、`white_with_use_inset`或`scene_hero`）和选择依据。前两种形式的requirements须包含以纯白`#FFFFFF`为生成目标的底色及无可见色偏/渐变/纹理/未经要求的场景；`scene_hero`须记录真实使用关系、主体层级与产品外观约束。这些内容用于生图前输入，不要求生成后视觉复核或白底像素复查。
+
+旧任务未记录 `content_type` 时按普通图册解释。A+ 使用 `content_type=aplus`、`image_type=aplus_asset`，并按 A+ 规则记录模块、槽位、站点/语言及端别；不因“首屏主图”字样转成普通主图。
 
 参考制作或原创概念按主 Skill 记录 production_mode 和 product_confirmation；待确认实物信息不能写成已确认。
 
@@ -73,11 +78,11 @@ versions记录真实结果引用/路径及使用的原始素材。final_path仅�
 }
 ```
 
-场景参考主图在任务设计中记录纯白外框宽度。四宫格任务按左上、右上、左下、右下记录每格 `scene`、`title`、`title_placement`，四个标题加入任务 `exact_text`。这些记录直接用于生成输入，不作为生成后逐图复核清单。
+普通图册的场景参考主图在任务设计中记录纯白外框宽度。四宫格任务按左上、右上、左下、右下记录每格 `scene`、`title`、`title_placement`，四个标题加入任务 `exact_text`。这些记录直接用于生成输入，不作为生成后逐图复核清单。
 
 ## 尺寸与文案
 
-尺寸绑定具体部位和测量方向，并执行SKILL.md的“尺寸标注与缺失信息补全”。未注明轴名的两数尺寸默认依次为长、宽；明确轴名优先，结合匹配素材确定具体测量部位。每个方向分别标注cm / in，英寸按1 inch=2.54cm换算并保留两位小数，禁止乘法式组合尺寸。缺失尺寸、数量或文案时，从匹配当前产品的参考图补全并记录来源；仅布局参考或不匹配的竞品图不能作为产品事实，实拍与明确规格优先。
+普通图册尺寸绑定具体部位和测量方向，并执行SKILL.md的“尺寸标注与缺失信息补全”。未注明轴名的两数尺寸默认依次为长、宽；明确轴名优先，结合匹配素材确定具体测量部位。每个方向分别标注cm / in，英寸按1 inch=2.54cm换算并保留两位小数，禁止乘法式组合尺寸。缺失尺寸、数量或文案时，从匹配当前产品的参考图补全并记录来源；仅布局参考或不匹配的竞品图不能作为产品事实，实拍与明确规格优先。
 
 准确文案单独保存，不把“右下角加标题”等制作指令印到图上。保留要求的大小写、拼写及标点；明显错词在非逐字场景可修正并记录，不能静默改产品性质。中文括号释义通常是给制作者看的，结合指定语言判断是否上图。
 

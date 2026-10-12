@@ -7,7 +7,7 @@
 | Skill | 适用需求 | 成果 |
 | --- | --- | --- |
 | [美工总入口](skills/chenyu-meigong/SKILL.md) | 综合图片需求、需要自动选择处理方式 | 协调对应专业能力 |
-| [整套作图](skills/chenyu-zuotu/SKILL.md) | 从作图单、实拍和参考素材制作整套图片 | 按图号交付独立完整图片 |
+| [整套作图](skills/chenyu-zuotu/SKILL.md) | 从普通作图单、A+ 要求、实拍和参考素材制作图片 | 按图号或 A+ 模块槽位交付独立图片 |
 | [主图优化](skills/chenyu-zhutu-youhua/SKILL.md) | 已有主图，希望主动改善构图、主体比例、层次、留白和光影 | 优化后的完整主图 |
 | [局部精修](skills/chenyu-jingxiu/SKILL.md) | 明确指定白边、伪影、局部颜色、形状、材质或边缘问题 | 累积修改后的完整图片 |
 
@@ -28,6 +28,7 @@
 | 文件 | 用途 |
 | --- | --- |
 | [输入与任务记录](skills/chenyu-zuotu/references/input-and-tasks.md) | Excel、素材角色与图号任务结构 |
+| [A+ 出图](skills/chenyu-zuotu/references/aplus-production.md) | A+ 工作表、独立槽位尺寸、语言与移动端素材 |
 | [制作与交付](skills/chenyu-zuotu/references/production-and-review.md) | 生图前约束、主图背景、尺寸和生成后文件交付规则 |
 | `skills/chenyu-zuotu/scripts/extract_brief.py` | 提取作图单及嵌入素材 |
 | `skills/chenyu-zuotu/scripts/check_outputs.py` | 检查文件、尺寸、格式和重复内容 |
