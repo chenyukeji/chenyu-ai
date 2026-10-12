@@ -4,7 +4,7 @@ from __future__ import annotations
 from urllib.parse import parse_qs, urlparse
 
 from playwright_collector import (
-    BrowserCollectionError, MAX_PAGES, _challenge_visible, _goto, _launch_context,
+    BrowserCollectionError, MAX_PAGES, _ensure_sellersprite_variants_off, _challenge_visible, _goto, _launch_context,
     _login_sellersprite_in_page, _now_iso, _require_playwright, _sellersprite_auth_state,
     _sellersprite_credentials, _wait_for_sellersprite_identity, extract_sellersprite_table,
 )
@@ -72,6 +72,7 @@ def collect_recent_fbm(payload: dict) -> dict:
                     or sales_item.locator("input[placeholder='最小值']").input_value() != str(min_sales)
                     or "active" not in (market_button.get_attribute("class") or "")):
                 raise BrowserCollectionError("J 筛选条件未能在页面上确认")
+            _ensure_sellersprite_variants_off(page)
             page.get_by_role("button", name="开始筛选").click()
             page.wait_for_function(
                 "() => new URL(location.href).searchParams.get('sellerTypes')?.includes('FBM')",
@@ -108,6 +109,7 @@ def collect_recent_fbm(payload: dict) -> dict:
                 if not has_more or page_number == max_pages:
                     break
                 previous = page.url
+                _ensure_sellersprite_variants_off(page)
                 next_button.click()
                 page.wait_for_function("previous => location.href !== previous",
                                        arg=previous, timeout=12000)

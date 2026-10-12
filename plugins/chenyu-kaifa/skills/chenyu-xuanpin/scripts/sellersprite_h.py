@@ -5,7 +5,7 @@ import re
 from urllib.parse import unquote, urlparse
 
 from playwright_collector import (
-    BrowserCollectionError, MAX_PAGES, _challenge_visible, _goto, _launch_context,
+    BrowserCollectionError, MAX_PAGES, _ensure_sellersprite_variants_off, _challenge_visible, _goto, _launch_context,
     _login_sellersprite_in_page, _require_playwright, _sellersprite_credentials,
     _wait_for_sellersprite_identity, extract_sellersprite_table,
 )
@@ -25,6 +25,7 @@ def _matches_month_query(response, market, month):
 
 
 def _query_month(page, trigger, market, month):
+    _ensure_sellersprite_variants_off(page)
     # Confirm a successful response for this historical month before reading the table.
     with page.expect_response(lambda response: _matches_month_query(response, market, month), timeout=15000) as pending:
         trigger()

@@ -971,7 +971,7 @@ def _select_sellersprite_market(page, marketplace: str) -> str:
 
 
 def _ensure_sellersprite_variants_off(page) -> None:
-    """Keep the competitor lookup's 'show all variants' option disabled."""
+    """Disable and read back 'show all variants' in lookup and Product Research."""
     label = page.locator("label").filter(
         has_text=re.compile(r"展示所有变体|show all variants", re.I)
     ).first

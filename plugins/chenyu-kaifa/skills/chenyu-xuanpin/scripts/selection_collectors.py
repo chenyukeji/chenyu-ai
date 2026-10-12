@@ -206,7 +206,8 @@ def response_matches(response, *, path, expected):
     if parsed.hostname != 'www.sellersprite.com' or parsed.path != path:
         return False
     values = request_fields(response.request)
-    return all(str(values.get(key, '')) == str(value) for key, value in expected.items())
+    return all((str(values.get(key, '')).lower() == str(value).lower() if isinstance(value, bool)
+                else str(values.get(key, '')) == str(value)) for key, value in expected.items())
 
 
 def verified_query(page, trigger, *, path, expected):
@@ -256,24 +257,31 @@ def collect_sellersprite_products(payload):
             raise browser.BrowserCollectionError('product_filter_readback_mismatch')
         if month and 'active' not in (month_button.get_attribute('class') or ''):
             raise browser.BrowserCollectionError('historical_month_readback_mismatch')
-        expected = {'market':market,'keywords':keyword,'selectType':'3',
+        # Product Research sends symbolFlag=true when 'show all variants' is OFF.
+        browser._ensure_sellersprite_variants_off(page)
+        expected = {'market':market,'keywords':keyword,'selectType':'3','symbolFlag':True,
                     'monthName': 'bsr_sales_monthly_' + month.replace('-','') if month else 'bsr_sales_nearly'}
         if source=='sellersprite_new':expected['productTags']=['NewRelease']
         else:expected.update(minSales='300',minTotalUnitsGrowth='10')
-        records=[]; seen=set(); pages=[]; has_more=False
-        for index in range(max(1,min(int(payload.get('max_pages',1)),20))):
+        records=[]; seen=set(); pages=[]; has_more=False; parse_gaps=False; received_count=0
+        for index in range(max(1,min(int(payload.get('max_pages',10)),100))):
+            browser._ensure_sellersprite_variants_off(page)
             trigger = (lambda: page.get_by_role('button',name='开始筛选').click()) if index==0 else page.locator('.el-pagination .btn-next').first.click
-            data,filters=verified_query(page,trigger,path='/v3/api/product-research',expected=expected)
+            data,filters=verified_query(page,trigger,path='/v3/api/product-research',expected={**expected,'page':index+1})
+            browser._ensure_sellersprite_variants_off(page)
             items=data.get('items')
             if not isinstance(items,list):
                 raise browser.BrowserCollectionError('product_response_items_missing')
             requested_ids={str(x.get('asin') or '').upper() for x in items}
+            missing_ids = set()
             if items:
                 page.wait_for_function("() => ![...document.querySelectorAll('.el-loading-mask')].some(e=>e.offsetWidth || e.offsetHeight)",timeout=15000)
                 page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
                 rows=browser.extract_sellersprite_table(page,{'marketplace':market})
                 rows=[r for r in rows if r.get('asin') in requested_ids]
                 if not rows: raise browser.BrowserCollectionError('product_rows_do_not_match_query_response')
+                missing_ids = requested_ids - {row.get('asin') for row in rows}
+                parse_gaps = parse_gaps or bool(missing_ids)
                 raw_by_asin={str(x.get('asin') or '').upper():x for x in items}
                 for row in rows:
                     if row['asin'] in seen:continue
@@ -288,13 +296,16 @@ def collect_sellersprite_products(payload):
                     records.append(row);seen.add(row['asin'])
             elif data.get('total') not in (0,'0'):
                 raise browser.BrowserCollectionError('empty_product_response_not_verified')
-            has_more=bool(data.get('hasNextPage')) or int(data.get('total') or 0)>len(seen)
-            pages.append({'page':index+1,'records':len(items),'reported_total':data.get('total')})
+            received_count += len(items)
+            has_more=bool(data.get('hasNextPage')) or int(data.get('total') or 0)>received_count
+            pages.append({'page':index+1,'records':len(items),'reported_total':data.get('total'), 'unparsed_asins':sorted(missing_ids)})
             if not has_more:break
-        return {'collection_status':'partial' if has_more else 'complete','records':records,
-                'coverage_note':'分页上限截断，返回已验证的商品样本' if has_more else None,
+        return {'collection_status':'partial' if has_more or parse_gaps else 'complete','records':records,
+                'coverage_note':'；'.join(note for condition, note in ((has_more, '分页上限截断，返回已验证的商品样本'),
+                    (parse_gaps, '部分响应商品未能解析，缺项保留在各页记录')) if condition) or None,
                 'source_metadata':{'url':page.url,'marketplace':market,'mode':mode,'filters':filters,
-                                   'observed_at':browser._now_iso(),'pages':pages,
+                                   'observed_at':browser._now_iso(),'pages':pages,'show_all_variants':False,
+                                   'variants_verified':True,
                                    'scope_method':'标题词组匹配；仍由模型核对目录和用途，不直接作为推荐'}}
 
 

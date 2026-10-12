@@ -265,3 +265,172 @@ def test_authentication_failure_stops_repeated_source_logins(monkeypatch,tmp_pat
     r=flow.run_selection({'scope':scope(),'run_dir':str(tmp_path)})
     assert calls==['sellersprite_new'] and r['status']=='BLOCKED'
     assert len(r['coverage'])==2 and all(x['reason']=='sellersprite_login_required' for x in r['coverage'])
+
+
+def review(item, relevant=True):
+    return {'marketplace': item['marketplace'], 'asin': item['asin'], 'relevant': relevant,
+            'priority': '继续观察', 'reason': '按该商品的用途及历史证据审核'}
+
+
+def test_default_reviews_all_families_over_old_cap_in_resumable_batches(monkeypatch, tmp_path):
+    calls = []
+    rows = [product(asin=f'B{i:09d}') for i in range(125)]
+    def collect(*args):
+        calls.append(1)
+        return {'collection_status': 'complete', 'records': rows}
+    monkeypatch.setattr(flow, 'collect_query', collect)
+    r = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path), 'enrich': False})
+    assert r['counts']['families'] == 125 and len(r['analysis_requests']) == 50
+    for expected_reviewed, expected_next in [(50, 50), (100, 25), (125, 0)]:
+        r = flow.run_selection({'run_dir': str(tmp_path), 'evidence_id': r['evidence_id'],
+                                'reviews': [review(p) for p in r['analysis_requests']]})
+        assert r['counts']['reviewed'] == expected_reviewed
+        assert len(r['analysis_requests']) == expected_next
+    assert r['status'] == 'COMPLETE' and r['workbook']['row_count'] == 125
+    assert len(calls) == 1
+
+
+def test_explicit_target_replenishes_rejected_candidates(monkeypatch, tmp_path):
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {
+        'collection_status': 'complete', 'records': [product(asin=f'B{i:09d}') for i in range(8)]})
+    value = {**scope(['sellersprite_new']), 'shortlist_limit': 3, 'review_batch_size': 2}
+    r = flow.run_selection({'scope': value, 'run_dir': str(tmp_path), 'enrich': False})
+    r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p, False) for p in r['analysis_requests']]})
+    assert r['status'] == 'AWAITING_ANALYSIS' and len(r['analysis_requests']) == 2
+    r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
+    assert len(r['analysis_requests']) == 1
+    r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
+    assert r['workbook']['row_count'] == 3 and r['counts']['reviewed'] == 5
+    assert r['counts']['remaining'] == 3
+
+
+def test_family_grouping_preserves_month_and_variant_evidence_without_summing_sales():
+    from selection_analysis import group_product_families
+    rows = merge_products([
+        {'query': {'source': 'sellersprite_history', 'history_month': '2025-11'},
+         'records': [product(asin='B000000001', parent_asin='B000000010', estimated_sales=800)]},
+        {'query': {'source': 'sellersprite_history', 'history_month': '2025-12'},
+         'records': [product(asin='B000000002', parent_asin='B000000010', estimated_sales=900),
+                     product(asin='B000000003', parent_asin='B000000010', estimated_sales=900),
+                     product(asin='B000000004'), product(asin='B000000005'),
+                     product(asin='B000000002', parent_asin='B000000010', marketplace='DE')]}])
+    families = group_product_families(rows)
+    assert len(families) == 4  # US parent, DE parent, two unknown-parent ASINs.
+    family = next(p for p in families if p['marketplace'] == 'US' and p['family_key'] == 'B000000010')
+    assert family['asin'] == 'B000000002'
+    assert family['family_asins'] == ['B000000001', 'B000000002', 'B000000003']
+    assert {r['history_month'] for r in family['family_historical']} == {'2025-11', '2025-12'}
+    assert family['historical'][0]['estimated_sales'] == 900
+    assert family['current'] == {}  # Historical numbers never become current sales.
+    assert all('family_asins' not in p for p in rows)  # Raw ASIN evidence stays intact.
+
+
+def test_historical_shortlist_balances_keywords_before_unrelated_current_hits():
+    from selection_analysis import group_product_families, balanced_shortlist
+    sources = [{'query': {'source': 'amazon_new_releases'}, 'records': [product(asin='B000000999')]}]
+    for index, term in enumerate(['heater', 'blanket', 'shovel', 'gloves']):
+        sources.append({'query': {'source': 'sellersprite_history', 'keyword': term,
+                                   'history_month': '2025-12'}, 'records': [
+            product(asin=f'B{index * 20 + n:09d}', product_name=term, filter_keyword=term,
+                    parent_asin=f'B{index * 20 + n + 500:09d}') for n in range(20)]})
+    ordered = balanced_shortlist(group_product_families(merge_products(sources)),
+                                 historical_months=['2025-12'])
+    assert [p['historical'][0]['query_keyword'] for p in ordered[:4]] == ['heater', 'blanket', 'shovel', 'gloves']
+    assert ordered[-1]['asin'] == 'B000000999'
+    assert len(ordered) == 81
+
+
+def test_family_deduplication_happens_before_output_target(monkeypatch, tmp_path):
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': [
+        product(asin='B000000001', parent_asin='B000000010'),
+        product(asin='B000000002', parent_asin='B000000010'),
+        product(asin='B000000003', parent_asin='B000000020')]})
+    r = flow.run_selection({'scope': {**scope(['sellersprite_new']), 'shortlist_limit': 2},
+                            'run_dir': str(tmp_path), 'enrich': False})
+    assert r['counts']['products'] == 3 and r['counts']['families'] == 2
+    r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
+    assert r['workbook']['row_count'] == 2
+
+
+def test_enrichment_advances_with_review_batches_without_requerying_previous_batch(monkeypatch, tmp_path):
+    rows = [product(asin=f'B{i:09d}', price=None) for i in range(5)]
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': rows})
+    calls = []
+    def enrich(options):
+        calls.append(options['asins'])
+        return {'collection_status': 'complete', 'records': [product(asin=asin, price=20) for asin in options['asins']]}
+    monkeypatch.setattr(flow.collectors.browser, 'collect_sellersprite_by_asin', enrich)
+    r = flow.run_selection({'scope': {**scope(['sellersprite_new']), 'review_batch_size': 2}, 'run_dir': str(tmp_path)})
+    for _ in range(3):
+        assert all(p['current']['price'] == 20 for p in r['analysis_requests'])
+        r = flow.run_selection({'run_dir': str(tmp_path), 'evidence_id': r['evidence_id'],
+                                'reviews': [review(p) for p in r['analysis_requests']]})
+    assert r['status'] == 'COMPLETE' and r['workbook']['row_count'] == 5
+    assert list(map(len, calls)) == [2, 2, 1]
+
+
+def test_refresh_invalidates_reviews_when_product_evidence_changes(monkeypatch, tmp_path):
+    rows = [product()]
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': rows})
+    r = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path), 'enrich': False})
+    r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
+    assert r['status'] == 'COMPLETE'
+    rows[0]['estimated_sales'] = 0
+    r = flow.run_selection({'run_dir': str(tmp_path), 'refresh': True})
+    assert r['status'] == 'AWAITING_ANALYSIS' and r['counts']['reviewed'] == 0
+
+
+def test_product_query_rejects_all_variants_response():
+    from types import SimpleNamespace
+    from selection_collectors import response_matches
+    url = 'https://www.sellersprite.com/v3/api/product-research'
+    for flag, accepted in [(True, True), ('true', True), (False, False), ('false', False), (None, False)]:
+        response = SimpleNamespace(url=url, request=SimpleNamespace(url=url, post_data=json.dumps({'symbolFlag': flag})))
+        assert response_matches(response, path='/v3/api/product-research', expected={'symbolFlag': True}) is accepted
+
+
+def test_large_requested_result_count_is_not_capped_at_one_hundred():
+    plan = flow.plan_selection({'scope': {**scope(), 'shortlist_limit': 500}})
+    assert plan['shortlist_limit'] == 500
+    assert flow.plan_selection({'scope': scope()})['shortlist_limit'] is None
+
+
+def test_collector_disables_variants_and_checks_each_page(monkeypatch):
+    from contextlib import contextmanager
+    from unittest.mock import MagicMock
+    import selection_collectors as collectors
+    page = MagicMock()
+    page.get_by_text.return_value.locator.return_value.get_by_role.return_value.get_attribute.return_value = 'active'
+    page.locator.return_value.filter.return_value.first.get_attribute.return_value = 'active is-checked'
+    page.locator.return_value.filter.return_value.first.locator.return_value.input_value.return_value = 'heated blanket'
+    disabled = []
+    queries = []
+    @contextmanager
+    def session(*args, **kwargs):
+        yield page
+    def verified(_page, trigger, *, path, expected):
+        assert disabled  # The real flow invokes the control before submitting.
+        assert expected['symbolFlag'] is True
+        queries.append(expected)
+        asin = f'B{len(queries):09d}'
+        return {'items': [{'asin': asin, 'parentAsin': f'B{len(queries)+10:09d}'}],
+                'total': 2, 'hasNextPage': len(queries) == 1}, expected
+    monkeypatch.setattr(collectors, 'session', session)
+    monkeypatch.setattr(collectors.browser, '_ensure_sellersprite_variants_off', lambda p: disabled.append(p))
+    monkeypatch.setattr(collectors, 'verified_query', verified)
+    monkeypatch.setattr(collectors.browser, 'extract_sellersprite_table', lambda *args: [product(asin=f'B{len(queries):09d}')])
+    result = collectors.collect_sellersprite_products({'marketplace': 'US', 'source': 'sellersprite_history',
+                  'keyword': 'heated blanket', 'history_month': '2025-12'})
+    assert [q['page'] for q in queries] == [1, 2]  # Default collection no longer stops at page one.
+    assert len(disabled) >= 2 and result['source_metadata']['variants_verified'] is True
+    assert result['collection_status'] == 'complete' and len(result['records']) == 2
+
+
+def test_stale_review_token_rejected_after_source_refresh(monkeypatch, tmp_path):
+    rows = [product()]
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': rows})
+    r = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path), 'enrich': False})
+    rows[0]['estimated_sales'] = 1
+    with pytest.raises(ValueError, match='审阅证据已变更'):
+        flow.run_selection({'run_dir': str(tmp_path), 'refresh': True, 'evidence_id': r['evidence_id'],
+                            'reviews': [review(p) for p in r['analysis_requests']]})

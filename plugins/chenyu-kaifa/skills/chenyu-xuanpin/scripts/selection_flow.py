@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 
 from category_sources import normalize_url
-from selection_analysis import analyze_keywords, merge_products, summarize_products, balanced_shortlist
+from selection_analysis import analyze_keywords, merge_products, summarize_products, balanced_shortlist, group_product_families, product_identity
 import selection_collectors as collectors
 from strategy_h import target_months
 
@@ -28,7 +28,7 @@ def query_id(spec):
 def plan_selection(payload):
     request = str(payload.get('request') or '').strip()
     scope = dict(payload.get('scope') or {})
-    if set(scope)-{'input_urls','marketplaces','sources','categories','following_months','shortlist_limit','filters','exclusions'}:
+    if set(scope)-{'input_urls','marketplaces','sources','categories','following_months','shortlist_limit','review_batch_size','filters','exclusions'}:
         raise ValueError('scope 包含不支持的字段')
     filters=scope.get('filters') or {}
     if set(filters)-{'price_min','price_max','review_max','sales_min','fulfillment'}:
@@ -98,14 +98,17 @@ def plan_selection(payload):
                             spec = {**base, 'keyword': term}
                             if month: spec['history_month'] = month
                             queries.append(spec)
-    limit = scope.get('shortlist_limit', 20)
-    if type(limit) is not int or not 1 <= limit <= 100:
-        raise ValueError('shortlist_limit 必须为 1–100')
+    limit = scope.get('shortlist_limit')
+    if limit is not None and (type(limit) is not int or limit < 1):
+        raise ValueError('shortlist_limit 必须为正整数或 null（审阅全部已采集父体）')
+    batch_size = scope.get('review_batch_size', 50)
+    if type(batch_size) is not int or not 1 <= batch_size <= 200:
+        raise ValueError('review_batch_size 必须为 1–200；仅控制单批审阅量，不限制总量')
     unique = {query_id(q): q for q in queries}
     if len(unique) > 120:
         raise ValueError('查询任务超过 120 项，请按类目分批调查')
     return {'version': VERSION, 'request': request, 'scope': scope, 'as_of_date': as_of,
-            'marketplaces': markets, 'historical_months': months, 'shortlist_limit': limit,
+            'marketplaces': markets, 'historical_months': months, 'shortlist_limit': limit, 'review_batch_size': batch_size,
             'queries': [{'id': key, **value} for key, value in unique.items()], 'blocking_items': missing}
 
 
@@ -136,7 +139,7 @@ def collect_query(query, payload, known_products):
 
 def original_style_rows(rows, report):
     """Put combined evidence in the familiar 15-column selection table."""
-    products = {(p['marketplace'], p['asin']): p for p in report['products']}
+    products = {(p['marketplace'], p['asin']): p for p in report.get('families', report['products'])}
     result = []
     for row in rows:
         current = (products.get((row['站点'], row['ASIN'])) or {}).get('current') or {}
@@ -267,7 +270,7 @@ def run_selection(payload):
     if type(budget) is not int or not 1 <= budget <= 120: raise ValueError('max_queries 必须为 1–120')
     results=[]; pending=[]; executed=0; auth_block=None
     for query in plan['queries']:
-        digest=query_id({'query':query,'browser':{k:v for k,v in options.items() if k not in ('profile_dir','headless')},
+        digest=query_id({'collector_version': 2, 'query':query,'browser':{k:v for k,v in options.items() if k not in ('profile_dir','headless')},
                          'db_path':payload.get('db_path') or os.environ.get('CHENYU_NEW_RELEASES_DB')})
         cache=folder/f'source-{digest}.json'
         result=json.loads(cache.read_text()) if cache.exists() and not payload.get('refresh') else None
@@ -296,63 +299,133 @@ def run_selection(payload):
                             'records':result['product_records'],'collection_status':'complete',
                             'coverage_note':'关键词页面实际展示的关联商品样本，相关性待模型核对'})
     associations=[a for result in results for a in result.get('associations',[])]+(payload.get('associations') or [])
-    products=merge_products(results,associations=associations)
-    shortlisted=balanced_shortlist(products,plan['shortlist_limit'])
-    if payload.get('enrich',True) and shortlisted and not pending and not plan['blocking_items'] and not auth_block:
+    # Keep all verified families available. Batch size is a context limit, not an output cap.
+    base_results = list(results)
+    source_ids = [query_id(result) for result in base_results]
+    enrichment_context = query_id(source_ids)
+    for cache in sorted(folder.glob('enrichment-*.json')):
+        cached = json.loads(cache.read_text())
+        if cached.get('selection_context') == enrichment_context and not payload.get('refresh'):
+            results.append(cached)
+
+    context_plan = {**plan, 'scope': {k: v for k, v in plan['scope'].items()
+                                    if k not in ('shortlist_limit', 'review_batch_size')}}
+    context_plan.pop('shortlist_limit', None); context_plan.pop('review_batch_size', None)
+    review_context = query_id(context_plan)
+    review_path = folder/'selection-reviews.json'
+    stored = json.loads(review_path.read_text()) if review_path.exists() else {}
+    stored = stored if isinstance(stored, dict) and stored.get('context_id') == review_context else {}
+
+    def prepare():
+        raw = merge_products(results, associations=associations)
+        families = group_product_families(raw)
+        ordered = balanced_shortlist(families, historical_months=plan['historical_months']
+                                    if any(q['source'] == 'sellersprite_history' for q in plan['queries']) else None)
+        for item in ordered:
+            checks = []
+            for key, value in (plan['scope'].get('filters') or {}).items():
+                field = {'price_min':'price','price_max':'price','review_max':'review_count',
+                         'sales_min':'estimated_sales','fulfillment':'fulfillment'}[key]
+                actual = item['current'].get(field)
+                if actual is None:
+                    checks.append({'condition':key,'status':'missing'})
+                else:
+                    passed = actual == value if key == 'fulfillment' else actual >= value if key.endswith('_min') else actual <= value
+                    checks.append({'condition':key,'status':'pass' if passed else 'fail','actual':actual,'expected':value})
+            item['filter_checks'] = checks
+        return raw, ordered
+
+    def saved_reviews(items):
+        fingerprints = stored.get('fingerprints', {})
+        known = {product_identity(item): item for item in items}
+        return [review for review in stored.get('reviews', [])
+                if (item := known.get((review.get('marketplace'), review.get('asin')))) is not None
+                and fingerprints.get('|'.join(product_identity(item))) == query_id(item)]
+
+    def pending_batch(items, reviews):
+        covered = {(r['marketplace'], r['asin']) for r in reviews}
+        eligible = [item for item in items if not any(c['status'] == 'fail' for c in item['filter_checks'])]
+        eligible_ids = {product_identity(p) for p in eligible}
+        accepted = sum(r['relevant'] for r in reviews if (r['marketplace'], r['asin']) in eligible_ids)
+        target = plan.get('shortlist_limit')
+        remaining = None if target is None else max(0, target - accepted)
+        waiting = [item for item in eligible if product_identity(item) not in covered]
+        return waiting[:min(plan.get('review_batch_size', 50), remaining) if remaining is not None else plan.get('review_batch_size', 50)]
+
+    products, shortlisted = prepare()
+    reviews = saved_reviews(shortlisted)
+    submitted = payload.get('reviews') or []
+    known = {product_identity(p) for p in shortlisted}
+    if any((r.get('marketplace'),r.get('asin')) not in known or type(r.get('relevant')) is not bool
+           or not r.get('reason') for r in submitted):
+        raise ValueError('reviews 必须对应本次父体代表商品，包含 relevant 布尔值和证据理由')
+    if submitted and payload.get('evidence_id') is not None:
+        current_keywords = analyze_keywords([row for result in results
+            if result['query']['source'] == 'keyword_trends' for row in result.get('records', [])], plan['as_of_date'])
+        current_evidence = query_id({'context': review_context, 'products': shortlisted, 'keywords': current_keywords})
+        if current_evidence != payload['evidence_id']:
+            raise ValueError('审阅证据已变更，请读取新的 analysis_requests')
+    review_index = {(r['marketplace'], r['asin']): r for r in reviews}
+    review_index.update({(r['marketplace'], r['asin']): r for r in submitted})
+    reviews = list(review_index.values())
+    before_enrichment = {product_identity(item): query_id(item) for item in shortlisted}
+    # Enrich only the next review batch. Its cached facts survive all later batches.
+    batch = pending_batch(shortlisted, reviews)
+    if payload.get('enrich', True) and batch and not pending and not plan['blocking_items'] and not auth_block:
         for market in plan['marketplaces']:
-            asins=[p['asin'] for p in shortlisted if p['marketplace']==market and
-                   any(p['current'].get(f) is None for f in ('price','estimated_sales','source_available_date','review_count'))]
-            if not asins: continue
-            spec={'source':'sellersprite_enrichment','marketplace':market,'asins':asins}
-            cache=folder/f'enrichment-{query_id(spec)}.json'
-            result=json.loads(cache.read_text()) if cache.exists() and not payload.get('refresh') else None
-            if not result or result.get('collection_status')!='complete':
-                try: result=collectors.browser.collect_sellersprite_by_asin({**options,'marketplace':market,'asins':asins,'headless':True})
-                except Exception as exc: result={'collection_status':'blocked','block_reason':type(exc).__name__,'records':[]}
-                result['query']={'id':query_id(spec),**spec};write_json(cache,result)
-            results.append(result)
-        products=merge_products(results,associations=associations)
-        identities={(p['marketplace'],p['asin']) for p in shortlisted}
-        shortlisted=[p for p in products if (p['marketplace'],p['asin']) in identities]
-    for item in shortlisted:
-        checks=[]
-        for key, value in (plan['scope'].get('filters') or {}).items():
-            field={'price_min':'price','price_max':'price','review_max':'review_count','sales_min':'estimated_sales','fulfillment':'fulfillment'}[key]
-            actual=item['current'].get(field)
-            if actual is None:checks.append({'condition':key,'status':'missing'})
-            else:
-                passed=actual==value if key=='fulfillment' else actual>=value if key.endswith('_min') else actual<=value
-                checks.append({'condition':key,'status':'pass' if passed else 'fail','actual':actual,'expected':value})
-        item['filter_checks']=checks
+            asins = [p['asin'] for p in batch if p['marketplace'] == market and
+                     any(p['current'].get(f) is None for f in ('price','estimated_sales','source_available_date','review_count'))]
+            if not asins:
+                continue
+            spec = {'source':'sellersprite_enrichment','marketplace':market,'asins':asins}
+            cache = folder/f'enrichment-{query_id({"context": enrichment_context, **spec})}.json'
+            result = json.loads(cache.read_text()) if cache.exists() and not payload.get('refresh') else None
+            if not result or result.get('collection_status') != 'complete':
+                try:
+                    result = collectors.browser.collect_sellersprite_by_asin({**options,'marketplace':market,'asins':asins,'headless':True})
+                except Exception as exc:
+                    result = {'collection_status':'blocked','block_reason':type(exc).__name__,'records':[]}
+                result['query'] = {'id':query_id(spec),**spec}
+                result['selection_context'] = enrichment_context
+                write_json(cache, result)
+            if result not in results:
+                results.append(result)
+        products, shortlisted = prepare()
+        unchanged = {product_identity(item) for item in shortlisted
+                     if before_enrichment.get(product_identity(item)) == query_id(item)}
+        reviews = [r for r in reviews if (r['marketplace'], r['asin']) in unchanged]
     keyword_records=[r for result in results if result['query']['source']=='keyword_trends' for r in result.get('records',[])]
-    report={'version':VERSION,'plan':plan,'results':results,'products':products,
+    report={'version':VERSION,'plan':plan,'results':results,'products':products,'families':shortlisted,
             'keywords':analyze_keywords(keyword_records,plan['as_of_date']), 'pending_queries':pending,
-            'candidate_count':len(products),'shortlist_count':len(shortlisted)}
+            'candidate_count':len(products),'family_count':len(shortlisted),'shortlist_count':len(shortlisted)}
     write_json(folder/'selection-evidence.json',report)
-    review_path=folder/'selection-reviews.json'
-    evidence_id=query_id({'plan':plan,'products':shortlisted,'keywords':report['keywords']})
-    reviews=payload.get('reviews')
-    if reviews is None and review_path.exists():
-        stored=json.loads(review_path.read_text())
-        if isinstance(stored,dict) and stored.get('evidence_id')==evidence_id: reviews=stored.get('reviews')
-    reviews=reviews or []
-    known={(p['marketplace'],p['asin']) for p in shortlisted}
-    if any((r.get('marketplace'),r.get('asin')) not in known or type(r.get('relevant')) is not bool or not r.get('reason') for r in reviews):
-        raise ValueError('reviews 必须对应本次 shortlist，包含 relevant 布尔值和证据理由')
-    covered={(r['marketplace'],r['asin']) for r in reviews}
-    waiting=[p for p in shortlisted if (p['marketplace'],p['asin']) not in covered]
-    if reviews: write_json(review_path,{'evidence_id':evidence_id,'reviews':reviews})
+    evidence_id=query_id({'context':review_context,'products':shortlisted,'keywords':report['keywords']})
+    known = {product_identity(p) for p in shortlisted}
+    review_index = {(r['marketplace'], r['asin']): r for r in reviews}
+    waiting = pending_batch(shortlisted, reviews)
+    fingerprints = {'|'.join(product_identity(item)): query_id(item) for item in shortlisted
+                    if product_identity(item) in review_index}
+    if reviews:
+        write_json(review_path,{'evidence_id':evidence_id,'context_id':review_context,
+                                'fingerprints':fingerprints,'reviews':reviews})
     partial=any(r.get('collection_status')!='complete' for r in results)
     status='AWAITING_SCOPE' if plan['blocking_items'] else 'RUNNING' if pending else 'AWAITING_ANALYSIS' if waiting else 'PARTIAL' if partial else 'COMPLETE'
     if not products and not report['keywords']['directions'] and not pending and not plan['blocking_items']:
         status='BLOCKED' if partial else 'NO_CANDIDATES'
+    eligible_ids = {product_identity(p) for p in shortlisted
+                    if not any(c['status'] == 'fail' for c in p.get('filter_checks', []))}
     output={'ok':True,'status':status,'run_dir':str(folder),'evidence_path':str(folder/'selection-evidence.json'),
             'blocking_items':plan['blocking_items'],'pending_queries':pending,'analysis_requests':waiting,
-            'evidence_id':evidence_id,'counts':{'products':len(products),'shortlist':len(shortlisted),'keywords':len(report['keywords']['directions'])},
+            'evidence_id':evidence_id,'counts':{'products':len(products),'shortlist':len(shortlisted),'families':len(shortlisted),
+            'reviewed':len(reviews),'remaining':len(eligible_ids - set(review_index)),
+            'accepted':sum(r['relevant'] for r in reviews if (r['marketplace'], r['asin']) in eligible_ids),'keywords':len(report['keywords']['directions'])},
             'coverage':[{'source':r['query']['source'],'marketplace':r['query'].get('marketplace'),
                          'status':r.get('collection_status'),'reason':r.get('block_reason'),'rows':len(r.get('records',[]))} for r in results]}
     if not waiting and not pending and not plan['blocking_items'] and (products or report['keywords']['directions']):
-        eligible=[p for p in shortlisted if not any(c['status']=='fail' for c in p.get('filter_checks',[]))]
+        eligible=[p for p in shortlisted if product_identity(p) in review_index
+                  and not any(c['status']=='fail' for c in p.get('filter_checks',[]))]
+        if plan.get('shortlist_limit') is not None:
+            eligible = [p for p in eligible if review_index[product_identity(p)]['relevant']][:plan['shortlist_limit']]
         rows=summarize_products(eligible,reviews)
         missing={(p['marketplace'],p['asin']) for p in eligible if any(c['status']=='missing' for c in p.get('filter_checks',[]))}
         for row in rows:

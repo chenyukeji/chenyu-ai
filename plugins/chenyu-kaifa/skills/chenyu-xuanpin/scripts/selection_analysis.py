@@ -1,7 +1,8 @@
 """Evidence analysis for the single selection skill; no network or invented scores."""
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import defaultdict, deque
+from copy import deepcopy
 from datetime import date
 import math
 import re
@@ -118,7 +119,8 @@ def merge_products(source_results, *, associations=None):
             key = (market, asin)
             item = groups.setdefault(key, {'marketplace': market, 'asin': asin, 'observations': [], 'source_types': [],
                                            'current': {}, 'historical': [], 'stores': [], 'keywords': []})
-            observation = {**row, 'source_type': source, 'query_id': spec.get('id')}
+            observation = {**row, 'source_type': source, 'query_id': spec.get('id'),
+                           'query_category': spec.get('category'), 'query_keyword': spec.get('keyword')}
             if observation not in item['observations']:
                 item['observations'].append(observation)
             if source not in item['source_types']:
@@ -168,7 +170,7 @@ def summarize_products(products, reviews=None):
             '当前预估月销量': current.get('estimated_sales'), '销量口径': '父体或来源口径，未跨变体求和',
             '上架日期': current.get('source_available_date'), '命中来源': '、'.join(SOURCE_LABELS.get(source,source) for source in item['source_types']),
             '店铺来源': '、'.join(x['seller_id'] for x in item['stores']),
-            '历史命中月份': '、'.join(sorted({x['history_month'] for x in item['historical']})),
+            '历史命中月份': '、'.join(sorted({x['history_month'] for x in item.get('family_historical', item['historical'])})),
             '关联关键词': '、'.join(dict.fromkeys(x['keyword'] for x in item['keywords'])),
             '优先级': decision, '分析': review.get('reason') if verified else '等待模型核对产品用途与用户范围',
             '证据缺项': '、'.join(missing), '亚马逊产品链接': current.get('detail_url') or
@@ -196,18 +198,71 @@ def lexical_fit(item):
     return max(scores,default=0)
 
 
-def balanced_shortlist(products, limit):
+def product_identity(item):
+    return item['marketplace'], item['asin']
+
+
+def group_product_families(products):
+    """One representative per known parent and market; retain each child's raw evidence.
+
+    Do not add child/parent sales or move a child's current fields onto its sibling.
+    Unknown parents remain separate ASINs, never inferred from titles.
+    """
     groups = defaultdict(list)
     for item in products:
-        for source in item['source_types']:
-            if source!='sellersprite_enrichment':groups[(item['marketplace'],source)].append(item)
-    for group in groups.values():group.sort(key=lexical_fit,reverse=True)
-    chosen=[];seen=set()
-    while len(chosen)<limit:
-        changed=False
-        for group in groups.values():
-            while group and (group[0]['marketplace'],group[0]['asin']) in seen:group.pop(0)
-            if group and len(chosen)<limit:
-                item=group.pop(0);chosen.append(item);seen.add((item['marketplace'],item['asin']));changed=True
-        if not changed:break
+        parents = [row for row in item['observations'] if row.get('parent_asin')]
+        parents.sort(key=lambda row: (str(row.get('history_month') or '9999'),
+                                     str(row.get('observed_at') or '')), reverse=True)
+        parent = str(parents[0]['parent_asin']).upper() if parents else None
+        if not parent or not re.fullmatch(r'[A-Z0-9]{10}', parent):
+            parent = None
+        groups[(item['marketplace'], parent or item['asin'])].append(item)
+    families = []
+    for (market, parent), members in groups.items():
+        # Stable representative: historical evidence before current-only variants.
+        representative = min(members, key=lambda item: (
+            -bool(item['historical']),
+            -max((number(row.get('estimated_sales')) or 0 for row in item['historical']), default=0),
+            -lexical_fit(item), item['asin']))
+        family = deepcopy(representative)
+        family['family_key'] = parent
+        family['family_asins'] = sorted(item['asin'] for item in members)
+        family['family_historical'] = [deepcopy(row) for item in members for row in item['historical']]
+        family['family_sources'] = sorted({source for item in members for source in item['source_types']})
+        families.append(family)
+    return families
+
+
+def balanced_shortlist(products, limit=None, historical_months=None):
+    """Balance query directions, with target-period families ahead of current-only hits."""
+    groups = defaultdict(list)
+    months = set(historical_months or [])
+    for item in products:
+        history = item.get('family_historical', item['historical'])
+        tier = 0 if not months or any(row.get('history_month') in months for row in history) else 1
+        for row in item['observations'] + history:
+            source = row.get('source_type')
+            if source == 'sellersprite_enrichment':
+                continue
+            direction = row.get('query_keyword') or row.get('filter_keyword') or row.get('query_category') or source
+            groups[(tier, item['marketplace'], direction)].append(item)
+    for key, group in groups.items():
+        unique = {product_identity(item): item for item in group}
+        groups[key] = deque(sorted(unique.values(), key=lambda item: (
+            -lexical_fit(item),
+            -max((number(row.get('estimated_sales')) or 0 for row in item.get('family_historical', item['historical'])
+                  if row.get('history_month') in months), default=0))))
+    chosen = []; seen = set()
+    for tier in sorted({key[0] for key in groups}):
+        queues = [group for key, group in groups.items() if key[0] == tier]
+        while limit is None or len(chosen) < limit:
+            changed = False
+            for group in queues:
+                while group and product_identity(group[0]) in seen:
+                    group.popleft()
+                if group and (limit is None or len(chosen) < limit):
+                    item = group.popleft(); chosen.append(item)
+                    seen.add(product_identity(item)); changed = True
+            if not changed:
+                break
     return chosen
