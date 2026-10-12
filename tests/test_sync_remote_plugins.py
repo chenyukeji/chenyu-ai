@@ -126,6 +126,36 @@ else:
         self.assertEqual(git(self.live, 'rev-parse', 'HEAD'), original)
         self.assertEqual(json.loads(self.status.read_text())['state'], 'deferred_dirty')
 
+    def test_first_migration_defers_for_unpinned_running_jobs(self) -> None:
+        original = git(self.live, 'rev-parse', 'HEAD')
+        for name in SYNC.NAMES:
+            self.write_plugin(name, '1.0.1')
+        self.commit('Release 1.0.1')
+        self.publish()
+        jobs = Path(self.temp.name) / 'jobs'
+        folder = jobs / 'aaaaaaaa'
+        folder.mkdir(parents=True)
+        (folder / 'status.txt').write_text('run')
+        self.assertEqual(SYNC.sync(self.live, self.market, self.cache, str(self.fake_codex),
+                                   self.status, jobs=jobs), 0)
+        self.assertEqual(git(self.live, 'rev-parse', 'HEAD'), original)
+        self.assertEqual(json.loads(self.status.read_text())['state'], 'deferred_legacy_jobs')
+        (folder / 'plugin-release.json').write_text(json.dumps({'revision': original, 'legacy_source': False}))
+        self.assertEqual(SYNC.sync(self.live, self.market, self.cache, str(self.fake_codex),
+                                   self.status, jobs=jobs), 0)
+        self.assertNotEqual(git(self.live, 'rev-parse', 'HEAD'), original)
+        self.assertEqual((folder / 'status.txt').read_text(), 'run')
+
+    def test_legacy_resumed_session_still_blocks_shared_source_update(self) -> None:
+        jobs = Path(self.temp.name) / 'jobs'
+        folder = jobs / 'aaaaaaaa'
+        folder.mkdir(parents=True)
+        (folder / 'status.txt').write_text('run')
+        (folder / 'plugin-release.json').write_text(json.dumps({'revision': 'a' * 40, 'legacy_source': True}))
+        self.assertEqual(SYNC.legacy_running_jobs(jobs), ['aaaaaaaa'])
+        (folder / 'status.txt').write_text('ok')
+        self.assertEqual(SYNC.legacy_running_jobs(jobs), [])
+
     def test_rejects_suffixed_remote_version_before_activation(self) -> None:
         original = git(self.live, 'rev-parse', 'HEAD')
         for name in SYNC.NAMES:

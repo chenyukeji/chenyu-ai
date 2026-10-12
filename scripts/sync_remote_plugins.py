@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
+from contextlib import contextmanager
 from pathlib import Path
 
 
@@ -129,7 +130,36 @@ def save_status(path: Path, state: str, **details: object) -> None:
     temporary.replace(path)
 
 
-def sync(repo: Path, market: Path, cache: Path, codex: str, status: Path) -> int:
+@contextmanager
+def execution_versions_lock(releases: Path):
+    releases.mkdir(parents=True, exist_ok=True)
+    with (releases / '.lock').open('a') as stream:
+        fcntl.flock(stream, fcntl.LOCK_EX)
+        yield
+
+
+def legacy_running_jobs(jobs: Path) -> list[str]:
+    """Only pre-migration executions need the shared source tree kept in place."""
+    active = []
+    for folder in jobs.iterdir():
+        if not folder.is_dir() or not re.fullmatch(r'[0-9a-f]{8}', folder.name):
+            continue
+        state = folder / 'status.txt'
+        if not state.exists() or state.read_text().strip() != 'run':
+            continue
+        pin = folder / 'plugin-release.json'
+        try:
+            value = json.loads(pin.read_text())
+            pinned = bool(re.fullmatch(r'[0-9a-f]{40}', value.get('revision', ''))) and not value.get('legacy_source')
+        except (OSError, ValueError, AttributeError, TypeError):
+            pinned = False
+        if not pinned:
+            active.append(folder.name)
+    return active
+
+
+def sync(repo: Path, market: Path, cache: Path, codex: str, status: Path,
+         releases: Path | None = None, jobs: Path | None = None) -> int:
     lock = status.with_suffix('.lock')
     lock.parent.mkdir(parents=True, exist_ok=True)
     with lock.open('w') as stream:
@@ -155,15 +185,21 @@ def sync(repo: Path, market: Path, cache: Path, codex: str, status: Path) -> int
             )
             if ancestor.returncode:
                 raise RuntimeError('local main is ahead of or diverged from origin/main; refusing to overwrite')
-            if local != remote:
-                versions = validate_remote(repo, remote)
-                git(repo, 'merge', '--ff-only', 'origin/main')
-            else:
-                versions = validate_plugins(repo)
-            active = git(repo, 'rev-parse', 'HEAD')
-            if active != remote:
-                raise RuntimeError('checkout did not reach the fetched remote revision')
-            install_plugins(repo, market, cache, codex, versions)
+            versions = validate_remote(repo, remote) if local != remote else validate_plugins(repo)
+            # Task submission remains available. Only choosing an execution version
+            # shares this lock with activation; existing snapshots stay untouched.
+            with execution_versions_lock(releases or status.parent / 'plugin-releases'):
+                if jobs is not None and (legacy := legacy_running_jobs(jobs)):
+                    save_status(status, 'deferred_legacy_jobs', local_revision=local,
+                                remote_revision=remote, jobs=legacy)
+                    print(f'Old workers still use shared plugin files; update deferred: {legacy}')
+                    return 0
+                if local != remote:
+                    git(repo, 'merge', '--ff-only', remote)
+                active = git(repo, 'rev-parse', 'HEAD')
+                if active != remote:
+                    raise RuntimeError('checkout did not reach the fetched remote revision')
+                install_plugins(repo, market, cache, codex, versions)
             save_status(status, 'current', revision=active, versions=versions)
             print(f'Plugins current at {active}: {versions}')
             return 0
@@ -180,8 +216,11 @@ def main() -> int:
     parser.add_argument('--cache', type=Path, default=Path('/home/ubuntu/.codex/plugins/cache/personal'))
     parser.add_argument('--codex', default='/usr/bin/codex')
     parser.add_argument('--status', type=Path, default=Path('/home/ubuntu/chenyu/chenyu-runtime/plugin-sync-status.json'))
+    parser.add_argument('--releases', type=Path, default=Path('/home/ubuntu/chenyu/chenyu-runtime/plugin-releases'))
+    parser.add_argument('--jobs', type=Path, default=Path('/home/ubuntu/chenyu/chenyu-web/backend/work/drop'))
     args = parser.parse_args()
-    return sync(args.repo.resolve(), args.market.resolve(), args.cache.resolve(), args.codex, args.status)
+    return sync(args.repo.resolve(), args.market.resolve(), args.cache.resolve(), args.codex,
+                args.status, args.releases.resolve(), args.jobs.resolve())
 
 
 if __name__ == '__main__':
