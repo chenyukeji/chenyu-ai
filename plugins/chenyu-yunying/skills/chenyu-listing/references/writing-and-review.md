@@ -56,7 +56,7 @@
 
 - `item_highlights` 必填、单行，最多 125 个字符，目标 120–125，优先贴近 125；至少自然包含一个 `title_keywords` 核心短语或其有效同义词形，其余用有事实支撑的规格、图案/结构、使用位置和场景补足，无有效信息时可留短。
 - 写成一句自然文案，不用 `/`、竖线或连续逗号堆词。
-- 优先补充标题未容纳的核心/长尾词、重要尺寸、材质结构、安装适配和多个真实场景。
+- 优先补充标题未容纳的核心/长尾词、重要尺寸、材质结构、安装适配和多个真实场景。标题已明确整包数量时，Highlights 不再以该数量加同一产品名称开头，也不用“lot de 8 / 8 pcs / 8只装”等同义写法重复；可写不同含义的数量，如 8 种图案，但必须明确所数对象。
 - 可以重复标题中的关键差异或产品词，但必须增加新的识别信息。
 - `title_phrase_sources` 和 `item_highlights_phrase_sources` 将每个有购买含义的词组映射到真实竞品标题/第 N 点的原文短语，或自有已确认事实；不必映射冠词、介词等语法词。目标文案可本地化改写，`source_phrase` 保留竞品原文短语供核对。Item Name 与 Item Highlights 的参考列必须逐词组写“词组 ← ASIN 标题/第N点（原词义）”或“词组 ← 自有事实编号”，而非只列商品链接。逐词检查是否适用于当前变体，未取得竞品标题/五点的词不能声称来自该链接。
 
@@ -75,7 +75,7 @@
 
 ```text
 Item Name：6 filtres à air PAULTRA2 de rechange pour réfrigérateur, 95 x 45 x 9 mm
-Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805, 5303918847, EAP12364179 ; lot de 6
+Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805, 5303918847, EAP12364179
 ```
 
 ## 五点卖点
@@ -177,7 +177,7 @@ Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805
 1. 将第一条同款链接 ASIN 记录为 `primary_reference_asin`。
 2. 使用卖家精灵反查该 ASIN 的自然关键词，记录来源站点和 `source_tool=sellersprite_reverse_asin`。
 3. 读取全部有效参考链接标题，提取其中与本品一致的产品词、同义词、当地常用词形和高相关长尾词，逐条记录来源 ASIN、`source_field=title` 和 `source_tool=reference_title_terms`。删除品牌、错误规格、不同功能和竞品身份词。
-4. 若前台去重后候选少，再查目标站点其他同类商品标题，不限于开发文档链接；来源记为 `source_tool=same_category_title_terms`、`source_field=title`，并将商品 ASIN 和标题纳入竞品记录。先判断商品类型、结构和实际用途是否与自有产品匹配；不能把硬质窗板、单独软管等相邻品类的词当作软布窗户密封套同义词。
+4. 先按当地产品名称、同义称呼、结构/用途叫法和词形整理候选；前台去重后若只剩一两个有效增量词，再查目标站点其他同类商品标题及更多相关 ASIN 的真实反查词，不限于开发文档链接。额外标题来源记为 `source_tool=same_category_title_terms`、`source_field=title`，并将商品 ASIN 和标题纳入竞品记录；其他反查来源仍记为 `source_tool=sellersprite_reverse_asin`。先判断商品类型、结构和实际用途是否与自有产品匹配；不能把硬质窗板、单独软管等相邻品类的词当作软布窗户密封套同义词。
 5. 合并三类候选但不丢失来源，对每个候选短语在目标 Amazon 站点检查前 20 个自然商品，广告位不计。
 6. 记录 `organic_results_checked`、`relevant_results` 和 `relevance_band`：占比不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。未实际检查时不填写虚构数字或等级，候选只留内部研究记录；该站 Search Terms 不作为已完成交付。
 7. `high` 优先采用，`medium` 按剩余字节采用，`low` 通常排除。结果主要为配件或其他品类时直接排除。
@@ -190,14 +190,14 @@ Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805
 - 全部小写、单行、单空格、无标点；不重复词，不写停用词。
 - 排除品牌、ASIN、竞品身份、错误规格、无依据功能、主观宣传词、临时性表达和无关流量词。
 - 不超过 249 UTF-8 字节。高相关增量词不足时留短，不用泛词填满。
-- 所有 `decision=adopt` 且前台未覆盖的有效词元都必须进入 Search Terms；如果结果仍短，回查全部参考标题，并补查其他匹配的同类标题，直到没有遗漏的高相关增量词。无需凑满 249 字节，不加入泛词。
+- 所有 `decision=adopt` 且前台未覆盖的有效词元都必须进入 Search Terms；如果结果仅一两个词或仍明显偏短，回查全部参考标题、更多目标站点同类标题及相关 ASIN 反查词，记录查过的候选、排除理由和无法扩充的原因。无需凑满 249 字节，不加入泛词。
 
 ## 审核
 
 先脱离母版示例和旧交付，按当前事实及用户反馈检查每条文案；再做长度和格式检查。不得把“现有母版已填内容”或脚本通过当作语义验收。目标语言与中文翻译都执行删除检查，旧版中被用户否定的句子及其同义表达不得重新进入新稿。中文翻译在最终校验之前写入 `listing-package.json`；不得先让目标语言通过校验，再在 Excel 阶段临时添加未经检查的中文列。
 
 - Item Name 尽量达到 70–75 字符、最多 75 字符且无硬性最低长度，恰好三个核心词均有证据并自然出现；数量、关键差异和变体位置正确，确有必要的单组尺寸只在末尾。
-- Item Highlights 必填且不超过 125 字符，自然承接至少一个标题核心关键词短语或有效同义词形，并补充规格、结构、关键词或场景。
+- Item Highlights 必填且不超过 125 字符，自然承接至少一个标题核心关键词短语或有效同义词形，并补充规格、结构、关键词或场景；标题已有的整包数量不重复，其他数量须明确所数对象。
 - 五点正好五条，每条正文超过 200 个可见字符并包含 2–4 句。
 - 每句都新增事实、动作、条件、位置或可观察结果；同一条五点、同一个详情功能块内没有逐字重复或同义复述。
 - 买家可见文案不含运营解释、信息呈现说明、拍摄与排版用语或默认道具免责声明。

@@ -168,7 +168,7 @@
 - `title_size_term`、`title_size_reason` 默认空。仅当尺寸已证实直接影响适配、覆盖或变体选择时填写；标题最多一组尺寸，必须与 `title_size_term` 一致并置于末尾，`title_size_reason` 说明具体购买理由。
 - `critical_differentiators` 只列能影响购买、适配或价格的重要差异；每项必须出现在标题前部。
 - `title_scene` 可空；非空时必须出现在标题。
-- `title_quantity` 为正整数。等于 1 时 `title_quantity_term` 为空；大于 1 时数量短语必须紧贴第一核心产品词。
+- `title_quantity` 为正整数。等于 1 时 `title_quantity_term` 为空；大于 1 时数量短语必须紧贴第一核心产品词。若 Item Highlights 又用同一整包数量修饰同一产品名称，校验器报错；不同含义的数量必须明确所数对象并人工复核。
 - `item_highlights` 与 `item_highlights_reference` 必填。
 - `front_end_attributes` 收录未直接写在文案对象中的已填前台属性，Search Terms 去重时一并计算。
 - `buyer_visible_variant_terms` 默认空数组。只有用户明确确认属于买家公开名称的变体词才可加入；没有进入此清单的 `Design A/B/C` 等内部编号不得出现在买家可见字段。
@@ -202,12 +202,12 @@
 ### search_term_audits
 
 - 每个含竞品证据的站点/变体保存卖家精灵反查、全部有效参考链接标题词以及 Amazon 搜索相关性记录；前台去重后有效词不足时，继续加入其他同类商品标题词。
-- 卖家精灵候选使用 `source_tool=sellersprite_reverse_asin`，其 `source_asin` 与 Listing 的 `primary_reference_asin` 一致。
+- 卖家精灵候选使用 `source_tool=sellersprite_reverse_asin`；必须包含 `primary_reference_asin` 的反查，补查其他相关 ASIN 时可增加记录，所有反查 `source_asin` 均须存在于 `competitors`。
 - 参考标题候选使用 `source_tool=reference_title_terms`、`source_field=title`，其 `source_asin` 必须存在于 `competitors`；可以来自任一有效参考链接，不限第一条。
 - 额外同类商品标题候选使用 `source_tool=same_category_title_terms`、`source_field=title`；对应 ASIN 与标题须加入 `competitors`，并先排除不同产品结构、用途、规格和配件词。此来源补充前两类，不替代全部有效参考链接的检查。
 - `organic_results_checked` 至少 20；`relevant_results / organic_results_checked` 不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。
 - `decision=adopt` 不能用于 `low` 候选。跨站点数据必须设置 `local_volume_claimed=false`。
-- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元；反过来，已采用且前台未覆盖的有效词元也必须全部写入。
+- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元；反过来，已采用且前台未覆盖的有效词元也必须全部写入。最终只剩一两个不同词元时，校验器提示补查更多目标站点同类标题及相关 ASIN 反查；完成候选与排除审计后仍可留短，不虚构词。
 
 ## 脚本
 

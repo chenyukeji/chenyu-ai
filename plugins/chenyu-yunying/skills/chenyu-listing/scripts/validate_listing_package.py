@@ -253,6 +253,19 @@ def contains(text, phrase):
     )
 
 
+def repeats_pack_count_in_highlights(highlights, quantity, quantity_term, first_keyword_forms):
+    """Catch a repeated pack count next to the same product name, not unrelated counts."""
+    if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 1:
+        return False
+    product_heads = {words(form)[0] for form in first_keyword_forms if words(form)}
+    quantity_forms = {str(quantity), str(quantity_term).strip()}
+    return any(
+        contains(highlights, f'{count_form} {product_head}')
+        for count_form in quantity_forms if count_form
+        for product_head in product_heads
+    )
+
+
 def contains_identifier(text, identifier):
     """Match model and part identifiers even when Chinese text has no surrounding spaces."""
     normalized_text = unicodedata.normalize('NFC', str(text)).casefold()
@@ -1133,6 +1146,12 @@ def validate(data):
                     f'{market}/{variant_id} title quantity must immediately precede '
                     'the first core keyword or alias'
                 )
+        if repeats_pack_count_in_highlights(
+                item_highlights, title_quantity, title_quantity_term, first_keyword_forms):
+            errors.append(
+                f'{market}/{variant_id} item_highlights repeats the title pack quantity '
+                'with the same product name'
+            )
         color_mode = listing.get('color_mode')
         if color_mode not in ('single', 'multi', 'not_applicable'):
             errors.append(
@@ -1308,6 +1327,12 @@ def validate(data):
                     f'maximum is {SEARCH_TERMS_MAX_BYTES}'
                 )
             terms = words(search_terms)
+            if len(set(terms)) <= 2:
+                warnings.append(
+                    f'{market}/{variant_id} search_terms has only {len(set(terms))} distinct '
+                    'tokens; review additional target-market titles and relevant ASIN reverse '
+                    'keywords before accepting a short field'
+                )
             duplicates = sorted({term for term in terms if terms.count(term) > 1})
             if duplicates:
                 errors.append(
@@ -1358,15 +1383,25 @@ def validate(data):
                         for competitor in competitors
                         if ASIN.fullmatch(str(competitor.get('asin', '')).strip())
                     }
+                    reverse_asins = {
+                        str(audit.get('source_asin', '')).strip().upper()
+                        for audit in audits
+                        if audit.get('source_tool') == 'sellersprite_reverse_asin'
+                    }
+                    if primary_asin and primary_asin.upper() not in reverse_asins:
+                        errors.append(
+                            f'{market}/{variant_id} SellerSprite audit must include '
+                            'primary_reference_asin'
+                        )
                     for audit in audits:
                         audit_asin = str(audit.get('source_asin', '')).strip().upper()
-                        if (audit.get('source_tool') == 'sellersprite_reverse_asin'
-                                and primary_asin and audit_asin != primary_asin.upper()):
-                            errors.append(
-                                f'{market}/{variant_id} SellerSprite audit source_asin must '
-                                'match primary_reference_asin'
-                            )
-                        if (audit.get('source_tool') in (
+                        if audit.get('source_tool') == 'sellersprite_reverse_asin':
+                            if audit_asin not in competitor_asins:
+                                errors.append(
+                                    f'{market}/{variant_id} SellerSprite audit source_asin '
+                                    'must match a competitor record'
+                                )
+                        elif (audit.get('source_tool') in (
                                 'reference_title_terms', 'same_category_title_terms')
                                 and audit_asin not in competitor_asins):
                             errors.append(

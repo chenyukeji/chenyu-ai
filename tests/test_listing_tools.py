@@ -580,6 +580,26 @@ class ListingTests(unittest.TestCase):
         listing['search_terms'] += ' wintermotiv'
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
 
+        # Additional real ASIN reverse lookups can supply distinct local terms.
+        data['competitors'].append({
+            'id': 'C2', 'marketplace': 'DE', 'product_group': 'P2',
+            'status': 'complete', 'asin': 'B087654321',
+            'title': 'Papierdekoration Wanddeko', 'bullets': ['Material Papier'],
+        })
+        data['search_term_audits'].append({
+            'marketplace': 'DE', 'variant_id': 'V1', 'phrase': 'wanddeko',
+            'source_asin': 'B087654321', 'source_tool': 'sellersprite_reverse_asin',
+            'source_marketplace': 'DE', 'organic_results_checked': 20,
+            'relevant_results': 16, 'relevance_band': 'high',
+            'decision': 'adopt', 'local_volume_claimed': False,
+        })
+        listing['search_terms'] += ' wanddeko'
+        result = package_validator.validate(data)
+        self.assertFalse(any('SellerSprite audit source_asin' in error
+                             for error in result['errors']))
+        self.assertFalse(any('omits audited incremental tokens: wanddeko' in error
+                             for error in result['errors']))
+
     def test_listing_package_rejects_unified_format_violations(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['bullets'][0] = 'Lieferumfang: Nur ein kurzer Satz.'
@@ -794,6 +814,31 @@ class ListingTests(unittest.TestCase):
                             for error in result['errors']))
         self.assertTrue(any('title must omit quantity 1' in error
                             for error in result['errors']))
+
+    def test_item_highlights_does_not_repeat_title_pack_count(self):
+        data = copy.deepcopy(self.listing_package())
+        listing = data['listings'][0]
+        listing['title_quantity'] = 8
+        listing['title_quantity_term'] = '8'
+        listing['title'] = '8 Dekoration, Papierdekoration und Festschmuck für Feiern'
+        listing['item_highlights'] = '8 Dekoration aus Papier für Tisch und Regal mit klarer Form'
+        result = package_validator.validate(data)
+        self.assertTrue(any('item_highlights repeats the title pack quantity'
+                            in error for error in result['errors']))
+        self.assertTrue(package_validator.repeats_pack_count_in_highlights(
+            '8 sacs cadeaux de Noël en tissu non tissé',
+            8, '8', ['sacs cadeaux de Noël']))
+        self.assertFalse(package_validator.repeats_pack_count_in_highlights(
+            'Sacs cadeaux de Noël avec 8 motifs pour différentes occasions',
+            8, '8', ['sacs cadeaux de Noël']))
+
+    def test_short_search_terms_prompts_more_research_without_inventing_words(self):
+        data = copy.deepcopy(self.listing_package())
+        data['listings'][0]['search_terms'] = 'dekoartikel festbedarf'
+        result = package_validator.validate(data)
+        self.assertTrue(result['ready_for_delivery'])
+        self.assertTrue(any('search_terms has only 2 distinct tokens'
+                            in warning for warning in result['warnings']))
 
     def test_own_listing_package_rejects_missing_or_competitor_facts(self):
         data = copy.deepcopy(self.listing_package())
