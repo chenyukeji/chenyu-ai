@@ -14,6 +14,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, unquote
 
+from sellersprite_session import (
+    launch_context as _launch_shared_sellersprite_context,
+    ensure_login as _ensure_shared_sellersprite_login,
+    restore_session as _restore_sellersprite_session,
+    save_session as _save_sellersprite_session,
+    auth_state as _sellersprite_auth_state,
+    wait_identity as _wait_for_sellersprite_identity,
+)
+
 
 class BrowserCollectionError(ValueError):
     pass
@@ -205,44 +214,11 @@ def _apply_display_preferences(context, payload: dict) -> dict:
     return preferences
 
 
-def _sellersprite_cookie(cookie: dict) -> bool:
-    domain = str(cookie.get("domain", "")).lstrip(".").lower()
-    return domain == "sellersprite.com" or domain.endswith(".sellersprite.com")
-
-
-def _restore_sellersprite_session(context, path: Path) -> None:
-    try:
-        state = json.loads(path.read_text(encoding="utf-8"))
-        account = os.environ.get("CHENYU_SELLERSPRITE_USERNAME", "").strip()
-        if account and state.get("account") != account:
-            return
-        cookies = [cookie for cookie in state.get("cookies", [])
-                   if _sellersprite_cookie(cookie)
-                   and (cookie.get("expires", -1) <= 0 or cookie["expires"] > time.time())]
-    except (OSError, ValueError, TypeError, AttributeError, KeyError):
-        return
-    if cookies:
-        context.add_cookies(cookies)
-
-
-def _save_sellersprite_session(context) -> None:
-    path = getattr(context, "_chenyu_sellersprite_session_path", None)
-    if not isinstance(path, Path):
-        return
-    state = {"account": os.environ.get("CHENYU_SELLERSPRITE_USERNAME", "").strip(),
-             "cookies": [cookie for cookie in context.cookies() if _sellersprite_cookie(cookie)]}
-    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    try:
-        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        os.chmod(temporary, 0o600)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            json.dump(state, stream, ensure_ascii=False)
-        temporary.replace(path)
-    finally:
-        temporary.unlink(missing_ok=True)
-
-
 def _launch_context(runtime, payload: dict):
+    host = (urlparse(validate_url(payload.get("url"))).hostname or "").lower()
+    if host == "sellersprite.com" or host.endswith(".sellersprite.com"):
+        return _launch_shared_sellersprite_context(runtime, payload)
+
     source = str(payload.get("source") or "browser")
     profile = Path(payload.get("profile_dir") or default_profile_dir(source)).expanduser().resolve()
     profile.mkdir(parents=True, exist_ok=True)
@@ -255,11 +231,6 @@ def _launch_context(runtime, payload: dict):
         viewport={"width": max(800, min(width, 2560)), "height": max(600, min(height, 1600))},
         accept_downloads=False,
     )
-    session_path = profile / "sellersprite-session.json"
-    context._chenyu_sellersprite_session_path = session_path
-    host = (urlparse(validate_url(payload.get("url"))).hostname or "").lower()
-    if host == "sellersprite.com" or host.endswith(".sellersprite.com"):
-        _restore_sellersprite_session(context, session_path)
     _apply_display_preferences(context, payload)
     page = context.pages[0] if context.pages else context.new_page()
     page.set_default_timeout(int(payload.get("action_timeout_ms", 10000)))
@@ -915,35 +886,6 @@ def extract_sellersprite_table(page, payload: dict) -> list[dict]:
     return output[:MAX_RECORDS]
 
 
-def _sellersprite_auth_state(page) -> str:
-    """Require a rendered account identity; editable guest inputs are not evidence."""
-    try:
-        identity = page.locator(".profile-trigger:visible").first
-        if identity.count():
-            label = identity.inner_text(timeout=1000).strip()
-            if re.search(r"未登录|游客|登录/注册|sign in|log in", label, re.I):
-                return "guest"
-            if label:
-                return "authenticated"
-        body = page.locator("body").inner_text(timeout=1000)
-        if re.search(r"未登录|您是游客身份|登录/注册", body):
-            return "guest"
-    except Exception:
-        pass
-    return "unknown"
-
-
-def _wait_for_sellersprite_identity(page, timeout_ms=12000) -> str:
-    """Check account identity on SellerSprite pages without requiring an ASIN field."""
-    deadline = time.monotonic() + timeout_ms / 1000
-    while time.monotonic() < deadline:
-        state = _sellersprite_auth_state(page)
-        if state != "unknown":
-            return state
-        page.wait_for_timeout(200)
-    return "unknown"
-
-
 def _sellersprite_login_block_reason(page, asin_input) -> str | None:
     state = _sellersprite_auth_state(page)
     if state == "guest":
@@ -1379,61 +1321,10 @@ def login(payload: dict) -> dict:
 
 def _login_sellersprite_in_page(page, username: str, password: str, destination: str,
                                 timeout_seconds: int, *, require_asin_query: bool = True) -> dict:
-    def session_reason() -> str | None:
-        if require_asin_query:
-            return _wait_for_sellersprite_session(page)
-        state = _wait_for_sellersprite_identity(page)
-        if state == "authenticated":
-            return None
-        return "sellersprite_login_required" if state == "guest" else "sellersprite_login_unverified"
-
-    login_url = "https://www.sellersprite.com/w/user/login"
-    _goto(page, login_url)
-    page.wait_for_timeout(800)
-    account_input = page.locator("input[name='email']:visible").first
-    password_input = page.locator("input[type='password']:visible").first
-    submit = page.get_by_role("button", name=re.compile(r"立即登录|log\s*in|sign\s*in", re.I)).first
-    if not account_input.count() or not password_input.count() or not submit.count():
-        _goto(page, destination)
-        if session_reason() is None:
-            _save_sellersprite_session(page.context)
-            return {"login_status": "verified", "current_url": page.url}
-        raise BrowserCollectionError(f"SellerSprite password-login form was not found at {page.url}")
-    account_input.fill(username)
-    password_input.fill(password)
-    submit.click()
-
-    deadline = time.monotonic() + max(5, min(timeout_seconds, 900))
-    challenge_seen = False
-    while time.monotonic() < deadline and not page.is_closed():
-        try:
-            body = page.locator("body").inner_text(timeout=1000)
-        except Exception:
-            body = ""
-        challenge_seen = challenge_seen or any(
-            marker in body for marker in ("请完成安全验证", "向右滑动完成验证", "人机验证")
-        )
-        if "账号或密码错误" in body or "用户名或密码错误" in body:
-            return {"login_status": "failed", "block_reason": "invalid_credentials", "current_url": page.url}
-        if "/user/login" not in page.url and "/user/signin" not in page.url:
-            break
-        page.wait_for_timeout(500)
-    if page.is_closed():
-        return {"login_status": "blocked", "block_reason": "browser_closed_before_login_completed"}
-
-    _goto(page, destination)
-    reason = session_reason()
-    verified = reason is None
-    if verified:
-        _save_sellersprite_session(page.context)
-    result = {"login_status": "verified" if verified else "blocked", "current_url": page.url}
-    if not verified:
-        result["block_reason"] = (
-            "sellersprite_security_challenge_requires_user"
-            if challenge_seen
-            else reason
-        )
-    return result
+    return _ensure_shared_sellersprite_login(
+        page, username, password, destination, timeout_seconds,
+        require_asin_query=require_asin_query,
+    )
 
 
 def login_sellersprite(payload: dict) -> dict:

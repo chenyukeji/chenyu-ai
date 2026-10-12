@@ -53,6 +53,7 @@ class ReliabilityTests(unittest.TestCase):
 
     def test_editable_input_does_not_authenticate_guest(self):
         page = MagicMock()
+        page.url = 'https://www.sellersprite.com/v3/competitor-lookup'
         page.locator.return_value.first.count.return_value = 1
         page.locator.return_value.first.inner_text.return_value = '未登录'
         field = MagicMock()

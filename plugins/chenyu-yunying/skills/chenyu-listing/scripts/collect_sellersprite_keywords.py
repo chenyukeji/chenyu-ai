@@ -9,8 +9,13 @@ import argparse
 import json
 import os
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Also support importlib-based callers without an installed Python package.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sellersprite_session import launch_context, ensure_login, auth_state
 
 MARKET_IDS = {"US": 1, "UK": 3, "DE": 4, "FR": 5, "IT": 35691, "ES": 44551}
 ASIN_RE = re.compile(r"^[A-Z0-9]{10}$")
@@ -52,19 +57,9 @@ def extract_rows(page) -> list[dict]:
 
 
 def login(page, username: str, password: str) -> None:
-    page.goto("https://www.sellersprite.com/cn/w/user/login", wait_until="domcontentloaded")
-    account = page.locator("input[name='email']:visible").first
-    secret = page.locator("input[type='password']:visible").first
-    if account.count() and secret.count():
-        account.fill(username)
-        secret.fill(password)
-        page.get_by_role("button", name=re.compile(r"立即登录|log\s*in|sign\s*in", re.I)).first.click()
-        page.wait_for_url(lambda url: "/user/login" not in url and "/user/signin" not in url,
-                          timeout=40000)
-    page.goto(BASE_URL, wait_until="domcontentloaded")
-    if page.locator("body").inner_text().find("立即登录") >= 0 and not page.get_by_placeholder(
-            "请输入单个ASIN或产品链接").count():
-        raise RuntimeError("SellerSprite login was not verified")
+    result = ensure_login(page, username, password, BASE_URL)
+    if result.get("login_status") != "verified":
+        raise RuntimeError(result.get("block_reason") or "sellersprite_login_unverified")
     if not page.get_by_placeholder("请输入单个ASIN或产品链接").count():
         raise RuntimeError("SellerSprite reverse-ASIN form is unavailable")
 
@@ -92,6 +87,8 @@ def collect(page, market: str, asin: str) -> dict:
         page.locator("table tbody tr td:nth-child(2) span.title[title]").first.wait_for(timeout=20000)
     except Exception:
         pass
+    if auth_state(page) != "authenticated":
+        raise RuntimeError("sellersprite_session_lost")
     rows = extract_rows(page)
     if not rows:
         raise RuntimeError(f"SellerSprite returned no keyword rows for {market}:{asin}")
@@ -114,20 +111,19 @@ def main() -> None:
     results = []
     failures = []
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        context, page, _ = launch_context(playwright, {"headless": True})
         try:
-            context = browser.new_context()
-            page = context.new_page()
             login(page, username, password)
             for market, asin in requests:
                 try:
                     results.append(collect(page, market, asin))
                 except Exception as exc:
-                    failures.append({"marketplace": market, "asin": asin,
-                                     "reason": str(exc).splitlines()[0][:240]})
-            context.close()
+                    reason = str(exc).splitlines()[0][:240]
+                    failures.append({"marketplace": market, "asin": asin, "reason": reason})
+                    if reason == "sellersprite_session_lost":
+                        break
         finally:
-            browser.close()
+            context.close()
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps({"queries": results, "failures": failures}, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Collected {len(results)} SellerSprite ASIN queries; {len(failures)} failed; output: {args.out}")
