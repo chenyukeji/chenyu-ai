@@ -164,6 +164,10 @@
 
 ### listings
 
+标题与五点默认从参考链接取材。使用开发表值修正时，在内部 `development_corrections` 记录 `reference_text`、`development_source`（文件/工作表/单元格）、`development_value`、`material_difference` 和 `affected_field`。仅明确、实质性的差异允许覆盖对应参考内容；本品表未提及的参考属性不作为差异。这个记录用于真实语义复核，不是新增交付工作表或靠填写字段自动获得通过。
+
+`field_fact_ids` 是本字段实际属性的核对记录，不是扩写授权，不得所有字段套用全量事实编号。`title_phrase_sources`、`clause_sources` 的具体原文必须支持对应修饰词、工艺、作用及结果；同一部位的词语不等于支持整句。作图方案或 AI 效果图不能标为已确认本品事实，即使曾被复制进产品内容页也须追溯上游来源。
+
 - `title_keywords` 为恰好三个不同核心短语，必须在同站点 `keywords` 中标记 `is_core:true`，并以原词或 alias 自然进入标题。优先产品名称、同义称呼及图案/主题与产品名称的组合；搜索需求依据记录在关键词来源中，不用标题频次冒充搜索量，不默认选择场景词。核心词相关性和搜索依据须语义复核，脚本只检查数量、标记和覆盖。全部有效竞品标题的 ASIN/站点、产品搜索短语、图案/主题组合、补充属性、采用词义与排除理由记入内部 `title_candidate_audit`。`title_reference` 只展示实际采用词组的来源，不追加未贡献标题内容或仅用于后台搜索词的链接。标题和 Highlights 的有意义词组可来自全部适用竞品标题/五点或本品事实，先整合共有重点和互补细节。v2 校验器按 `title_phrase_sources` 核对实际采用来源；全部候选阅读、取舍与语义合并仍须核对，内部审计不作为来源数量指标。
 - `title_size_term`、`title_size_reason` 默认空。仅当尺寸已证实直接影响适配、覆盖或变体选择时填写；标题最多一组尺寸，必须与 `title_size_term` 一致并置于末尾，`title_size_reason` 说明具体购买理由。
 - `critical_differentiators` 只列能影响购买、适配或价格的重要差异；每项必须出现在标题前部。
