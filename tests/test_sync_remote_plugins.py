@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import sys
 import shutil
 import subprocess
 import tempfile
@@ -18,6 +19,8 @@ SPEC = importlib.util.spec_from_file_location('sync_remote_plugins', SCRIPT)
 assert SPEC and SPEC.loader
 SYNC = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SYNC)
+sys.path.insert(0, str(SCRIPT.parent))
+import finish_plugin_migration as MIGRATION
 
 
 def git(folder: Path, *args: str) -> str:
@@ -155,6 +158,25 @@ else:
         self.assertEqual(SYNC.legacy_running_jobs(jobs), ['aaaaaaaa'])
         (folder / 'status.txt').write_text('ok')
         self.assertEqual(SYNC.legacy_running_jobs(jobs), [])
+
+    def test_bootstrap_source_remains_until_legacy_task_finishes(self) -> None:
+        bootstrap = Path(self.temp.name) / 'bootstrap'
+        git(self.live, 'worktree', 'add', '--detach', str(bootstrap), 'HEAD')
+        alias = Path(self.temp.name) / 'source'
+        alias.symlink_to(bootstrap, target_is_directory=True)
+        jobs = Path(self.temp.name) / 'jobs'
+        folder = jobs / 'aaaaaaaa'
+        folder.mkdir(parents=True)
+        (folder / 'status.txt').write_text('run')
+        release_root = Path(self.temp.name) / 'releases'
+        args = (self.live, bootstrap, alias, self.market, self.cache, str(self.fake_codex), self.status, release_root, jobs)
+        self.assertFalse(MIGRATION.finish_once(*args))
+        self.assertEqual(alias.resolve(), bootstrap)
+        self.assertTrue(bootstrap.is_dir())
+        (folder / 'status.txt').write_text('ok')
+        self.assertTrue(MIGRATION.finish_once(*args))
+        self.assertEqual(alias.resolve(), self.live)
+        self.assertFalse(bootstrap.exists())
 
     def test_rejects_suffixed_remote_version_before_activation(self) -> None:
         original = git(self.live, 'rev-parse', 'HEAD')
