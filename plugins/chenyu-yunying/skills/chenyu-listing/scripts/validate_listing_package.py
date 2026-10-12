@@ -604,6 +604,9 @@ def validate_phrase_sources(errors, market, variant_id, listing, field, competit
         if asin:
             source_field = str(source.get('source_field', '')).strip()
             source_phrase = str(source.get('source_phrase', '')).strip()
+            if field == 'title' and source_field != 'title':
+                errors.append(f'{market}/{variant_id} {key} must use competitor title sources only')
+                continue
             matches = [item for item in competitors
                        if str(item.get('asin', '')).strip().upper() == asin]
             if not matches or source_field not in ('title', *(f'bullet_{i}' for i in range(1, 6))):
@@ -637,7 +640,7 @@ def validate_phrase_sources(errors, market, variant_id, listing, field, competit
     if competitors and field == 'title':
         for keyword in listing.get('title_keywords', []):
             if str(keyword).strip().casefold() not in competitor_keywords:
-                errors.append(f'{market}/{variant_id} title keyword needs a competitor title/bullet source: {keyword}')
+                errors.append(f'{market}/{variant_id} title keyword needs a competitor title source: {keyword}')
 
 
 def visible_source_text(value):
@@ -707,6 +710,9 @@ def validate_clause_sources(errors, market, variant_id, listing, competitors, fa
                 if asin:
                     source_field = str(source.get('source_field', ''))
                     original = visible_source_text(source.get('source_phrase', ''))
+                    if field.startswith('bullet_') and source_field not in tuple(f'bullet_{i}' for i in range(1, 6)):
+                        errors.append(f'{context} must use competitor bullet sources only')
+                        continue
                     allowed = ('title', 'description', 'aplus_text', *(f'bullet_{i}' for i in range(1, 6)))
                     matches = [item for item in competitors
                                if str(item.get('asin', '')).upper() == asin]
@@ -952,8 +958,8 @@ def validate(data):
                 errors.append(f'{market}/{variant_id} title_size_term must match the title size')
             if not title_size_reason:
                 errors.append(
-                    f'{market}/{variant_id} title_size_reason must explain why the size '
-                    'affects buying choice'
+                    f'{market}/{variant_id} title_size_reason must record the competitor '
+                    'title source and any product-specific correction'
                 )
         elif title_size_term or title_size_reason:
             errors.append(

@@ -798,16 +798,16 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('120-125 editorial target' in warning
                             for warning in result['warnings']))
 
-    def test_title_size_requires_purchase_reason_and_final_position(self):
+    def test_title_size_requires_reference_reason_and_final_position(self):
         data = copy.deepcopy(self.listing_package())
         listing = data['listings'][0]
         listing['title_scene'] = ''
         listing['title'] = 'Dekoration, Papierdekoration und Festschmuck, 33 x 183 cm'
         result = package_validator.validate(data)
         self.assertTrue(any('title_size_term must match' in error for error in result['errors']))
-        self.assertTrue(any('title_size_reason must explain' in error for error in result['errors']))
+        self.assertTrue(any('title_size_reason must record' in error for error in result['errors']))
         listing['title_size_term'] = '33 x 183 cm'
-        listing['title_size_reason'] = 'Required for the confirmed table fit'
+        listing['title_size_reason'] = 'B012345678 title: Table runner 33 x 183 cm'
         self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
         listing['title'] = '33 x 183 cm Dekoration, Papierdekoration und Festschmuck'
         result = package_validator.validate(data)
@@ -954,6 +954,39 @@ class ClauseSourceTests(unittest.TestCase):
 
     def test_combines_sources_per_clause_and_handles_html(self):
         self.assertEqual(self.errors(), [])
+
+    def test_title_rejects_real_bullet_source_but_highlights_accepts_it(self):
+        for field in ('title', 'item_highlights'):
+            listing = {
+                field: 'Fine chain',
+                f'{field}_reference': 'Fine chain ← B012345678 第2点（Fine chain）',
+                f'{field}_phrase_sources': [
+                    {'phrase': 'Fine chain', 'asin': 'B012345678',
+                     'source_field': 'bullet_2', 'source_phrase': 'Fine chain'},
+                ],
+            }
+            errors = []
+            package_validator.validate_phrase_sources(
+                errors, 'FR', 'V1', listing, field, self.competitors, self.facts, strict=True)
+            if field == 'title':
+                self.assertTrue(any('competitor title sources only' in error for error in errors))
+                listing['title_phrase_sources'][0]['source_field'] = 'title'
+                listing['title_reference'] = 'Fine chain ← B012345678 标题（Fine chain）'
+                errors = []
+                package_validator.validate_phrase_sources(
+                    errors, 'FR', 'V1', listing, field, self.competitors, self.facts, strict=True)
+            self.assertEqual(errors, [])
+
+    def test_bullet_rejects_cross_field_source_even_with_valid_bullet_sources(self):
+        for source_field, label in (('title', '标题'), ('description', '详情'), ('aplus_text', 'A+')):
+            with self.subTest(source_field=source_field):
+                self.setUp()
+                self.competitors[0][source_field] = 'Three white beads'
+                source = self.listing['clause_sources']['bullet_1'][0]['sources'][0]
+                source['source_field'] = source_field
+                self.listing['bullet_references'][0] = self.listing['bullet_references'][0].replace(
+                    'Trois perles ← B012345678 第1点', f'Trois perles ← B012345678 {label}')
+                self.assertTrue(any('competitor bullet sources only' in error for error in self.errors()))
 
     def test_omitted_detail_cannot_hide_behind_bullet_reference(self):
         self.listing['clause_sources']['bullet_1'].pop()
