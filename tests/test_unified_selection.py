@@ -421,6 +421,7 @@ def test_collector_disables_variants_and_checks_each_page(monkeypatch):
         return {'items': [{'asin': asin, 'parentAsin': f'B{len(queries)+10:09d}'}],
                 'total': 2, 'hasNextPage': len(queries) == 1}, expected
     monkeypatch.setattr(collectors, 'session', session)
+    monkeypatch.setattr(collectors, 'ensure_product_list_view', lambda p: None)
     monkeypatch.setattr(collectors.browser, '_ensure_sellersprite_variants_off', lambda p: disabled.append(p))
     monkeypatch.setattr(collectors, 'verified_query', verified)
     monkeypatch.setattr(collectors.browser, 'extract_sellersprite_table', lambda *args: [product(asin=f'B{len(queries):09d}')])

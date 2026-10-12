@@ -257,6 +257,18 @@ def verified_query(page, trigger, *, path, expected):
     return data, request_fields(response.request)
 
 
+def ensure_product_list_view(page):
+    """The account may remember image cards; the parser requires list tables."""
+    button = page.get_by_role('button', name='列表', exact=True, include_hidden=True).first
+    if not button.count():
+        raise browser.BrowserCollectionError('product_list_view_control_unavailable')
+    if 'is-plain' in (button.get_attribute('class') or '').split():
+        # The result toolbar can be mounted but hidden before the first query.
+        button.evaluate('element => element.click()')
+    page.wait_for_function("button => !button.classList.contains('is-plain')",
+                           arg=button.element_handle(), timeout=5000)
+
+
 def collect_sellersprite_products(payload):
     market = payload['marketplace']; source = payload['source']; keyword = payload['keyword']
     mode = '研发新品榜' if source == 'sellersprite_new' else '销量飙升榜'
@@ -287,6 +299,7 @@ def collect_sellersprite_products(payload):
             raise browser.BrowserCollectionError('product_filter_readback_mismatch')
         if month and 'active' not in (month_button.get_attribute('class') or ''):
             raise browser.BrowserCollectionError('historical_month_readback_mismatch')
+        ensure_product_list_view(page)
         # Product Research sends symbolFlag=true when 'show all variants' is OFF.
         browser._ensure_sellersprite_variants_off(page)
         expected = {'market':market,'keywords':keyword,'selectType':'3','symbolFlag':True,
