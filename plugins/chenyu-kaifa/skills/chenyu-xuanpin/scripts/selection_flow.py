@@ -17,6 +17,7 @@ from strategy_h import target_months
 
 SOURCES = ('amazon_new_releases', 'sellersprite_new', 'sellersprite_surge',
            'sellersprite_history', 'keyword_trends', 'new_releases_db')
+DEFAULT_SOURCES = tuple(source for source in SOURCES if source != 'sellersprite_history')
 VERSION = 'selection-v1'
 
 
@@ -51,7 +52,7 @@ def plan_selection(payload):
     markets = list(dict.fromkeys(markets))
     if any(x['marketplace'] not in markets for x in identities):
         raise ValueError('链接站点不在目标站点中；请先明确跨站目录映射')
-    sources = scope.get('sources', list(SOURCES))
+    sources = scope.get('sources', list(DEFAULT_SOURCES))
     if not isinstance(sources, list) or not sources or set(sources) - set(SOURCES):
         raise ValueError('scope.sources 包含不支持的数据来源')
     as_of = date.fromisoformat(payload.get('as_of_date') or str(date.today())).isoformat()

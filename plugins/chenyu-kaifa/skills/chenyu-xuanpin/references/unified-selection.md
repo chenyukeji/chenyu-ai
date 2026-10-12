@@ -19,7 +19,7 @@
 ```json
 {
   "skill_action": "run_selection",
-  "request": "分析美国站圣诞树装饰，结合新品、销量增长、关键词和季节性",
+  "request": "分析美国站圣诞树装饰，结合新品、当前销量增长和关键词趋势",
   "as_of_date": "2026-10-11",
   "run_dir": "<按输出目录规范生成的绝对路径>",
   "scope": {
@@ -30,7 +30,6 @@
       "amazon_new_releases": {"US": "<已打开核实的新品榜URL>"},
       "db_categories": {"US": ["<数据库实际存在的对应类目标识>"]}
     }],
-    "following_months": 2,
     "shortlist_limit": 20,
     "filters": {"price_min": 10, "price_max": 30}
   },
@@ -40,7 +39,7 @@
 
 示意占位符不能直接执行。目录未找到时省略该映射，覆盖表会记录不可查询，其他来源继续。`db_path` 或环境变量 `CHENYU_NEW_RELEASES_DB` 指向已有数据库；不得为调研修改数据库。
 
-`scope.sources` 可指定：`amazon_new_releases`、`sellersprite_new`、`sellersprite_surge`、`sellersprite_history`、`keyword_trends`、`new_releases_db`；综合任务默认全部检查。`scope.input_urls` 是商品/店铺链接数组。价格、评论上限、销量下限和配送方式使用 `filters.price_min/price_max/review_max/sales_min/fulfillment`；其他排除条件放在 `exclusions`，由模型逐项核对。价格币种属于各站当地币种。
+`scope.sources` 可指定：`amazon_new_releases`、`sellersprite_new`、`sellersprite_surge`、`sellersprite_history`、`keyword_trends`、`new_releases_db`；综合任务默认不查历史销量飙升。只有用户明确要求去年同期或历史销量对比时才加入该来源，并按其要求设置历史窗口。`scope.input_urls` 是商品/店铺链接数组。价格、评论上限、销量下限和配送方式使用 `filters.price_min/price_max/review_max/sales_min/fulfillment`；其他排除条件放在 `exclusions`，由模型逐项核对。价格币种属于各站当地币种。
 
 卖家精灵“研发新品榜”和“销量飙升榜”按网页真实预设运行，记录实际筛选字段；不把它们当成不同的独立数据商。产品页面使用词组匹配，并核对请求中的站点、关键词、匹配模式、月份和榜单预设。关键词筛选不冒充精确目录筛选。研发新品标签不保证近60天上架，必须核对实际上架日期。历史窗口为去年同月加随后 2 或 3 个月，跨年继续；历史销量不会覆盖当前销量。关键词返回独立需求方向，不要求预先绑定 ASIN。
 
@@ -69,7 +68,7 @@
 无需填写程序参数，可以直接复制后替换内容：
 
 - **大类**：`用选品分析美国站派对用品，先拆分实际子类目，综合新品榜、销量飙升、关键词和数据库，选出10个值得研究的产品，说明具体依据。`
-- **细类**：`分析美国站圣诞树装饰，结合当前新品榜、销量飙升、关键词趋势，以及去年同月和随后3个月的飙升情况，输出开品Excel。`
+- **细类**：`分析美国站圣诞树装饰，结合当前新品榜、销量飙升和关键词趋势，输出开品Excel。`
 - **商品链接**：`分析这个商品：<Amazon商品链接>。先找并核实所在目录的新品榜，再调查同类新品与关键词趋势，推荐值得研究的方向。`
 - **店铺链接**：`分析这个店铺：<Amazon店铺链接>。先看店内可见商品和主营方向，再结合对应新品榜、销量与关键词趋势找机会，区分店内商品与类目延伸发现。`
 - **附加条件**：`只看美国站，售价10～30美元，评论不超过100，不要带电和食品，优先研究10款。缺数据请标注，不要猜。`

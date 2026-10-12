@@ -115,6 +115,18 @@ def test_query_budget_resumes_without_recollecting_success(monkeypatch,tmp_path)
     assert result['status']=='AWAITING_ANALYSIS' and calls==['sellersprite_new','keyword_trends']
 
 
+
+def test_default_combined_selection_does_not_query_last_year():
+    value = {'marketplaces': ['US'], 'categories': [
+        {'name': '圣诞树装饰', 'keywords': {'US': ['christmas tree ornaments']}}
+    ]}
+    plan = flow.plan_selection({'request': '分析圣诞树装饰', 'scope': value,
+                                'as_of_date': '2026-10-11'})
+    assert 'sellersprite_history' not in {query['source'] for query in plan['queries']}
+    assert 'sellersprite_surge' in {query['source'] for query in plan['queries']}
+
+
+
 def test_keyword_only_evidence_stays_in_json_and_workbook_has_one_sheet(monkeypatch,tmp_path):
     monkeypatch.setattr(flow,'collect_query',lambda *args:{'collection_status':'complete','records':[keyword('2026-08',100),keyword('2026-09',300)]})
     result=flow.run_selection({'scope':scope(['keyword_trends']),'run_dir':str(tmp_path),'as_of_date':'2026-10-11'})
