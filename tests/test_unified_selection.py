@@ -272,21 +272,26 @@ def review(item, relevant=True):
             'priority': '继续观察', 'reason': '按该商品的用途及历史证据审核'}
 
 
-def test_default_reviews_all_families_over_old_cap_in_resumable_batches(monkeypatch, tmp_path):
+@pytest.mark.parametrize('unlimited', [False, True])
+def test_default_fifty_or_explicit_all_in_resumable_batches(monkeypatch, tmp_path, unlimited):
     calls = []
     rows = [product(asin=f'B{i:09d}') for i in range(125)]
     def collect(*args):
         calls.append(1)
         return {'collection_status': 'complete', 'records': rows}
     monkeypatch.setattr(flow, 'collect_query', collect)
-    r = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path), 'enrich': False})
+    value = scope(['sellersprite_new'])
+    if unlimited:
+        value['shortlist_limit'] = None
+    r = flow.run_selection({'scope': value, 'run_dir': str(tmp_path), 'enrich': False})
     assert r['counts']['families'] == 125 and len(r['analysis_requests']) == 50
-    for expected_reviewed, expected_next in [(50, 50), (100, 25), (125, 0)]:
+    expected_batches = [(50, 50), (100, 25), (125, 0)] if unlimited else [(50, 0)]
+    for expected_reviewed, expected_next in expected_batches:
         r = flow.run_selection({'run_dir': str(tmp_path), 'evidence_id': r['evidence_id'],
                                 'reviews': [review(p) for p in r['analysis_requests']]})
         assert r['counts']['reviewed'] == expected_reviewed
         assert len(r['analysis_requests']) == expected_next
-    assert r['status'] == 'COMPLETE' and r['workbook']['row_count'] == 125
+    assert r['status'] == 'COMPLETE' and r['workbook']['row_count'] == (125 if unlimited else 50)
     assert len(calls) == 1
 
 
@@ -392,7 +397,7 @@ def test_product_query_rejects_all_variants_response():
 def test_large_requested_result_count_is_not_capped_at_one_hundred():
     plan = flow.plan_selection({'scope': {**scope(), 'shortlist_limit': 500}})
     assert plan['shortlist_limit'] == 500
-    assert flow.plan_selection({'scope': scope()})['shortlist_limit'] is None
+    assert flow.plan_selection({'scope': scope()})['shortlist_limit'] == 50
 
 
 def test_collector_disables_variants_and_checks_each_page(monkeypatch):

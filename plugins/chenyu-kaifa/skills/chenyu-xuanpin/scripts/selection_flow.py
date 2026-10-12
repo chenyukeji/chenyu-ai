@@ -98,7 +98,7 @@ def plan_selection(payload):
                             spec = {**base, 'keyword': term}
                             if month: spec['history_month'] = month
                             queries.append(spec)
-    limit = scope.get('shortlist_limit')
+    limit = scope.get('shortlist_limit', 50)
     if limit is not None and (type(limit) is not int or limit < 1):
         raise ValueError('shortlist_limit 必须为正整数或 null（审阅全部已采集父体）')
     batch_size = scope.get('review_batch_size', 50)
