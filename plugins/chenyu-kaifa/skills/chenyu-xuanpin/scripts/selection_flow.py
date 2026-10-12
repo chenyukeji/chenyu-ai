@@ -342,12 +342,13 @@ def run_selection(payload):
         known = {product_identity(item): item for item in items}
         return [review for review in stored.get('reviews', [])
                 if (item := known.get((review.get('marketplace'), review.get('asin')))) is not None
-                and fingerprints.get('|'.join(product_identity(item))) == query_id(item)]
+                and fingerprints.get('|'.join(product_identity(item))) == query_id(item)
+                and (item.get('verified_parent_asin') or payload.get('reviews'))]
 
     def pending_batch(items, reviews):
         covered = {(r['marketplace'], r['asin']) for r in reviews}
         eligible = [item for item in items if not any(c['status'] == 'fail' for c in item['filter_checks'])]
-        eligible_ids = {product_identity(p) for p in eligible}
+        eligible_ids = {product_identity(p) for p in eligible if p.get('verified_parent_asin')}
         accepted = sum(r['relevant'] for r in reviews if (r['marketplace'], r['asin']) in eligible_ids)
         target = plan.get('shortlist_limit')
         remaining = None if target is None else max(0, target - accepted)
@@ -376,13 +377,15 @@ def run_selection(payload):
     if payload.get('enrich', True) and batch and not pending and not plan['blocking_items'] and not auth_block:
         for market in plan['marketplaces']:
             asins = [p['asin'] for p in batch if p['marketplace'] == market and
-                     any(p['current'].get(f) is None for f in ('price','estimated_sales','source_available_date','review_count'))]
+                     (not p.get('verified_parent_asin') or
+                      any(p['current'].get(f) is None for f in ('price','estimated_sales','source_available_date','review_count')))]
             if not asins:
                 continue
             spec = {'source':'sellersprite_enrichment','marketplace':market,'asins':asins}
             cache = folder/f'enrichment-{query_id({"context": enrichment_context, **spec})}.json'
             result = json.loads(cache.read_text()) if cache.exists() and not payload.get('refresh') else None
-            if not result or result.get('collection_status') != 'complete':
+            parent_missing = any(not p.get('verified_parent_asin') for p in batch if p['marketplace'] == market)
+            if not result or result.get('collection_status') != 'complete' or parent_missing:
                 try:
                     result = collectors.browser.collect_sellersprite_by_asin({**options,'marketplace':market,'asins':asins,'headless':True})
                 except Exception as exc:
@@ -415,16 +418,17 @@ def run_selection(payload):
     if not products and not report['keywords']['directions'] and not pending and not plan['blocking_items']:
         status='BLOCKED' if partial else 'NO_CANDIDATES'
     eligible_ids = {product_identity(p) for p in shortlisted
-                    if not any(c['status'] == 'fail' for c in p.get('filter_checks', []))}
+                    if p.get('verified_parent_asin') and not any(c['status'] == 'fail' for c in p.get('filter_checks', []))}
     output={'ok':True,'status':status,'run_dir':str(folder),'evidence_path':str(folder/'selection-evidence.json'),
             'blocking_items':plan['blocking_items'],'pending_queries':pending,'analysis_requests':waiting,
             'evidence_id':evidence_id,'counts':{'products':len(products),'shortlist':len(shortlisted),'families':len(shortlisted),
             'reviewed':len(reviews),'remaining':len(eligible_ids - set(review_index)),
-            'accepted':sum(r['relevant'] for r in reviews if (r['marketplace'], r['asin']) in eligible_ids),'keywords':len(report['keywords']['directions'])},
+            'accepted':sum(r['relevant'] for r in reviews if (r['marketplace'], r['asin']) in eligible_ids),
+            'pending_parent':sum(not p.get('verified_parent_asin') for p in shortlisted),'keywords':len(report['keywords']['directions'])},
             'coverage':[{'source':r['query']['source'],'marketplace':r['query'].get('marketplace'),
                          'status':r.get('collection_status'),'reason':r.get('block_reason'),'rows':len(r.get('records',[]))} for r in results]}
     if not waiting and not pending and not plan['blocking_items'] and (products or report['keywords']['directions']):
-        eligible=[p for p in shortlisted if product_identity(p) in review_index
+        eligible=[p for p in shortlisted if p.get('verified_parent_asin') and product_identity(p) in review_index
                   and not any(c['status']=='fail' for c in p.get('filter_checks',[]))]
         if plan.get('shortlist_limit') is not None:
             eligible = [p for p in eligible if review_index[product_identity(p)]['relevant']][:plan['shortlist_limit']]
@@ -433,7 +437,10 @@ def run_selection(payload):
         for row in rows:
             if (row['站点'],row['ASIN']) in missing: row['优先级']='待补数据';row['证据缺项']+='；筛选条件无法完整核实'
         if missing or any(row['优先级']=='待补数据' for row in rows):output['status']='PARTIAL'
-        output['workbook']=export_workbook(folder/'开品结果.xlsx',rows,report)
-        if output['workbook']['image_failures']: output['status']='PARTIAL'
+        if output['counts']['pending_parent']:
+            output['status'] = 'PARTIAL' if rows else 'AWAITING_ENRICHMENT'
+        if output['status'] != 'AWAITING_ENRICHMENT':
+            output['workbook']=export_workbook(folder/'开品结果.xlsx',rows,report)
+            if output['workbook']['image_failures']: output['status']='PARTIAL'
     write_json(folder/'selection-status.json',output)
     return output

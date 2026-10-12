@@ -25,7 +25,7 @@ def keyword(month,volume,**extra):
 def product(**extra):
     return {'marketplace':'US','asin':'B012345678','product_name':'Tree ornaments',
             'source_available_date':'2026-09-01','estimated_sales':500,'review_count':8,'price':15,
-            'source_ref':'https://www.sellersprite.com/fixture',**extra}
+            'source_ref':'https://www.sellersprite.com/fixture','parent_asin':extra.get('asin','B012345678'),**extra}
 
 
 def test_input_market_identity_and_unsupported_domains():
@@ -317,7 +317,7 @@ def test_family_grouping_preserves_month_and_variant_evidence_without_summing_sa
         {'query': {'source': 'sellersprite_history', 'history_month': '2025-12'},
          'records': [product(asin='B000000002', parent_asin='B000000010', estimated_sales=900),
                      product(asin='B000000003', parent_asin='B000000010', estimated_sales=900),
-                     product(asin='B000000004'), product(asin='B000000005'),
+                     product(asin='B000000004', parent_asin=None), product(asin='B000000005', parent_asin=None),
                      product(asin='B000000002', parent_asin='B000000010', marketplace='DE')]}])
     families = group_product_families(rows)
     assert len(families) == 4  # US parent, DE parent, two unknown-parent ASINs.
@@ -400,7 +400,8 @@ def test_large_requested_result_count_is_not_capped_at_one_hundred():
     assert flow.plan_selection({'scope': scope()})['shortlist_limit'] == 50
 
 
-def test_collector_disables_variants_and_checks_each_page(monkeypatch):
+@pytest.mark.parametrize('same_parent', [False, True])
+def test_collector_disables_variants_and_checks_each_page(monkeypatch, same_parent):
     from contextlib import contextmanager
     from unittest.mock import MagicMock
     import selection_collectors as collectors
@@ -418,7 +419,7 @@ def test_collector_disables_variants_and_checks_each_page(monkeypatch):
         assert expected['symbolFlag'] is True
         queries.append(expected)
         asin = f'B{len(queries):09d}'
-        return {'items': [{'asin': asin, 'parentAsin': f'B{len(queries)+10:09d}'}],
+        return {'items': [{'asin': asin, 'parentAsin': f'B{11 if same_parent else len(queries)+10:09d}'}],
                 'total': 2, 'hasNextPage': len(queries) == 1}, expected
     monkeypatch.setattr(collectors, 'session', session)
     monkeypatch.setattr(collectors, 'ensure_product_list_view', lambda p: None)
@@ -429,7 +430,9 @@ def test_collector_disables_variants_and_checks_each_page(monkeypatch):
                   'keyword': 'heated blanket', 'history_month': '2025-12'})
     assert [q['page'] for q in queries] == [1, 2]  # Default collection no longer stops at page one.
     assert len(disabled) >= 2 and result['source_metadata']['variants_verified'] is True
-    assert result['collection_status'] == 'complete' and len(result['records']) == 2
+    assert result['collection_status'] == 'complete' and len(result['records']) == (1 if same_parent else 2)
+    assert len(result['raw_records']) == 2
+    assert len(merge_products([{**result, 'query': {'source': 'sellersprite_history'}}])) == 2
 
 
 def test_stale_review_token_rejected_after_source_refresh(monkeypatch, tmp_path):
@@ -458,3 +461,65 @@ def test_submitting_reviews_keeps_failed_sources_and_evidence_stable(monkeypatch
     assert r['status'] == 'PARTIAL' and r['workbook']['row_count'] == 1
     flow.run_selection({'run_dir': str(tmp_path)})
     assert calls == before + ['keyword_trends']
+
+
+@pytest.mark.parametrize('input_urls', [[], ['https://www.amazon.com/dp/B012345678'],
+                                      ['https://www.amazon.com/stores/example/page/123']])
+def test_default_fifty_counts_only_verified_families_and_replenishes(monkeypatch, tmp_path, input_urls):
+    rows = [product(asin='B000000001', parent_asin=None), product(asin='B000000002', parent_asin=None)]
+    rows += [product(asin=f'B{i:09d}', parent_asin=f'B{1000 + i // 2:09d}') for i in range(100, 202)]
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': rows})
+    value = {**scope(['sellersprite_new']), 'input_urls': input_urls}
+    r = flow.run_selection({'scope': value, 'run_dir': str(tmp_path), 'enrich': False})
+    assert len(r['analysis_requests']) == 50
+    r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
+    assert r['counts']['accepted'] == 48 and len(r['analysis_requests']) == 2
+    r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
+    assert r['workbook']['row_count'] == r['counts']['accepted'] == 50
+    assert r['counts']['pending_parent'] == 2 and r['status'] == 'PARTIAL'
+    from openpyxl import load_workbook
+    asins = [row[10].value for row in list(load_workbook(r['workbook']['path']).active.rows)[1:]]
+    parents = {x['asin']: x.get('parent_asin') for x in rows}
+    assert len({parents[a] for a in asins}) == 50 and all(parents[a] for a in asins)
+
+
+def test_parent_only_missing_triggers_enrichment_before_review(monkeypatch, tmp_path):
+    rows = [product(asin=f'B{i:09d}', parent_asin=None) for i in range(1, 4)]
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': rows})
+    calls = []
+    def enrich(payload):
+        calls.append(payload['asins'])
+        return {'collection_status': 'complete', 'records': [
+            {**row, 'parent_asin': 'B000000010' if i < 2 else 'B000000020'} for i, row in enumerate(rows)]}
+    monkeypatch.setattr(flow.collectors.browser, 'collect_sellersprite_by_asin', enrich)
+    r = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path)})
+    assert calls == [[x['asin'] for x in rows]]
+    assert len(r['analysis_requests']) == 2 and r['counts']['pending_parent'] == 0
+    assert {x['verified_parent_asin'] for x in r['analysis_requests']} == {'B000000010', 'B000000020'}
+
+
+def test_unknown_parents_never_become_delivered_products_and_can_retry(monkeypatch, tmp_path):
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {
+        'collection_status': 'complete', 'records': [product(parent_asin=None)]})
+    r = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path), 'enrich': False})
+    r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
+    assert r['status'] == 'AWAITING_ENRICHMENT' and r['counts']['accepted'] == 0
+    assert 'workbook' not in r and not (tmp_path / '开品结果.xlsx').exists()
+    monkeypatch.setattr(flow.collectors.browser, 'collect_sellersprite_by_asin', lambda p: {
+        'collection_status': 'complete', 'records': [product()]})
+    r = flow.run_selection({'run_dir': str(tmp_path), 'enrich': True})
+    assert r['status'] == 'AWAITING_ANALYSIS' and r['counts']['pending_parent'] == 0
+
+
+def test_complete_lookup_without_parent_does_not_prevent_parent_retry(monkeypatch, tmp_path):
+    row = product(parent_asin=None)
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': [row]})
+    calls = []
+    def enrich(payload):
+        calls.append(payload['asins'])
+        return {'collection_status': 'complete', 'records': [row if len(calls) == 1 else product()]}
+    monkeypatch.setattr(flow.collectors.browser, 'collect_sellersprite_by_asin', enrich)
+    r = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path)})
+    assert r['counts']['pending_parent'] == 1
+    r = flow.run_selection({'run_dir': str(tmp_path)})
+    assert len(calls) == 2 and r['counts']['pending_parent'] == 0

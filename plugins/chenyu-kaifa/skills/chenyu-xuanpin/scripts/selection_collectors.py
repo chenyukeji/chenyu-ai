@@ -298,7 +298,7 @@ def collect_sellersprite_products(payload):
                     'monthName': 'bsr_sales_monthly_' + month.replace('-','') if month else 'bsr_sales_nearly'}
         if source=='sellersprite_new':expected['productTags']=['NewRelease']
         else:expected.update(minSales='300',minTotalUnitsGrowth='10')
-        records=[]; seen=set(); pages=[]; has_more=False; parse_gaps=False; received_count=0
+        records=[]; raw_records=[]; seen=set(); seen_families=set(); pages=[]; has_more=False; parse_gaps=False; received_count=0
         for index in range(max(1,min(int(payload.get('max_pages',10)),100))):
             browser._ensure_sellersprite_variants_off(page)
             trigger = (lambda: page.get_by_role('button',name='开始筛选').click()) if index==0 else page.locator('.el-pagination .btn-next').first.click
@@ -328,19 +328,24 @@ def collect_sellersprite_products(payload):
                     row['sales_period']=month or '最近30天'
                     row['filter_keyword']=keyword
                     if month:row['history_month']=month
-                    records.append(row);seen.add(row['asin'])
+                    raw_records.append(dict(row));seen.add(row['asin'])
+                    parent = str(row.get('parent_asin') or '').strip().upper()
+                    key = parent if re.fullmatch(r'[A-Z0-9]{10}', parent) else row['asin']
+                    if key not in seen_families:
+                        records.append(row);seen_families.add(key)
             elif data.get('total') not in (0,'0'):
                 raise browser.BrowserCollectionError('empty_product_response_not_verified')
             received_count += len(items)
             has_more=bool(data.get('hasNextPage')) or int(data.get('total') or 0)>received_count
             pages.append({'page':index+1,'records':len(items),'reported_total':data.get('total'), 'unparsed_asins':sorted(missing_ids)})
             if not has_more:break
-        return {'collection_status':'partial' if has_more or parse_gaps else 'complete','records':records,
+        return {'collection_status':'partial' if has_more or parse_gaps else 'complete','records':records,'raw_records':raw_records,
                 'coverage_note':'；'.join(note for condition, note in ((has_more, '分页上限截断，返回已验证的商品样本'),
                     (parse_gaps, '部分响应商品未能解析，缺项保留在各页记录')) if condition) or None,
                 'source_metadata':{'url':page.url,'marketplace':market,'mode':mode,'filters':filters,
                                    'observed_at':browser._now_iso(),'pages':pages,'show_all_variants':False,
-                                   'variants_verified':True,
+                                   'variants_verified':True,'deduplication':'marketplace_parent_asin',
+                                   'raw_asin_count':len(raw_records),'candidate_count':len(records),
                                    'scope_method':'标题词组匹配；仍由模型核对目录和用途，不直接作为推荐'}}
 
 

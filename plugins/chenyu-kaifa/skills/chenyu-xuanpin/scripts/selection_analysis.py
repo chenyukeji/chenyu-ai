@@ -105,7 +105,7 @@ def merge_products(source_results, *, associations=None):
     for result in source_results:
         spec = result.get('query') or {}
         source = spec.get('source') or result.get('source')
-        for raw_row in result.get('records') or []:
+        for raw_row in result.get('raw_records', result.get('records')) or []:
             row=dict(raw_row)
             for field in ('price','estimated_sales','review_count'):
                 if field in row:row[field]=number(row[field])
@@ -213,12 +213,13 @@ def group_product_families(products):
         parents = [row for row in item['observations'] if row.get('parent_asin')]
         parents.sort(key=lambda row: (str(row.get('history_month') or '9999'),
                                      str(row.get('observed_at') or '')), reverse=True)
-        parent = str(parents[0]['parent_asin']).upper() if parents else None
+        parent = str(parents[0]['parent_asin']).strip().upper() if parents else None
         if not parent or not re.fullmatch(r'[A-Z0-9]{10}', parent):
             parent = None
-        groups[(item['marketplace'], parent or item['asin'])].append(item)
+        groups[(item['marketplace'], parent or item['asin'])].append((item, parent))
     families = []
-    for (market, parent), members in groups.items():
+    for (market, parent), entries in groups.items():
+        members = [item for item, _ in entries]
         # Stable representative: historical evidence before current-only variants.
         representative = min(members, key=lambda item: (
             -bool(item['historical']),
@@ -226,6 +227,7 @@ def group_product_families(products):
             -lexical_fit(item), item['asin']))
         family = deepcopy(representative)
         family['family_key'] = parent
+        family['verified_parent_asin'] = parent if any(value for _, value in entries) else None
         family['family_asins'] = sorted(item['asin'] for item in members)
         family['family_historical'] = [deepcopy(row) for item in members for row in item['historical']]
         family['family_sources'] = sorted({source for item in members for source in item['source_types']})
