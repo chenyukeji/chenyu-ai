@@ -11,6 +11,7 @@ This repository packages role-based Amazon workflows as portable plugins for com
 - Competitor Listing and image research belongs to `plugins/chenyu-yunying/skills/chenyu-jingpin`.
 - Listing writing belongs to `plugins/chenyu-yunying/skills/chenyu-listing`.
 - Image brief planning belongs to `plugins/chenyu-yunying/skills/chenyu-zuotuyaoqiu`.
+- A+ module and image brief planning belongs to `plugins/chenyu-yunying/skills/chenyu-aplusyaoqiu`.
 - Advertising skill chenyu-guanggao is planned, not implemented.
 - Mixed Amazon development requests and automatic workflow selection enter `plugins/chenyu-kaifa/skills/chenyu-kaifa`.
 - Amazon product-discovery requests enter `plugins/chenyu-kaifa/skills/chenyu-xuanpin`.

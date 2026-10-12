@@ -5,6 +5,8 @@ description: 根据开发 Excel、已确认产品事实、自有素材及竞品�
 
 # 晨玙作图要求
 
+本 Skill 规划普通产品图册。A+ 要求执行 [晨玙 A+ 要求](../chenyu-aplusyaoqiu/SKILL.md)，不套用下文的图册张数、顺序、方形尺寸或默认英文规则。用户两者都要时共享事实与视觉研究包，按 A+ 交付规范生成独立“作图要求”“A+要求”两页。
+
 读取 [开发文档读取规范](../../references/kaifawendang.md)，从开发 Excel、已确认产品事实、自有素材、参考商品链接及竞品视觉证据独立规划图片任务。
 
 开始执行会生成文件的任务前，先读取并遵循 [输出目录规范](../../references/output-paths.md)，本 Skill 使用 `image-brief` 交付部分。

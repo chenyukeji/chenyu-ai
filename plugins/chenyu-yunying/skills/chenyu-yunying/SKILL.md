@@ -1,6 +1,6 @@
 ---
 name: chenyu-yunying
-description: 晨玙运营总入口。接收产品开发 Excel、产品素材和自然语言需求，协调生成产品开发文档、自有产品 Listing、作图要求或商业发票，统一产品事实并核对交付一致性。适用于综合运营交付和不确定应选哪个专业 Skill 的请求；广告能力尚未实现。
+description: 晨玙运营总入口。接收产品开发 Excel、产品素材和自然语言需求，协调生成产品开发文档、自有产品 Listing、作图要求、A+ 要求或商业发票，统一产品事实并核对交付一致性。适用于综合运营交付和不确定应选哪个专业 Skill 的请求；广告能力尚未实现。
 ---
 
 # 晨玙运营
@@ -10,6 +10,10 @@ description: 晨玙运营总入口。接收产品开发 Excel、产品素材和�
 任务会生成文件时，先读取并遵循 [输出目录规范](../../references/output-paths.md)，并让同一次综合任务在各交付部分下复用同一个日期任务名。
 
 商业发票属于运营职责。收到已确认 Amazon 订单并要求发票时，直接执行 `chenyu-invoice`，生成按订单编号命名的 PDF；不使用 Listing / 作图要求 Excel 母版，不要求开发文档。网站提交发票时选择“商业发票”任务类型。
+
+## A+ 任务范围
+
+用户要求 A+ 时执行 [A+ 要求](../chenyu-aplusyaoqiu/SKILL.md)。只要普通作图要求时不自动追加 A+；只要 A+ 时不生成图册。两者都要时，共享事实和竞品研究包，交付 `产品内容＋作图要求＋A+要求` 的图片要求工作簿。A+ 使用独立模块、尺寸和目标站点语言，不继承下文普通图册的 6–8 张、末张四宫格、1:1 和默认英文规则。Listing 同时需要时仍默认独立交付。
 
 ## 共用输入
 
@@ -22,7 +26,9 @@ description: 晨玙运营总入口。接收产品开发 Excel、产品素材和�
 | 按已确认产品和调研资料生成产品开发文档 | 读取并执行开发插件 [chenyu-kaifawendang](../../../chenyu-kaifa/skills/chenyu-kaifawendang/SKILL.md)，复用其母版和校验脚本，每个产品独立交付 Excel |
 | 抓取、整理竞品 Listing、产品图册、A+ 和榜单候选 | [chenyu-jingpin](../chenyu-jingpin/SKILL.md)，只交付研究包，不生成自有文案或评论痛点分析 |
 | 以参考商品内容为主、自有事实补充校正，生成欧洲站 Item Name、Item Highlights、高信息量五点、HTML 详情、搜索词和变体文案 | [chenyu-listing](../chenyu-listing/SKILL.md)；标题先合并全部有效竞品标题的相关词义，再用自有产品事实和当地语言写恰好三个核心词；不新增竞品标题未提及的描述，并前置关键结构与功能；普通材质和尺寸不挤占主标题，确需展示的一组尺寸只放标题末尾，Item Highlights 自然承接至少一个标题核心关键词并补规格/结构/场景；HTML 详情以全部适用参考的共同重点与互补细节展开，自有事实另行核对适用性并补充差异，Search Terms 只收录反查和 Amazon 相关性复核后的增量词；综合 Listing 默认 DE/FR/IT/ES，UK 按需加入 |
-| 图片规划、作图单、交给美工的要求 | [chenyu-zuotuyaoqiu](../chenyu-zuotuyaoqiu/SKILL.md) |
+| A+ 模块规划、A+ 作图单、A+ 要求 | [chenyu-aplusyaoqiu](../chenyu-aplusyaoqiu/SKILL.md) |
+| 作图要求和 A+ 要求都要 | 普通图册执行 `chenyu-zuotuyaoqiu`，A+ 执行 `chenyu-aplusyaoqiu`，同一事实页、独立工作表 |
+| 普通图册图片规划、作图单、交给美工的要求 | [chenyu-zuotuyaoqiu](../chenyu-zuotuyaoqiu/SKILL.md) |
 | 自有 Listing 和作图要求 | 先统一产品事实；有竞品链接时只执行一次竞品研究；Listing 读取文字/关键词证据，作图要求读取视觉证据，两者独立生成，不互相改写 |
 | 按已确认 Amazon.fr EUR 订单生成商业发票 | [chenyu-invoice](../chenyu-invoice/SKILL.md)，核对购买日期、收件人、商品及金额，交付订单编号 PDF |
 | 实际制作或精修图片 | 如环境已安装美工插件，交接其总入口；否则交付作图单并说明需要美工能力 |

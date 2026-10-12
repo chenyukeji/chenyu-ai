@@ -15,7 +15,8 @@
 | `commercial-invoice` | 按已确认订单生成的商业发票 PDF，文件名为订单编号 |
 | `competitor-research` | 开发表解析结果、网页证据、竞品图片和 `competitor-research.json` |
 | `listing` | Listing 工作包、分析结果、Excel 或其他最终 Listing 文件 |
-| `image-brief` | 作图要求工作包、Excel 和相关交接文件 |
+| `image-brief` | 普通作图要求，或图册＋A+ 的工作包、Excel 和相关交接文件 |
+| `aplus-brief` | 单独 A+ 模块规划、逐图要求工作包及 Excel |
 | `combined-delivery` | 仅在用户明确要求把 Listing 与作图要求合并成一个最终文件时使用；两个成果同时生成但分别交付时不用此目录 |
 
 任务文件夹使用执行当天的本地日期和简短产品名，例如 `2026-09-20_tree-skirt-120cm`。清理 Windows 不允许的路径字符，产品名无法确定时使用稳定的任务简称，不使用随机长串。一次综合任务在不同交付部分下复用同一个文件夹名，便于相互对应。Listing 与作图要求同时生成时，默认分别写入 `listing/<同一任务名>/` 和 `image-brief/<同一任务名>/`；两个文件中的“产品内容”来自同一事实页并保持完全一致。
