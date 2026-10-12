@@ -132,14 +132,52 @@ def collect_query(query, payload, known_products):
     raise ValueError('unknown selection source')
 
 
+
+def original_style_rows(rows, report):
+    """Put combined evidence in the familiar 15-column selection table."""
+    products = {(p['marketplace'], p['asin']): p for p in report['products']}
+    result = []
+    for row in rows:
+        current = (products.get((row['站点'], row['ASIN'])) or {}).get('current') or {}
+        analysis = str(row.get('分析') or '').strip()
+        summary = re.split(r'[。；;]', analysis, maxsplit=1)[0].strip()
+        if not re.search(r'[\u3400-\u9fff]', summary):
+            summary = ''
+        category = str(row.get('所在品类') or '')
+        if '圣诞' in category or 'christmas' in category.casefold():
+            lifecycle = '10–12月（圣诞季，需复核）'
+        elif '万圣' in category or 'halloween' in category.casefold():
+            lifecycle = '8–10月（万圣节季，需复核）'
+        else:
+            lifecycle = '需结合历史趋势复核'
+        priority = row.get('优先级') or ''
+        conclusion = {'优先研究': '🟢 优先研究', '继续观察': '🟡 继续观察',
+                      '低优先级': '🔴 低优先级', '待补数据': '🟡 待补数据',
+                      '待核对相关性': '🟡 待核对相关性'}.get(priority, priority)
+        reasons = [analysis]
+        for label, key in (('命中来源', '命中来源'), ('历史命中月份', '历史命中月份'),
+                           ('关联关键词', '关联关键词'), ('证据缺项', '证据缺项')):
+            if row.get(key):
+                reasons.append(f'{label}：{row[key]}')
+        result.append({'站点': row['站点'], '上架日期': row.get('上架日期'),
+                       'Review数量': row.get('评论量'), '售价（当地币种）': row.get('售价'),
+                       '大品类排名': current.get('bsr'), '所在品类': row.get('所在品类'),
+                       '预估月销量': row.get('当前预估月销量'), '产品优点&特征': summary,
+                       '缺点': '', '生命周期': lifecycle, 'ASIN': row['ASIN'],
+                       '亚马逊产品链接': row.get('亚马逊产品链接'), '图片': row.get('图片'),
+                       '结论': conclusion, '理由': '\n'.join(x for x in reasons if x)})
+    return result
+
+
 def export_workbook(path, rows, report, image_loader=None):
     from openpyxl import Workbook, load_workbook
-    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.drawing.image import Image
     from openpyxl.utils import get_column_letter
-    from discovery_workbook import _download_image
+    from discovery_workbook import HEADERS, _download_image
     loader = image_loader or _download_image
     wb = Workbook(); wb.remove(wb.active)
+    main_rows = original_style_rows(rows, report)
     history = [{'站点': p['marketplace'], 'ASIN': p['asin'], '月份': h['history_month'],
                 '历史月销量': h.get('estimated_sales'), '历史环比增长率': h.get('sales_growth_percent'),
                 '来源': h.get('source_ref')} for p in report['products'] for h in p['historical']]
@@ -160,27 +198,44 @@ def export_workbook(path, rows, report, image_loader=None):
     previous_images = {}
     if path.exists():
         previous = load_workbook(path)
-        if '选品结果' in previous.sheetnames:
-            sheet = previous['选品结果']; headers = [c.value for c in sheet[1]]
+        previous_title = next((name for name in ('开品结果', '选品结果') if name in previous.sheetnames), None)
+        if previous_title:
+            sheet = previous[previous_title]; headers = [c.value for c in sheet[1]]
             if '站点' in headers and 'ASIN' in headers:
                 for image in sheet._images:
                     n = image.anchor._from.row + 1
                     previous_images[(sheet.cell(n, headers.index('站点')+1).value,
                                      sheet.cell(n, headers.index('ASIN')+1).value)] = image._data()
         previous.close()
-    sheets = [('选品结果', rows), ('关键词趋势', keywords), ('关键词月度明细', keyword_history),
+    sheets = [('开品结果', main_rows), ('关键词趋势', keywords), ('关键词月度明细', keyword_history),
               ('季节性明细', history), ('来源与覆盖', coverage)]
+    border = Border(*(Side(style='thin', color='666666') for _ in range(4)))
+    main_widths = dict(zip(HEADERS, [8, 13, 11, 15, 12, 16, 13, 28, 27, 24, 14, 31, 22, 15, 65]))
     for title, values in sheets:
         ws = wb.create_sheet(title)
-        headers = list(dict.fromkeys(k for row in values for k in row)) or ['说明']
+        headers = HEADERS if title == '开品结果' else list(dict.fromkeys(k for row in values for k in row)) or ['说明']
         ws.append(headers)
         for cell in ws[1]:
-            cell.font = Font(bold=True); cell.fill = PatternFill('solid', fgColor='C6E0B4')
+            cell.font = Font(name='Microsoft YaHei', size=11, bold=True)
+            cell.fill = PatternFill('solid', fgColor='C6E0B4')
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell.border = border
+        ws.row_dimensions[1].height = 32
         for row in values:
             ws.append([None if key=='图片' else row.get(key) for key in headers])
             for cell in ws[ws.max_row]:
                 if isinstance(cell.value, str): cell.data_type = 's'
-                cell.alignment = Alignment(vertical='top', wrap_text=True)
+                cell.font = Font(name='Microsoft YaHei', size=10)
+                cell.alignment = Alignment(horizontal='left' if title == '开品结果' and cell.column == 15 else 'center', vertical='center', wrap_text=True)
+                cell.border = border
+            if title == '开品结果':
+                ws.row_dimensions[ws.max_row].height = 110
+                conclusion_cell = ws.cell(ws.max_row, headers.index('结论') + 1)
+                conclusion = str(conclusion_cell.value or '')
+                color = '33A36B' if '优先研究' in conclusion else 'F4CCCC' if '低优先级' in conclusion else 'FFD966'
+                conclusion_cell.fill = PatternFill('solid', fgColor=color)
+                conclusion_cell.font = Font(name='Microsoft YaHei', size=10, bold=True,
+                                            color='FFFFFF' if color == '33A36B' else '000000')
             if '图片' in headers and row.get('图片'):
                 try:
                     url = row['图片']; identity = (row.get('站点'), row.get('ASIN'))
@@ -189,14 +244,16 @@ def export_workbook(path, rows, report, image_loader=None):
                     img = Image(BytesIO(image_cache[url])); ratio = min(110/img.width,85/img.height)
                     img.width *= ratio; img.height *= ratio
                     ws.add_image(img, f'{get_column_letter(headers.index("图片")+1)}{ws.max_row}')
-                    ws.row_dimensions[ws.max_row].height = 68
+                    if title != '开品结果': ws.row_dimensions[ws.max_row].height = 68
                 except Exception:
                     errors.append({'marketplace': row.get('站点'), 'asin': row.get('ASIN'), 'reason': 'image_embedding_failed'})
                     ws.cell(ws.max_row,headers.index('图片')+1,'图片未取得')
             if '亚马逊产品链接' in headers and row.get('亚马逊产品链接'):
                 ws.cell(ws.max_row,headers.index('亚马逊产品链接')+1).hyperlink = row['亚马逊产品链接']
         ws.freeze_panes='A2'; ws.auto_filter.ref=ws.dimensions
-        for i, header in enumerate(headers,1): ws.column_dimensions[get_column_letter(i)].width = 42 if header in ('分析','说明','统计上下文','产品名称') else 22
+        for i, header in enumerate(headers,1):
+            ws.column_dimensions[get_column_letter(i)].width = (main_widths[header] if title == '开品结果'
+                else 42 if header in ('分析','说明','统计上下文','产品名称') else 22)
     temporary = path.with_suffix('.tmp.xlsx'); wb.save(temporary); temporary.replace(path)
     return {'path': str(path), 'row_count': len(rows), 'image_failures': errors}
 

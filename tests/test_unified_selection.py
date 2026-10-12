@@ -153,11 +153,39 @@ def test_filters_are_enforced_and_formula_text_is_not_executable(monkeypatch,tmp
     assert result['workbook']['row_count']==0
     value['filters']={'price_max':20}
     result=flow.run_selection({'scope':value,'run_dir':str(tmp_path),'enrich':False,
-       'reviews':[{'marketplace':'US','asin':'B012345678','relevant':True,'priority':'优先研究','reason':'商品相关'}]})
+       'reviews':[{'marketplace':'US','asin':'B012345678','relevant':True,'priority':'优先研究','reason':'=1+1'}]})
     from openpyxl import load_workbook
-    ws=load_workbook(result['workbook']['path'])['选品结果']
-    assert ws.cell(2,3).value=='=1+1' and ws.cell(2,3).data_type=='s'
+    ws=load_workbook(result['workbook']['path'])['开品结果']
+    assert ws.cell(2,11).value=='B012345678'
+    assert ws.cell(2,15).value.startswith('=1+1') and ws.cell(2,15).data_type=='s'
 
+
+
+def test_unified_workbook_restores_original_main_table(monkeypatch, tmp_path):
+    from openpyxl import load_workbook
+    from discovery_workbook import HEADERS
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {
+        'collection_status': 'complete', 'records': [product(bsr=47302, category_name='圣诞树装饰')]
+    })
+    payload = {'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path),
+               'enrich': False, 'reviews': [{'marketplace': 'US', 'asin': 'B012345678',
+               'relevant': True, 'priority': '优先研究',
+               'reason': '圣诞树挂饰具有手作特点。销量口径需要核实。'}]}
+    result = flow.run_selection(payload)
+    wb = load_workbook(result['workbook']['path'])
+    assert wb.sheetnames == ['开品结果', '关键词趋势', '关键词月度明细', '季节性明细', '来源与覆盖']
+    ws = wb.active
+    assert [cell.value for cell in ws[1]] == HEADERS
+    assert ws.cell(2, 5).value == 47302
+    assert ws.cell(2, 8).value == '圣诞树挂饰具有手作特点'
+    assert ws.cell(2, 9).value is None
+    assert ws.cell(2, 10).value == '10–12月（圣诞季，需复核）'
+    assert ws.cell(2, 14).value == '🟢 优先研究'
+    assert ws.cell(2, 15).value.startswith('圣诞树挂饰')
+    assert ws.cell(1, 1).fill.fgColor.rgb == '00C6E0B4'
+    assert ws.cell(2, 14).fill.fgColor.rgb == '0033A36B'
+    assert ws.freeze_panes == 'A2' and ws.auto_filter.ref == 'A1:O2'
+    wb.close()
 
 def test_fresh_response_matching_rejects_other_market_keyword_and_host():
     from types import SimpleNamespace
