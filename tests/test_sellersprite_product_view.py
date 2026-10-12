@@ -31,3 +31,14 @@ def test_missing_control_is_reported_instead_of_empty_data(browser):
   with pytest.raises(BrowserCollectionError,match='product_list_view_control_unavailable'):
    ensure_product_list_view(page)
  finally:page.close()
+
+def test_common_parser_reads_asin_lookup_after_switching_from_cards(browser):
+ from playwright_collector import extract_sellersprite_table
+ page=browser.new_page()
+ try:
+  page.set_content('''<button class="el-button is-plain" onclick="this.classList.remove('is-plain');document.querySelector('table').style.display=''">列表</button>
+  <table style="display:none"><thead><tr><th>ASIN</th><th>产品名称</th></tr></thead>
+  <tbody><tr><td>B0C6FCKQML</td><td>DREO Space Heater</td></tr></tbody></table>''')
+  rows=extract_sellersprite_table(page,{'marketplace':'US'})
+  assert len(rows)==1 and rows[0]['asin']=='B0C6FCKQML'
+ finally:page.close()

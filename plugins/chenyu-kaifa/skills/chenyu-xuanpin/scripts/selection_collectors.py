@@ -258,15 +258,7 @@ def verified_query(page, trigger, *, path, expected):
 
 
 def ensure_product_list_view(page):
-    """The account may remember image cards; the parser requires list tables."""
-    button = page.get_by_role('button', name='列表', exact=True, include_hidden=True).first
-    if not button.count():
-        raise browser.BrowserCollectionError('product_list_view_control_unavailable')
-    if 'is-plain' in (button.get_attribute('class') or '').split():
-        # The result toolbar can be mounted but hidden before the first query.
-        button.evaluate('element => element.click()')
-    page.wait_for_function("button => !button.classList.contains('is-plain')",
-                           arg=button.element_handle(), timeout=5000)
+    browser._ensure_sellersprite_list_view(page, required=True)
 
 
 def collect_sellersprite_products(payload):

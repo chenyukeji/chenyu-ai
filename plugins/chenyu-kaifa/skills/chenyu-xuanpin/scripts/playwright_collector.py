@@ -822,7 +822,22 @@ def _usable_sellersprite_image_url(value) -> bool:
     )
 
 
+def _ensure_sellersprite_list_view(page, *, required=False):
+    """Normalize Product Research and ASIN lookup before table parsing."""
+    button = page.get_by_role('button', name='列表', exact=True, include_hidden=True).first
+    if not button.count():
+        if required:
+            raise BrowserCollectionError('product_list_view_control_unavailable')
+        return
+    if 'is-plain' in (button.get_attribute('class') or '').split():
+        # The result toolbar can be mounted but hidden before the first query.
+        button.evaluate('element => element.click()')
+    page.wait_for_function("button => !button.classList.contains('is-plain')",
+                           arg=button.element_handle(), timeout=5000)
+
+
 def extract_sellersprite_table(page, payload: dict) -> list[dict]:
+    _ensure_sellersprite_list_view(page)
     table = _extract_best_table(page, payload.get("table_selector"))
     headers = table.get("headers") or []
     if len(headers) == len(SELLERSPRITE_COMPETITOR_HEADERS) and all(

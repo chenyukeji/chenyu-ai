@@ -440,3 +440,21 @@ def test_stale_review_token_rejected_after_source_refresh(monkeypatch, tmp_path)
     with pytest.raises(ValueError, match='审阅证据已变更'):
         flow.run_selection({'run_dir': str(tmp_path), 'refresh': True, 'evidence_id': r['evidence_id'],
                             'reviews': [review(p) for p in r['analysis_requests']]})
+
+
+def test_submitting_reviews_keeps_failed_sources_and_evidence_stable(monkeypatch, tmp_path):
+    calls = []
+    def collect(query, *args):
+        calls.append(query['source'])
+        if query['source'] == 'keyword_trends':
+            return {'collection_status': 'blocked', 'records': [], 'block_reason': 'TimeoutError'}
+        return {'collection_status': 'complete', 'records': [product()]}
+    monkeypatch.setattr(flow, 'collect_query', collect)
+    r = flow.run_selection({'scope': scope(), 'run_dir': str(tmp_path), 'enrich': False})
+    before = list(calls)
+    r = flow.run_selection({'run_dir': str(tmp_path), 'evidence_id': r['evidence_id'],
+                            'reviews': [review(p) for p in r['analysis_requests']]})
+    assert calls == before
+    assert r['status'] == 'PARTIAL' and r['workbook']['row_count'] == 1
+    flow.run_selection({'run_dir': str(tmp_path)})
+    assert calls == before + ['keyword_trends']

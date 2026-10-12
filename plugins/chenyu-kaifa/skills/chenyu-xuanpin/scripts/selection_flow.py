@@ -274,7 +274,9 @@ def run_selection(payload):
                          'db_path':payload.get('db_path') or os.environ.get('CHENYU_NEW_RELEASES_DB')})
         cache=folder/f'source-{digest}.json'
         result=json.loads(cache.read_text()) if cache.exists() and not payload.get('refresh') else None
-        if result and result.get('collection_status') in ('blocked','unavailable','pending'):
+        # Review the exact evidence shown to the model; retry failures on a
+        # query-only resume or explicit refresh, not while submitting reviews.
+        if result and result.get('collection_status') in ('blocked','unavailable','pending') and not payload.get('reviews'):
             result=None
         if result is None:
             if executed>=budget:
