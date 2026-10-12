@@ -45,6 +45,7 @@ BUYER_FACT_FIELDS = (
 FORBIDDEN_TITLE_CHARACTERS = set('!$?_{}^¬¦/')
 ALLOWED_DESCRIPTION_TAGS = {'p', 'br', 'b'}
 DESCRIPTION_TAG = re.compile(r'<\s*/?\s*([a-zA-Z0-9]+)(?:\s[^>]*)?>')
+HTML_LAYOUT_TAG = re.compile(r'<\s*(/?)\s*(p|b|br)\s*/?\s*>', re.I)
 NOTICE_HEADINGS = {
     'DE': 'Hinweise', 'FR': 'Remarques', 'IT': 'Avvertenze',
     'ES': 'Avisos', 'UK': 'Notes',
@@ -294,6 +295,15 @@ def visible_html(text):
     return html.unescape(value)
 
 
+def html_layout(text):
+    return [f'{"/" if match.group(1) else ""}{match.group(2).lower()}'
+            for match in HTML_LAYOUT_TAG.finditer(str(text))]
+
+
+def description_numbers(text):
+    return re.findall(r'(?m)^\s*(\d+)\.\s', visible_html(text))
+
+
 def normalized_sentences(text):
     """Return long normalized sentences for exact repetition checks."""
     value = re.sub(r'\s+', ' ', str(text)).strip()
@@ -357,7 +367,7 @@ def validate_buyer_copy(errors, market, variant_id, labeled_texts):
                 seen_sentences[sentence] = label
 
 
-def validate_chinese_translations(errors, market, variant_id, translations):
+def validate_chinese_translations(errors, market, variant_id, translations, source_description):
     """Require complete Chinese translations and reject internal workflow narration."""
     if not isinstance(translations, dict):
         errors.append(f'{market}/{variant_id} translations must be an object')
@@ -366,6 +376,24 @@ def validate_chinese_translations(errors, market, variant_id, translations):
     for field in required:
         if not str(translations.get(field, '')).strip():
             errors.append(f'{market}/{variant_id} Chinese translation for {field} is empty')
+    translated_description = str(translations.get('description', ''))
+    unsupported = sorted({tag.casefold() for tag in DESCRIPTION_TAG.findall(translated_description)}
+                         - ALLOWED_DESCRIPTION_TAGS)
+    if unsupported:
+        errors.append(
+            f'{market}/{variant_id} Chinese description uses unsupported HTML tags: '
+            + ', '.join(unsupported)
+        )
+    if re.search(r'\\(?=<\s*/?\s*(?:p|b|br)\b)', translated_description, re.I):
+        errors.append(f'{market}/{variant_id} Chinese description must not escape HTML tags')
+    if source_description and html_layout(translated_description) != html_layout(source_description):
+        errors.append(
+            f'{market}/{variant_id} Chinese description HTML layout must match source description'
+        )
+    if source_description and description_numbers(translated_description) != description_numbers(source_description):
+        errors.append(
+            f'{market}/{variant_id} Chinese description feature numbers must match source description'
+        )
     bullets = translations.get('bullets', [])
     if (not isinstance(bullets, list) or len(bullets) != 5
             or any(not str(item).strip() for item in bullets)):
@@ -1214,7 +1242,7 @@ def validate(data):
             errors, market, variant_id, [('description', description_text)]
         )
         validate_chinese_translations(
-            errors, market, variant_id, listing.get('translations')
+            errors, market, variant_id, listing.get('translations'), description
         )
         validate_compatibility_copy(
             errors, market, variant_id, listing, title, item_highlights,

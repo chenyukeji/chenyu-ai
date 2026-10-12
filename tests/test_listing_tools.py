@@ -3,6 +3,7 @@ import copy
 import tempfile
 import unittest
 import zipfile
+from io import BytesIO
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parents[1] / 'plugins/chenyu-yunying/skills'
@@ -20,6 +21,7 @@ def module(name, root=LISTING_ROOT):
 extractor = module('extract_development_brief', YUNYING_ROOT)
 analyzer = module('analyze_listing')
 package_validator = module('validate_listing_package')
+description_renderer = module('render_chinese_description')
 
 
 class ListingTests(unittest.TestCase):
@@ -89,8 +91,13 @@ class ListingTests(unittest.TestCase):
                                   '🎉【适合节庆布置】适用于庆典和季节性室内装饰。',
                                   '💡【便于摆放收纳】请置于干燥平面并避免受潮挤压。',
                               ],
-                              'description': ('纸质装饰适合节庆布置，可用于桌面、置物架和窗台。'
-                                              '材质：纸；颜色：白色；尺寸：10厘米；包装：1件装饰。'),
+                              'description': ('<p>纸质装饰适合节庆布置，可单独使用或搭配现有装饰。</p>'
+                                              '<p><b>产品特点：</b><br>'
+                                              '1. 摆放：可置于合适的平面。<br>'
+                                              '2. 造型：纸质外形清晰，可单独摆放。<br>'
+                                              '3. 场合：适合节庆时的室内摆放。</p>'
+                                              '<p><b>产品参数：</b><br>材质：纸<br>颜色：白色<br>尺寸：10厘米</p>'
+                                              '<p><b>包装内容：</b><br>1 件装饰</p>'),
                               'search_terms': '装饰品 挂饰 派对用品',
                           }}],
         }
@@ -372,6 +379,55 @@ class ListingTests(unittest.TestCase):
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('translations must be an object' in error
                             for error in result['errors']))
+
+    def test_chinese_description_preserves_html_format(self):
+        data = copy.deepcopy(self.listing_package())
+        listing = data['listings'][0]
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        translated = listing['translations']['description']
+        listing['translations']['description'] = package_validator.visible_html(translated)
+        result = package_validator.validate(data)
+        self.assertTrue(any('Chinese description HTML layout must match' in error
+                            for error in result['errors']))
+
+        listing['translations']['description'] = translated.replace('2. 造型', '4. 造型')
+        result = package_validator.validate(data)
+        self.assertTrue(any('Chinese description feature numbers must match' in error
+                            for error in result['errors']))
+
+        listing['translations']['description'] = translated.replace('<p>', r'\<p>', 1)
+        result = package_validator.validate(data)
+        self.assertTrue(any('Chinese description must not escape HTML tags' in error
+                            for error in result['errors']))
+
+    def test_chinese_description_renders_paragraphs_and_bold_headings(self):
+        source = ('<p>两条紫色灯串，适合室内装饰。</p>'
+                  '<p><b>产品特点：</b><br>1. 两条独立灯串。<br>'
+                  '2. 可弯折细灯线。</p>'
+                  '<p><b>包装内容：</b><br>2 条灯串。</p>')
+        runs = description_renderer.description_runs(source)
+        visible = ''.join(value for value, _ in runs)
+        self.assertIn('室内装饰。\n\n产品特点：\n1. 两条独立灯串。', visible)
+        self.assertIn(('产品特点：', True), runs)
+        self.assertNotIn('<p>', visible)
+
+        try:
+            from openpyxl import Workbook, load_workbook
+            from openpyxl.cell.rich_text import TextBlock
+        except ImportError:
+            self.skipTest('openpyxl is available in the backend workbook environment')
+        book = Workbook()
+        cell = book.active['C8']
+        description_renderer.write_chinese_description(cell, source)
+        self.assertTrue(cell.alignment.wrap_text)
+        self.assertGreater(cell.parent.row_dimensions[8].height, 30)
+        stream = BytesIO()
+        book.save(stream)
+        stream.seek(0)
+        loaded = load_workbook(stream, rich_text=True).active['C8'].value
+        self.assertEqual(str(loaded), visible)
+        self.assertTrue(any(isinstance(part, TextBlock) and part.font.b
+                            and part.text == '产品特点：' for part in loaded))
 
     def test_primary_reference_does_not_require_a_mirrored_outline(self):
         data = self.listing_package()

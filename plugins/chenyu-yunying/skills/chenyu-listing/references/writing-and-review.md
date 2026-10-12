@@ -169,6 +169,7 @@ Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805
 - 允许完整展开标题、Item Highlights 和五点的重点信息，不要求机械去重。
 - description_reference 记录详情实际采用的来源，field_fact_ids.description 绑定所有使用的已确认事实；来源点位可以合并或重排。
 - 详情中的每个具体宣称也必须进入 `field_fact_ids.description`。若五点没有使用某项参考宣称，不能在详情中悄悄补入“活性炭、抑菌、OEM 品质、建议更换周期”等未经确认内容。
+- 中文详情在 `translations.description` 中按原文 HTML 逐段翻译，保留相同的 `<p>`、`<b>`、`<br>` 标签及编号顺序；标签文字改为自然中文。导出 Excel 时使用 `scripts/render_chinese_description.py` 的 `write_chinese_description` 转为带段落换行与粗体标题的富文本；中文单元格不直接展示标签。
 
 ## Search Terms 研究与填写
 
