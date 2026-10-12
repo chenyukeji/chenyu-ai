@@ -115,13 +115,16 @@ def test_query_budget_resumes_without_recollecting_success(monkeypatch,tmp_path)
     assert result['status']=='AWAITING_ANALYSIS' and calls==['sellersprite_new','keyword_trends']
 
 
-def test_keyword_only_workbook_has_real_history_sheet(monkeypatch,tmp_path):
+def test_keyword_only_evidence_stays_in_json_and_workbook_has_one_sheet(monkeypatch,tmp_path):
     monkeypatch.setattr(flow,'collect_query',lambda *args:{'collection_status':'complete','records':[keyword('2026-08',100),keyword('2026-09',300)]})
     result=flow.run_selection({'scope':scope(['keyword_trends']),'run_dir':str(tmp_path),'as_of_date':'2026-10-11'})
     from openpyxl import load_workbook
     wb=load_workbook(result['workbook']['path'])
-    assert result['status']=='COMPLETE' and wb['关键词月度明细'].max_row==3
-    assert wb['关键词趋势'].cell(2,5).value==200
+    evidence=json.loads((tmp_path/'selection-evidence.json').read_text())
+    assert result['status']=='COMPLETE' and wb.sheetnames==['开品结果']
+    assert wb.active.max_row==1
+    assert evidence['keywords']['directions'][0]['absolute_change']==200
+    assert len(evidence['keywords']['directions'][0]['history'])==2
 
 
 def test_database_scope_and_readonly_window(tmp_path):
@@ -173,7 +176,7 @@ def test_unified_workbook_restores_original_main_table(monkeypatch, tmp_path):
                'reason': '圣诞树挂饰具有手作特点。销量口径需要核实。'}]}
     result = flow.run_selection(payload)
     wb = load_workbook(result['workbook']['path'])
-    assert wb.sheetnames == ['开品结果', '关键词趋势', '关键词月度明细', '季节性明细', '来源与覆盖']
+    assert wb.sheetnames == ['开品结果']
     ws = wb.active
     assert [cell.value for cell in ws[1]] == HEADERS
     assert ws.cell(2, 5).value == 47302

@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 
 from category_sources import normalize_url
-from selection_analysis import analyze_keywords, merge_products, summarize_products, balanced_shortlist, SOURCE_LABELS
+from selection_analysis import analyze_keywords, merge_products, summarize_products, balanced_shortlist
 import selection_collectors as collectors
 from strategy_h import target_months
 
@@ -178,21 +178,6 @@ def export_workbook(path, rows, report, image_loader=None):
     loader = image_loader or _download_image
     wb = Workbook(); wb.remove(wb.active)
     main_rows = original_style_rows(rows, report)
-    history = [{'站点': p['marketplace'], 'ASIN': p['asin'], '月份': h['history_month'],
-                '历史月销量': h.get('estimated_sales'), '历史环比增长率': h.get('sales_growth_percent'),
-                '来源': h.get('source_ref')} for p in report['products'] for h in p['historical']]
-    keywords = [{'站点': d['marketplace'], '关键词': d['keyword'], '最新完整月份': d['latest_month'],
-                 '搜索量': d['search_volume'], '环比%': d['mom_percent'], '同比%': d['yoy_percent'],
-                 '绝对变化': d['absolute_change'], '完整月滞后数': d['data_lag_months'],
-                 '说明': '；'.join(d['evidence'])} for d in report['keywords']['directions']]
-    keyword_history = [{'站点': d['marketplace'], '关键词': d['keyword'], '月份': r['month'],
-                        '搜索量': r['search_volume'], '来源': r['source_ref']}
-                       for d in report['keywords']['directions'] for r in d['history']]
-    coverage = [{'来源': SOURCE_LABELS.get(r['query']['source'],r['query']['source']), '站点': r['query'].get('marketplace'),
-                 '类目': r['query'].get('category'), '关键词': r['query'].get('keyword'),
-                 '月份': r['query'].get('history_month'), '状态': r.get('collection_status'),
-                 '条数': len(r.get('records') or []), '说明': r.get('block_reason') or r.get('coverage_note'),
-                 '统计上下文': json.dumps(r.get('source_metadata') or {}, ensure_ascii=False)} for r in report['results']]
     image_cache = {}; errors = []
     # Reuse images from the prior workbook by marketplace/ASIN on a resumed task.
     previous_images = {}
@@ -207,8 +192,7 @@ def export_workbook(path, rows, report, image_loader=None):
                     previous_images[(sheet.cell(n, headers.index('站点')+1).value,
                                      sheet.cell(n, headers.index('ASIN')+1).value)] = image._data()
         previous.close()
-    sheets = [('开品结果', main_rows), ('关键词趋势', keywords), ('关键词月度明细', keyword_history),
-              ('季节性明细', history), ('来源与覆盖', coverage)]
+    sheets = [('开品结果', main_rows)]
     border = Border(*(Side(style='thin', color='666666') for _ in range(4)))
     main_widths = dict(zip(HEADERS, [8, 13, 11, 15, 12, 16, 13, 28, 27, 24, 14, 31, 22, 15, 65]))
     for title, values in sheets:
