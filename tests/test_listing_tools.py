@@ -24,6 +24,11 @@ package_validator = module('validate_listing_package')
 description_renderer = module('render_chinese_description')
 
 
+def validate_legacy(data):
+    """Exercise older fixture contracts without using them as current deliveries."""
+    return package_validator.validate(data, require_current_search_policy=False)
+
+
 class ListingTests(unittest.TestCase):
     @staticmethod
     def listing_package():
@@ -158,7 +163,7 @@ class ListingTests(unittest.TestCase):
                 'Dekoration kombinierbar', 'Festdeko kombinierbar'
             )
         )
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any(
             'item_highlights must include at least one title core keyword' in error
             for error in result['errors']
@@ -171,11 +176,11 @@ class ListingTests(unittest.TestCase):
                 'Dekoration kombinierbar', 'Deko kombinierbar'
             )
         )
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
 
     def test_own_listing_package_ready(self):
         data = self.listing_package()
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(result['ready_for_delivery'])
         self.assertEqual(result['coverage']['expected_listings'], 1)
         self.assertTrue(any('editorial target' in warning for warning in result['warnings']))
@@ -193,7 +198,7 @@ class ListingTests(unittest.TestCase):
                                 'bullets': ['Competitor detail 1', 'klarer Form for decoration',
                                             'Competitor detail 3', 'Competitor detail 4',
                                             'Competitor detail 5']}]
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('title_reference is required' in error for error in result['errors']))
         self.assertTrue(any('item_highlights_reference is required' in error
@@ -243,23 +248,23 @@ class ListingTests(unittest.TestCase):
                 'local_volume_claimed': False,
             },
         ]
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
         saved_bullet = listing['bullet_references'][0]
         listing['bullet_references'][0] = '自有开发资料 D2/E2；参考竞品标题与图册'
         self.assertTrue(any('must cite ASIN 第N点' in error for error in
-                            package_validator.validate(data)['errors']))
+                            validate_legacy(data)['errors']))
         listing['bullet_references'][0] = saved_bullet
         data['competitors'][0]['bullets'][0] = ''
         self.assertTrue(any('cites missing competitor point' in error for error in
-                            package_validator.validate(data)['errors']))
+                            validate_legacy(data)['errors']))
         data['competitors'][0]['bullets'][0] = 'Competitor detail 1'
         listing['title_phrase_sources'][0]['source_phrase'] = 'not in competitor title'
         self.assertTrue(any('source_phrase not found' in error for error in
-                            package_validator.validate(data)['errors']))
+                            validate_legacy(data)['errors']))
         listing['title_phrase_sources'][0]['source_phrase'] = 'Dekoration'
         listing['item_highlights_reference'] = '参考 B012345678 标题及第2点'
         self.assertTrue(any('phrase missing from visible reference' in error for error in
-                            package_validator.validate(data)['errors']))
+                            validate_legacy(data)['errors']))
         listing['item_highlights_reference'] = ('Papiermaterial ← 自有事实 F1；'
                                                 'klarer Form ← B012345678 第2点')
 
@@ -280,18 +285,18 @@ class ListingTests(unittest.TestCase):
         }
         data['search_term_audits'].append(extra)
         listing['search_terms'] += ' tischschmuck'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('title_reference must cite every usable competitor title: B012345679'
                             in error for error in result['errors']))
         # V2 separates the internal candidate audit from visible content sources.
         data['source_mapping_version'] = 2
-        v2_errors = package_validator.validate(data)['errors']
+        v2_errors = validate_legacy(data)['errors']
         self.assertFalse(any('title_reference must cite every usable competitor title'
                              in error for error in v2_errors))
         reference = listing['title_reference']
         listing['title_reference'] = 'Only an unrelated candidate B012345679'
         self.assertTrue(any('title_phrase_sources' in error and 'visible reference' in error
-                            for error in package_validator.validate(data)['errors']))
+                            for error in validate_legacy(data)['errors']))
         listing['title_reference'] = reference
         del data['source_mapping_version']
         listing['title_reference'] += '；对比 B012345679 标题的产品搜索短语'
@@ -308,26 +313,26 @@ class ListingTests(unittest.TestCase):
             container['bullets'][0], container['bullets'][1] = (
                 container['bullets'][1], container['bullets'][0]
             )
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(result['ready_for_delivery'], result['errors'])
         saved_reference = listing['bullet_references'][2]
         listing['bullet_references'][2] = ''
         self.assertTrue(any('bullet_references must contain five' in error
-                            for error in package_validator.validate(data)['errors']))
+                            for error in validate_legacy(data)['errors']))
         listing['bullet_references'][2] = saved_reference
         extra['source_asin'] = 'B012345699'
         self.assertTrue(any('title-term audit source_asin' in error for error in
-                            package_validator.validate(data)['errors']))
+                            validate_legacy(data)['errors']))
         extra['source_asin'] = 'B012345679'
         extra['source_field'] = 'bullet_1'
         self.assertTrue(any('must use source_field=title' in error for error in
-                            package_validator.validate(data)['errors']))
+                            validate_legacy(data)['errors']))
         data['search_term_audits'].pop()
         data['competitors'].pop()
         listing['search_terms'] = original_terms
 
         data['search_term_audits'] = data['search_term_audits'][:1]
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('requires synonym candidates from reference listing titles' in error
                             for error in result['errors']))
@@ -338,13 +343,13 @@ class ListingTests(unittest.TestCase):
             'Design A: Papiermaterial mit klarer Form für Tisch, Regal und Innenraum, '
             'einzeln platzierbar oder mit Dekoration kombinierbar'
         )
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('contains internal variant codes' in error
                             for error in result['errors']))
 
         data['listings'][0]['buyer_visible_variant_terms'] = ['Design A']
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
 
     def test_buyer_copy_rejects_internal_confirmation_and_reference_language(self):
         errors = []
@@ -367,7 +372,7 @@ class ListingTests(unittest.TestCase):
         data['listings'][0]['translations']['bullets'][0] = (
             '📦【已确认的套装内容】包装资料记录了尺寸；自有套装不包含竞品图中的收纳包。'
         )
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('Chinese translation bullet 1 contains internal' in error
                             for error in result['errors']))
@@ -375,7 +380,7 @@ class ListingTests(unittest.TestCase):
     def test_listing_package_requires_complete_chinese_translations(self):
         data = copy.deepcopy(self.listing_package())
         del data['listings'][0]['translations']
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('translations must be an object' in error
                             for error in result['errors']))
@@ -383,20 +388,20 @@ class ListingTests(unittest.TestCase):
     def test_chinese_description_preserves_html_format(self):
         data = copy.deepcopy(self.listing_package())
         listing = data['listings'][0]
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
         translated = listing['translations']['description']
         listing['translations']['description'] = package_validator.visible_html(translated)
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('Chinese description HTML layout must match' in error
                             for error in result['errors']))
 
         listing['translations']['description'] = translated.replace('2. 造型', '4. 造型')
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('Chinese description feature numbers must match' in error
                             for error in result['errors']))
 
         listing['translations']['description'] = translated.replace('<p>', r'\<p>', 1)
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('Chinese description must not escape HTML tags' in error
                             for error in result['errors']))
 
@@ -433,7 +438,7 @@ class ListingTests(unittest.TestCase):
         data = self.listing_package()
         listing = data['listings'][0]
         listing['primary_reference_asin'] = 'B012345678'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(result['ready_for_delivery'], result['errors'])
 
     def test_integrated_copy_still_requires_confirmed_field_facts(self):
@@ -442,7 +447,7 @@ class ListingTests(unittest.TestCase):
         listing['primary_reference_asin'] = 'B012345678'
         listing['field_fact_ids']['bullet_2'] = []
         listing['field_fact_ids']['description'] = []
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('field_fact_ids.bullet_2 must contain' in error
                             for error in result['errors']))
@@ -451,7 +456,7 @@ class ListingTests(unittest.TestCase):
         listing['field_fact_ids']['bullet_2'] = ['F1']
         listing['field_fact_ids']['description'] = ['F1']
         data['facts'][0]['status'] = 'unconfirmed'
-        self.assertFalse(package_validator.validate(data)['ready_for_delivery'])
+        self.assertFalse(validate_legacy(data)['ready_for_delivery'])
 
     def test_fitment_products_require_confirmed_compatibility_in_front_end_copy(self):
         data = copy.deepcopy(self.listing_package())
@@ -461,7 +466,7 @@ class ListingTests(unittest.TestCase):
         listing['compatibility_terms'] = [
             'PAULTRA2', 'PureAir Ultra 2', '242047805', '5303918847', 'EAP12364179'
         ]
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('title must contain primary compatibility term' in error
                             for error in result['errors']))
@@ -537,13 +542,13 @@ class ListingTests(unittest.TestCase):
         data = copy.deepcopy(self.listing_package())
         listing = data['listings'][0]
         del listing['field_fact_ids']['description']
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('field_fact_ids.description must contain' in error
                             for error in result['errors']))
 
         listing['field_fact_ids']['description'] = ['F2']
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('references unknown fact F2' in error
                             for error in result['errors']))
 
@@ -634,13 +639,13 @@ class ListingTests(unittest.TestCase):
     def test_listing_package_requires_all_adopted_incremental_tokens(self):
         data = self.audited_listing_package()
         listing = data['listings'][0]
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('omits audited incremental tokens: wintermotiv' in error
                             for error in result['errors']))
 
         listing['search_terms'] += ' wintermotiv'
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
 
         # Additional real ASIN reverse lookups can supply distinct local terms.
         data['competitors'].append({
@@ -656,7 +661,7 @@ class ListingTests(unittest.TestCase):
             'decision': 'adopt', 'local_volume_claimed': False,
         })
         listing['search_terms'] += ' wanddeko'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(any('SellerSprite audit source_asin' in error
                              for error in result['errors']))
         self.assertFalse(any('omits audited incremental tokens: wanddeko' in error
@@ -666,7 +671,7 @@ class ListingTests(unittest.TestCase):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['bullets'][0] = 'Lieferumfang: Nur ein kurzer Satz.'
         data['listings'][0]['search_terms'] = 'dekoration, papier papier'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('bullet 1 must use' in error for error in result['errors']))
         self.assertTrue(any('must not contain punctuation' in error for error in result['errors']))
@@ -675,7 +680,7 @@ class ListingTests(unittest.TestCase):
     def test_listing_package_enforces_incremental_search_terms(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['search_terms'] = 'Dekoartikel und Papier ' + ('ä' * 120)
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('must be lowercase' in error for error in result['errors']))
         self.assertTrue(any('contains stop words: und' in error for error in result['errors']))
@@ -685,13 +690,13 @@ class ListingTests(unittest.TestCase):
     def test_item_highlights_is_required_and_included_in_front_end_deduplication(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['item_highlights'] = ''
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('item_highlights is empty' in error for error in result['errors']))
 
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['search_terms'] = 'innenraum'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('repeats front-end tokens: innenraum' in error
                             for error in result['errors']))
@@ -704,10 +709,10 @@ class ListingTests(unittest.TestCase):
         fact['source'] = {
             'asin': 'B012345678', 'field': 'bullet_2', 'user_message': '同款确认'
         }
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
 
         fact['same_product_confirmed'] = False
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('lacks explicit same-product confirmation' in error
                             for error in result['errors']))
@@ -728,7 +733,7 @@ class ListingTests(unittest.TestCase):
         listing['claim_fact_ids'].append('F2')
         listing['field_fact_ids']['description'].append('F2')
         data['mappings'][0]['fact_ids'].append('F2')
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
 
     def test_bullet_copy_has_no_artificial_maximum(self):
         data = copy.deepcopy(self.listing_package())
@@ -740,7 +745,7 @@ class ListingTests(unittest.TestCase):
             'und mit vorhandenen Dekorationen kombinieren, ohne dass eine feste Reihenfolge '
             'oder ein bestimmter Aufbau erforderlich ist.'
         )
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
 
     def test_listing_package_rejects_repeated_bullet_sentences(self):
         data = copy.deepcopy(self.listing_package())
@@ -751,7 +756,7 @@ class ListingTests(unittest.TestCase):
         data['listings'][0]['bullets'][0] = (
             f'📦【Flexible Platzierung】{repeated}. {repeated}.'
         )
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('repeats the same sentence' in error
                             for error in result['errors']))
@@ -762,26 +767,26 @@ class ListingTests(unittest.TestCase):
             '📦【Klarer Lieferumfang】Die Variante enthält die angegebenen Teile. '
             'Der Inhalt lässt sich vorab überblicken.'
         )
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('more than 200 visible characters' in error
                             for error in result['errors']))
 
     def test_listing_package_requires_three_core_keywords_and_optional_scene(self):
         data = copy.deepcopy(self.listing_package())
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
         data['listings'][0]['title_keywords'] = ['Dekoration', 'Papierdekoration']
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('title_keywords must contain exactly 3 distinct phrases' in error
                             for error in result['errors']))
         data['listings'][0]['title_keywords'] = ['Dekoration', 'Papierdekoration', 'Festschmuck', 'Feierdeko']
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('title_keywords must contain exactly 3 distinct phrases' in error
                             for error in result['errors']))
         data = copy.deepcopy(self.listing_package())
         data['keywords'][2]['is_core'] = False
         data['listings'][0]['title_scene'] = 'für Hochzeiten'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('title keyword is not marked as core: Festschmuck' in error
                             for error in result['errors']))
@@ -791,7 +796,7 @@ class ListingTests(unittest.TestCase):
     def test_short_title_is_valid_without_size_padding(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['title'] = 'Dekoration, Papierdekoration und Festschmuck für Feiern'
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
 
     def test_item_highlights_below_target_is_editorial_warning(self):
         data = copy.deepcopy(self.listing_package())
@@ -799,7 +804,7 @@ class ListingTests(unittest.TestCase):
             'Dekoration aus Papier für Tisch und Regal mit klarer Form und '
             'flexibler Platzierung bei saisonalen Feiern'
         )
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(result['ready_for_delivery'])
         self.assertTrue(any('120-125 editorial target' in warning
                             for warning in result['warnings']))
@@ -809,17 +814,17 @@ class ListingTests(unittest.TestCase):
         listing = data['listings'][0]
         listing['title_scene'] = ''
         listing['title'] = 'Dekoration, Papierdekoration und Festschmuck, 33 x 183 cm'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('title_size_term must match' in error for error in result['errors']))
         self.assertTrue(any('title_size_reason must record' in error for error in result['errors']))
         listing['title_size_term'] = '33 x 183 cm'
         listing['title_size_reason'] = 'B012345678 title: Table runner 33 x 183 cm'
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
         listing['title'] = '33 x 183 cm Dekoration, Papierdekoration und Festschmuck'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('title size must appear at the end' in error for error in result['errors']))
         listing['title'] = 'Dekoration 10 cm, Papierdekoration und Festschmuck, 33 x 183 cm'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('title may contain at most one size group' in error
                             for error in result['errors']))
 
@@ -834,7 +839,7 @@ class ListingTests(unittest.TestCase):
             '2. Form: Dekoration. 3. Anlass: Feiern. '
             'Produktdetails: Material: Papier. Lieferumfang: 1 Dekoration.'
         )
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('must not use title_color_terms when color_mode is multi' in error
                             for error in result['errors']))
@@ -846,7 +851,7 @@ class ListingTests(unittest.TestCase):
         listing = data['listings'][0]
         listing['title'] = 'Dekoration,Papierdekoration und Festschmuck für Feiern'
         listing['notice_fact_ids'] = ['F1']
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('title uses non-standard punctuation spacing' in error
                             for error in result['errors']))
@@ -858,19 +863,19 @@ class ListingTests(unittest.TestCase):
         listing = data['listings'][0]
         listing['title_quantity'] = 12
         listing['title_quantity_term'] = '12 Stück'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('title quantity must immediately precede' in error
                             for error in result['errors']))
 
         listing['title'] = ('12 Stück Dekoration, Dekoration aus Papier und Festschmuck '
                             'für Feiern')
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
 
         listing['title_quantity'] = 1
         listing['title_quantity_term'] = '1 Stück'
         listing['title'] = '1 Dekoration, Papierdekoration und Festschmuck für Feiern'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('title_quantity_term must be empty' in error
                             for error in result['errors']))
@@ -884,7 +889,7 @@ class ListingTests(unittest.TestCase):
         listing['title_quantity_term'] = '8'
         listing['title'] = '8 Dekoration, Papierdekoration und Festschmuck für Feiern'
         listing['item_highlights'] = '8 Dekoration aus Papier für Tisch und Regal mit klarer Form'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('item_highlights repeats the title pack quantity'
                             in error for error in result['errors']))
         self.assertTrue(package_validator.repeats_pack_count_in_highlights(
@@ -894,6 +899,73 @@ class ListingTests(unittest.TestCase):
             'Sacs cadeaux de Noël avec 8 motifs pour différentes occasions',
             8, '8', ['sacs cadeaux de Noël']))
 
+    @classmethod
+    def localized_search_package(cls):
+        data = cls.audited_listing_package()
+        data['search_term_policy_version'] = 3
+        data['listings'][0]['search_terms'] += ' wintermotiv'
+        data['competitors'][0]['title'] += ' Winter motif'
+        data['title_candidate_audit'] = {'all_user_references': [{'asin': 'B012345678'}]}
+        for audit, original in zip(data['search_term_audits'],
+                                   ['paper ornaments hanging decoration', 'Winter motif']):
+            audit.update(source_phrase=original, source_marketplace='US',
+                         source_language='en', target_language='de', localization_method='ai',
+                         search_marketplace='DE', search_query=audit['phrase'],
+                         search_evidence='internal/de-local-query-results.json',
+                         specificity='product_specific', product_match_reason='Matches the paper ornament product type.')
+        data['listings'][0]['search_term_expansion'] = {
+            'queries': [a['phrase'] for a in data['search_term_audits']],
+            'reviewed_phrases': [a['phrase'] for a in data['search_term_audits']],
+            'shortfall_reason': 'All original title and reverse-ASIN concepts were localized; available incremental terms are included.',
+        }
+        return data
+
+    def test_ai_localized_keywords_can_supply_incremental_terms(self):
+        data = self.localized_search_package()
+        self.assertTrue(package_validator.validate(data, require_current_search_policy=True)['ready_for_delivery'])
+        data['listings'][0]['search_terms'] = 'dekoartikel schmuckanhänger festbedarf'
+        self.assertTrue(any('omits audited incremental tokens: wintermotiv' in e
+                            for e in package_validator.validate(data)['errors']))
+
+    def test_foreign_language_is_not_an_exclusion_reason(self):
+        data = self.localized_search_package()
+        audit = data['search_term_audits'][0]
+        audit.update(decision='exclude', exclusion_reason='English term; no European local volume')
+        del audit['localization_method']
+        errors = package_validator.validate(data)['errors']
+        self.assertTrue(any('must AI-localize' in e for e in errors))
+        self.assertTrue(any('source language and absent local volume are not exclusion reasons' in e for e in errors))
+        audit.update(localization_method='ai', decision='adopt', search_query=audit['source_phrase'])
+        self.assertTrue(any('must search the localized phrase' in e
+                            for e in package_validator.validate(data)['errors']))
+        audit.update(search_query=audit['phrase'], phrase=audit['source_phrase'])
+        self.assertTrue(any('unchanged foreign phrase requires' in e
+                            for e in package_validator.validate(data)['errors']))
+
+    def test_shortfall_needs_per_candidate_and_all_reference_review(self):
+        data = self.localized_search_package()
+        expansion = data['listings'][0]['search_term_expansion']
+        del expansion['reviewed_phrases']
+        self.assertTrue(any('shortfall requires reviewed_phrases' in e
+                            for e in package_validator.validate(data)['errors']))
+        expansion['reviewed_phrases'] = [a['phrase'] for a in data['search_term_audits']]
+        data['title_candidate_audit']['all_user_references'].append({'asin': 'B087654321'})
+        self.assertTrue(any('shortfall omits reference-title localization: B087654321' in e
+                            for e in package_validator.validate(data)['errors']))
+        audit = data['search_term_audits'][1]
+        audit.update(decision='exclude', exclusion_reason='front_end_covered', exclusion_detail='Already in the title')
+        self.assertTrue(any('front_end_covered exclusion has uncovered localized tokens: wintermotiv' in e
+                            for e in package_validator.validate(data)['errors']))
+        audit['source_phrase'] = 'Invented original phrase'
+        self.assertTrue(any('original search-term source_phrase must exist' in e
+                            for e in package_validator.validate(data)['errors']))
+
+    def test_delivery_cannot_use_legacy_search_policy(self):
+        data = self.audited_listing_package()
+        data['search_term_policy_version'] = 2
+        errors = package_validator.validate(data)['errors']
+        self.assertTrue(any('Delivery requires search_term_policy_version=3' in e for e in errors))
+
     def test_search_terms_v2_requires_expansion_before_accepting_short_field(self):
         data = self.audited_listing_package()
         data['search_term_policy_version'] = 2
@@ -902,27 +974,27 @@ class ListingTests(unittest.TestCase):
         for audit in data['search_term_audits']:
             audit.update(specificity='product_specific',
                          product_match_reason='The full phrase matches the product type and intended use.')
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(any('below 240 bytes requires' in e for e in result['errors']))
         for invalid in (None, [], {'queries': [''], 'shortfall_reason': 'short'},
                         {'queries': ['actual query'], 'shortfall_reason': ''}):
             listing['search_term_expansion'] = invalid
-            self.assertFalse(package_validator.validate(data)['ready_for_delivery'])
+            self.assertFalse(validate_legacy(data)['ready_for_delivery'])
         listing['search_term_expansion'] = {
             'queries': ['DE reference titles and additional paper ornament reverse-ASIN candidates'],
             'shortfall_reason': 'Other audited terms overlap front-end copy or describe different structures.',
         }
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
         audit = data['search_term_audits'][0]
         audit.update(relevant_results=12, relevance_band='medium')
         self.assertTrue(any('only high-relevance' in e
-                            for e in package_validator.validate(data)['errors']))
+                            for e in validate_legacy(data)['errors']))
         audit.update(relevant_results=16, relevance_band='high', specificity='generic')
         self.assertTrue(any('not generic' in e
-                            for e in package_validator.validate(data)['errors']))
+                            for e in validate_legacy(data)['errors']))
         audit.update(specificity='product_specific', product_match_reason='')
         self.assertTrue(any('product_match_reason' in e
-                            for e in package_validator.validate(data)['errors']))
+                            for e in validate_legacy(data)['errors']))
 
     def test_search_terms_v2_byte_limits_count_utf8(self):
         data = self.listing_package()
@@ -931,12 +1003,12 @@ class ListingTests(unittest.TestCase):
         # Synthetic terms isolate the byte boundaries from semantic review.
         for byte_count in (239, 240, 249, 250):
             listing['search_terms'] = 'é' * (byte_count // 2) + ('x' if byte_count % 2 else '')
-            errors = package_validator.validate(data)['errors']
+            errors = validate_legacy(data)['errors']
             self.assertEqual(any('below 240 bytes requires' in e for e in errors), byte_count < 240)
             self.assertEqual(any('maximum is 249' in e for e in errors), byte_count > 249)
         data['search_term_policy_version'] = True
         self.assertTrue(any('search_term_policy_version must be' in e
-                            for e in package_validator.validate(data)['errors']))
+                            for e in validate_legacy(data)['errors']))
 
     def test_search_terms_v2_rejects_false_byte_limit_exclusion(self):
         data = self.audited_listing_package()
@@ -950,16 +1022,16 @@ class ListingTests(unittest.TestCase):
         last = data['search_term_audits'][-1]
         last.update(decision='exclude', exclusion_reason='byte_limit')
         self.assertTrue(any('byte_limit exclusion still fits' in e
-                            for e in package_validator.validate(data)['errors']))
+                            for e in validate_legacy(data)['errors']))
         last['phrase'] = 'é' * 130
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
         last.update(phrase='dekoration', exclusion_reason='front_end_covered')
-        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        self.assertTrue(validate_legacy(data)['ready_for_delivery'])
 
     def test_short_search_terms_prompts_more_research_without_inventing_words(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['search_terms'] = 'dekoartikel festbedarf'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(result['ready_for_delivery'])
         self.assertTrue(any('search_terms has only 2 distinct tokens'
                             in warning for warning in result['warnings']))
@@ -971,7 +1043,7 @@ class ListingTests(unittest.TestCase):
         data['listings'][0]['bullets'] = ['Only one']
         data['listings'][0]['description'] = 'Eigenschaften:\n1. A: B\nProduktdetails:\nLieferumfang:'
         data['listings'][0]['title'] += ' B012345678'
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('source_type must be own_product, same_product_evidence, or material_match_evidence' in error
                             for error in result['errors']))
@@ -1081,7 +1153,7 @@ class ClauseSourceTests(unittest.TestCase):
     def test_v2_full_package_requires_clause_sources(self):
         data = ListingTests.listing_package()
         data['source_mapping_version'] = 2
-        self.assertTrue(any('clause_sources must map' in error for error in package_validator.validate(data)['errors']))
+        self.assertTrue(any('clause_sources must map' in error for error in validate_legacy(data)['errors']))
 
     def test_v2_full_package_with_complete_sources(self):
         import re
@@ -1103,10 +1175,10 @@ class ClauseSourceTests(unittest.TestCase):
                 listing['description_reference'] = reference
             else:
                 listing['bullet_references'].append(reference)
-        result = package_validator.validate(data)
+        result = validate_legacy(data)
         self.assertTrue(result['ready_for_delivery'], result['errors'])
         listing['title'] += ' extra'
-        self.assertTrue(any('without source coverage' in error for error in package_validator.validate(data)['errors']))
+        self.assertTrue(any('without source coverage' in error for error in validate_legacy(data)['errors']))
 
 
     def test_description_cannot_use_only_own_facts_when_references_exist(self):

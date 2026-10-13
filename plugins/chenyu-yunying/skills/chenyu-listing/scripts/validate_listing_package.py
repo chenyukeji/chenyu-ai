@@ -768,13 +768,56 @@ def validate_numbered_bullet_references(errors, market, variant_id, listing, com
                 errors.append(f'{market}/{variant_id} bullet {index} cites missing competitor point: {asin.upper()} 第{number}点')
 
 
-def validate(data):
+def validate_search_localization(errors, audit):
+    """Check the source-to-local-query record, not the translation's semantics."""
+    label = f"search term audit {audit.get('marketplace')}/{audit.get('variant_id')}"
+    target = MARKETS.get(audit.get('marketplace'), ('', ()))[0].split('-')[0]
+    source_phrase = audit.get('source_phrase')
+    source_language = audit.get('source_language')
+    if not isinstance(audit.get('phrase'), str) or not audit['phrase'].strip():
+        errors.append(f'{label} requires a non-empty localized phrase')
+    if not isinstance(source_phrase, str) or not source_phrase.strip():
+        errors.append(f'{label} requires the original source_phrase')
+    if not isinstance(source_language, str) or not re.fullmatch(r'[a-z]{2}', source_language):
+        errors.append(f'{label} requires source_language as a two-letter language code')
+    if audit.get('target_language') != target:
+        errors.append(f'{label} target_language must be {target}')
+    if source_language != target:
+        if audit.get('localization_method') != 'ai':
+            errors.append(f'{label} must AI-localize foreign source terms before review')
+        if (isinstance(source_phrase, str)
+                and words(source_phrase) == words(audit.get('phrase', ''))
+                and not str(audit.get('localization_note') or '').strip()):
+            errors.append(f'{label} unchanged foreign phrase requires a local-usage explanation')
+    if (audit.get('search_marketplace') != audit.get('marketplace')
+            or not words(audit.get('phrase', ''))
+            or words(audit.get('search_query', '')) != words(audit.get('phrase', ''))):
+        errors.append(f'{label} must search the localized phrase in the target marketplace')
+    if not isinstance(audit.get('search_evidence'), str) or not audit['search_evidence'].strip():
+        errors.append(f'{label} requires search_evidence for the actual local query')
+    if audit.get('decision') not in ('adopt', 'exclude'):
+        errors.append(f'{label} decision must be adopt or exclude')
+    if audit.get('decision') == 'exclude':
+        if audit.get('exclusion_reason') not in (
+                'front_end_covered', 'product_mismatch', 'low_relevance', 'byte_limit'):
+            errors.append(f'{label} exclusion must be based on localized coverage, product match, relevance or bytes; source language and absent local volume are not exclusion reasons')
+        detail = audit.get('exclusion_detail')
+        if not isinstance(detail, str) or not detail.strip():
+            errors.append(f'{label} requires candidate-specific exclusion_detail')
+        if (audit.get('exclusion_reason') == 'low_relevance'
+                and audit.get('relevance_band') == 'high'):
+            errors.append(f'{label} cannot exclude a high-relevance phrase as low_relevance')
+
+
+def validate(data, *, require_current_search_policy=True):
     errors, warnings = [], []
     search_policy = data.get('search_term_policy_version', 1)
-    if type(search_policy) is not int or search_policy not in (1, 2):
-        errors.append('search_term_policy_version must be 1 or 2')
-    if search_policy == 1:
-        warnings.append('Legacy search-term policy: upgrade to search_term_policy_version=2 for specific high-relevance terms and expansion review')
+    if type(search_policy) is not int or search_policy not in (1, 2, 3):
+        errors.append('search_term_policy_version must be 1, 2 or 3')
+    if require_current_search_policy and search_policy != 3:
+        errors.append('Delivery requires search_term_policy_version=3 with AI localization and candidate-level expansion review')
+    if search_policy in (1, 2):
+        warnings.append('Legacy search-term policy: upgrade to search_term_policy_version=3 before delivery')
     mapping_version = data.get('source_mapping_version', 1)
     if mapping_version not in (1, 2):
         errors.append('source_mapping_version must be 1 or 2')
@@ -848,6 +891,8 @@ def validate(data):
     for audit in search_term_audits:
         key = (audit.get('marketplace'), audit.get('variant_id'))
         audits_by_key.setdefault(key, []).append(audit)
+        if search_policy == 3:
+            validate_search_localization(errors, audit)
         source_asin = str(audit.get('source_asin', '')).strip()
         if not ASIN.fullmatch(source_asin):
             errors.append(f'search term audit {key[0]}/{key[1]} requires a valid source_asin')
@@ -888,7 +933,7 @@ def validate(data):
             errors.append(
                 f'search term audit {key[0]}/{key[1]} must not adopt a low-relevance phrase'
             )
-        if search_policy == 2 and audit.get('decision') == 'adopt':
+        if search_policy in (2, 3) and audit.get('decision') == 'adopt':
             if expected_band != 'high':
                 errors.append(f'search term audit {key[0]}/{key[1]} must adopt only high-relevance phrases')
             if audit.get('specificity') != 'product_specific':
@@ -1375,7 +1420,7 @@ def validate(data):
                     'target 240–249 when supported: expand omitted reference-title terms and '
                     'high-relevance reverse-ASIN keywords, never generic filler'
                 )
-                if search_policy == 2:
+                if search_policy in (2, 3):
                     expansion = listing.get('search_term_expansion')
                     expansion = expansion if isinstance(expansion, dict) else {}
                     queries = expansion.get('queries')
@@ -1475,6 +1520,45 @@ def validate(data):
                                 f'{market}/{variant_id} title-term audit source_asin must '
                                 'match a competitor record'
                             )
+                    if search_policy == 3:
+                        for audit in audits:
+                            phrase_tokens = set(words(audit.get('phrase', '')))
+                            incremental = (phrase_tokens - front_end_words
+                                           - SEARCH_TERMS_STOP_WORDS.get(market, set()))
+                            if (audit.get('decision') == 'exclude'
+                                    and audit.get('exclusion_reason') == 'front_end_covered'
+                                    and incremental):
+                                errors.append(
+                                    f'{market}/{variant_id} front_end_covered exclusion has '
+                                    f'uncovered localized tokens: {", ".join(sorted(incremental))}'
+                                )
+                            if audit.get('source_tool') in ('reference_title_terms', 'same_category_title_terms'):
+                                source_phrase = audit.get('source_phrase', '')
+                                source_asin = str(audit.get('source_asin', '')).upper()
+                                if not any(str(c.get('asin', '')).upper() == source_asin
+                                           and source_phrase and contains(str(c.get('title', '')), source_phrase)
+                                           for c in competitors):
+                                    errors.append(f'{market}/{variant_id} original search-term source_phrase must exist in its reference title')
+                        if byte_count < SEARCH_TERMS_TARGET_BYTES:
+                            expansion = listing.get('search_term_expansion')
+                            expansion = expansion if isinstance(expansion, dict) else {}
+                            reviewed = expansion.get('reviewed_phrases')
+                            phrases = {str(a.get('phrase', '')).strip() for a in audits}
+                            if (not isinstance(reviewed, list) or not reviewed
+                                    or any(not isinstance(p, str) or not p.strip() for p in reviewed)
+                                    or {p.strip() for p in reviewed} != phrases):
+                                errors.append(f'{market}/{variant_id} shortfall requires reviewed_phrases matching all localized candidate audits')
+                            reference_audit = data.get('title_candidate_audit')
+                            references = reference_audit.get('all_user_references') if isinstance(reference_audit, dict) else None
+                            if (not isinstance(references, list) or not references
+                                    or any(not isinstance(ref, dict) or not ASIN.fullmatch(str(ref.get('asin', ''))) for ref in references)):
+                                errors.append(f'{market}/{variant_id} shortfall requires all_user_references to verify title-source coverage')
+                            else:
+                                title_asins = {str(a.get('source_asin', '')).upper() for a in audits
+                                               if a.get('source_tool') == 'reference_title_terms'}
+                                missing_titles = {str(ref['asin']).upper() for ref in references} - title_asins
+                                if missing_titles:
+                                    errors.append(f'{market}/{variant_id} shortfall omits reference-title localization: {", ".join(sorted(missing_titles))}')
                     adopted_tokens = {
                         token
                         for audit in adopted_audits
@@ -1497,7 +1581,7 @@ def validate(data):
                             f'{market}/{variant_id} search_terms omits audited incremental '
                             f'tokens: {", ".join(unused_adopted)}'
                         )
-                    if search_policy == 2:
+                    if search_policy in (2, 3):
                         for audit in audits:
                             if (audit.get('decision') != 'exclude'
                                     or audit.get('exclusion_reason') != 'byte_limit'):
@@ -1601,7 +1685,8 @@ def main():
     parser.add_argument('input', type=Path)
     parser.add_argument('--out', type=Path, required=True)
     args = parser.parse_args()
-    result = validate(json.loads(args.input.read_text(encoding='utf-8-sig')))
+    result = validate(json.loads(args.input.read_text(encoding='utf-8-sig')),
+                      require_current_search_policy=True)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open('x', encoding='utf-8') as output:
         json.dump(result, output, ensure_ascii=False, indent=2)
