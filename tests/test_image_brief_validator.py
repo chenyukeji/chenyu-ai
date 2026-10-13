@@ -779,3 +779,57 @@ def test_size_can_omit_extra_panel_with_a_concrete_design_reason():
     for reason in ('', '   ', None):
         size['supporting_visual']['design_reason'] = reason
         assert not VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def multivariant_package():
+    data = integrated_package()
+    product = copy.deepcopy(data['products'][0])
+    product.update(id='V2', product_content_image_id='product-v2', own_main_image_id='product-v2')
+    data['products'].append(product)
+    for task in data['image_tasks']:
+        task['product_ids'] = ['V1', 'V2']
+        task['output_count'] = 2
+        task['output_groups'] = [
+            {'id': task['id'] + '-' + pid, 'product_ids': [pid], 'replacements': '使用' + pid + '的产品图'}
+            for pid in ['V1', 'V2']
+        ]
+        task['instructions'] += '；使用V1的产品图；使用V2的产品图'
+    data['image_tasks'][0]['product_image_ids'].append('product-v2')
+    return data
+
+
+def test_multivariant_rows_preserve_two_outputs_per_layout():
+    data = multivariant_package()
+    result = VALIDATOR.validate(data)
+    assert result['ready_for_delivery'], result['errors']
+    assert sum(t['output_count'] for t in data['image_tasks']) == 12
+
+
+def test_multivariant_missing_output_route_and_wrong_count_fail():
+    for mutation in ['missing', 'count', 'duplicate', 'unknown', 'id']:
+        data = multivariant_package()
+        task = data['image_tasks'][1]
+        if mutation == 'missing':
+            del task['output_groups']
+        elif mutation == 'count':
+            task['output_count'] = 1
+        elif mutation == 'duplicate':
+            task['output_groups'][1]['product_ids'] = ['V1']
+        elif mutation == 'unknown':
+            task['output_groups'][1]['product_ids'] = ['V3']
+        else:
+            task['output_groups'][1]['id'] = task['output_groups'][0]['id']
+        assert not VALIDATOR.validate(data)['ready_for_delivery'], mutation
+
+
+def test_shared_output_requires_evidence_and_counts_once():
+    data = multivariant_package()
+    task = data['image_tasks'][1]
+    task['output_count'] = 1
+    task['output_groups'] = [{'id': 'shared-detail', 'product_ids': ['V1', 'V2'], 'replacements': '展示共用的同款结构'}]
+    task['instructions'] += '；展示共用的同款结构；V1与V2共用同一成品'
+    assert not VALIDATOR.validate(data)['ready_for_delivery']
+    task['output_groups'][0]['shared_reason'] = '两变体的开发资料确认图中可见的结构和文字完全一致'
+    result = VALIDATOR.validate(data)
+    assert result['ready_for_delivery'], result['errors']
+    assert sum(t['output_count'] for t in data['image_tasks']) == 11

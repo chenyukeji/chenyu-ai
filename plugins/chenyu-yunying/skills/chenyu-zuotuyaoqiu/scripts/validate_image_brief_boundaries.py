@@ -649,11 +649,56 @@ def validate_visual_contract(image_brief, errors):
                             errors.append(f'$.image_tasks[{task_id}] final instructions omit scene {key}: {value}')
 
 
+def validate_output_groups(image_brief, errors):
+    """Check explicit outputs independently of layout rows and product coverage."""
+    seen = set()
+    for index, task in enumerate(image_brief.get('image_tasks', [])):
+        if not isinstance(task, dict):
+            continue  # The visual contract reports malformed task entries.
+        products = task.get('product_ids', [])
+        if not _non_empty_strings(products):
+            continue
+        groups = task.get('output_groups')
+        required = image_brief.get('schema_version') == 3 and len(products) > 1
+        if groups is None and not required and 'output_count' not in task:
+            continue  # Single-product and legacy packages remain readable.
+        path = f'$.image_tasks[{index}]'
+        if not isinstance(groups, list) or not groups:
+            errors.append(f'{path}.output_groups must explicitly list independent outputs')
+            continue
+        count = task.get('output_count')
+        if type(count) is not int or count != len(groups):
+            errors.append(f'{path}.output_count must equal the number of output_groups')
+        covered = []
+        for group in groups:
+            if not isinstance(group, dict):
+                errors.append(f'{path}.output_groups entries must be objects')
+                continue
+            gid = group.get('id')
+            if not isinstance(gid, str) or not gid.strip() or gid in seen:
+                errors.append(f'{path}.output_groups id must be non-empty and globally unique')
+            else:
+                seen.add(gid)
+            ids = group.get('product_ids')
+            if not _non_empty_strings(ids):
+                errors.append(f'{path}.output_groups product_ids must be non-empty')
+                continue
+            covered.extend(ids)
+            replacement = group.get('replacements')
+            if not isinstance(replacement, str) or not replacement.strip() or replacement not in str(task.get('instructions', '')):
+                errors.append(f'{path}.output_groups replacements must appear in final instructions')
+            if len(ids) > 1 and (not isinstance(group.get('shared_reason'), str) or not group['shared_reason'].strip()):
+                errors.append(f'{path}.output_groups shared output requires shared_reason')
+        if sorted(covered) != sorted(products) or len(set(covered)) != len(covered):
+            errors.append(f'{path}.output_groups must cover each product exactly once')
+
+
 def validate(image_brief):
     errors, warnings = [], []
     image_strings = list(walk_strings(image_brief))
 
     validate_visual_contract(image_brief, errors)
+    validate_output_groups(image_brief, errors)
 
     for path, value in image_strings:
         if COPY_FIELD_STRUCTURE.search(value):
