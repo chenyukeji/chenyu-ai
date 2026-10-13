@@ -133,7 +133,7 @@ def test_keyword_only_evidence_stays_in_json_and_workbook_has_one_sheet(monkeypa
     from openpyxl import load_workbook
     wb=load_workbook(result['workbook']['path'])
     evidence=json.loads((tmp_path/'selection-evidence.json').read_text())
-    assert result['status']=='COMPLETE' and wb.sheetnames==['开品结果']
+    assert result['status']=='PARTIAL' and result['counts']['shortfall']==50 and wb.sheetnames==['开品结果']
     assert wb.active.max_row==1
     assert evidence['keywords']['directions'][0]['absolute_change']==200
     assert len(evidence['keywords']['directions'][0]['history'])==2
@@ -533,7 +533,7 @@ def test_resume_adds_evidence_to_workbook_and_clears_partial_status(monkeypatch,
     from openpyxl import load_workbook
     monkeypatch.setattr(flow, 'collect_query', lambda *args: {
         'collection_status': 'complete', 'records': [product()]})
-    response = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path),
+    response = flow.run_selection({'scope': {**scope(['sellersprite_new']), 'shortlist_limit': 1}, 'run_dir': str(tmp_path),
                                    'as_of_date': '2026-10-13', 'enrich': False})
     plain = review(response['analysis_requests'][0])
     response = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [plain]})
@@ -548,3 +548,41 @@ def test_resume_adds_evidence_to_workbook_and_clears_partial_status(monkeypatch,
     evidence = json.loads(Path(response['evidence_path']).read_text())
     assert evidence['reviews'][0]['review_analysis']['samples'][0]['text'] == 'The fan is noisy.'
     assert flow.run_selection({'run_dir': str(tmp_path)})['status'] == 'COMPLETE'
+
+
+@pytest.mark.parametrize('target, expected', [(50, 46), (10, 6), (None, None)])
+def test_fully_analyzed_four_products_do_not_complete_larger_target(monkeypatch, tmp_path, target, expected):
+    from test_product_evidence import analysis
+    from copy import deepcopy
+    rows = [product(asin=f'B{i:09d}') for i in range(4)]
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': rows})
+    values = scope(['sellersprite_new'])
+    if target != 50:
+        values['shortlist_limit'] = target
+    response = flow.run_selection({'scope': values, 'run_dir': str(tmp_path),
+                                    'as_of_date': '2026-10-13', 'enrich': False})
+    reviews = []
+    for item in response['analysis_requests']:
+        data = deepcopy(analysis())
+        for point in data['lifecycle_analysis']['history'] + data['review_analysis']['samples']:
+            point['asin'] = item['asin']
+        reviews.append({**data, **review(item)})
+    response = flow.run_selection({'run_dir': str(tmp_path), 'reviews': reviews})
+    assert response['counts']['target'] == target
+    assert response['counts']['accepted'] == 4
+    assert response['counts']['shortfall'] == expected
+    assert response['status'] == ('COMPLETE' if target is None else 'PARTIAL')
+
+
+def test_missing_history_requests_real_collection_and_reuses_saved_points(monkeypatch, tmp_path):
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': [product()]})
+    response = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path), 'enrich': False})
+    response = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(response['analysis_requests'][0])]})
+    assert response['product_evidence_requests'][0]['skill_action'] == 'collect_product_evidence'
+    assert response['product_evidence_requests'][0]['asins'] == ['B012345678']
+    cached = {'marketplace': 'US', 'asin': 'B012345678', 'history': [{'month': '2026-01', 'estimated_sales': 58}]}
+    (tmp_path / 'product-history-US-B012345678.json').write_text(json.dumps(cached))
+    response = flow.run_selection({'run_dir': str(tmp_path)})
+    assert response['product_history'] == [cached]
+    assert not response['product_evidence_requests']
+    assert response['analysis_gaps']  # Collection never pretends to be semantic analysis.

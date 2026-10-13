@@ -975,7 +975,7 @@ def handle(payload: dict) -> dict:
             "ok": True,
             "skill": "chenyu-xuanpin",
             "purpose": "选品、分析评分并生成开品表格",
-            "actions": ["plan_selection", "run_selection", "resume_selection", "resolve_selection_input", "status", "list_strategies", "resolve_request", "analyze_new_releases_db", "run_discovery_flow", "resume_discovery_flow", "enrich_sellersprite", "browser_status", "browser_login_sellersprite"],
+            "actions": ["plan_selection", "run_selection", "resume_selection", "resolve_selection_input", "collect_product_evidence", "status", "list_strategies", "resolve_request", "analyze_new_releases_db", "run_discovery_flow", "resume_discovery_flow", "enrich_sellersprite", "browser_status", "browser_login_sellersprite"],
         }
     if action == "list_strategies":
         return {"ok": True, "strategies": list_strategies(load_rules())}
@@ -985,6 +985,9 @@ def handle(payload: dict) -> dict:
         return analyze_new_releases_database(payload)
     if action in {"run_discovery_flow", "resume_discovery_flow"}:
         return run_discovery_flow(payload)
+    if action == "collect_product_evidence":
+        from sellersprite_product_evidence import collect_product_evidence
+        return collect_product_evidence(payload)
     if action == "enrich_sellersprite":
         updated = dict(payload)
         discovery = dict(updated.get("discovery") or {})

@@ -432,6 +432,34 @@ def run_selection(payload):
             'pending_parent':sum(not p.get('verified_parent_asin') for p in shortlisted),'keywords':len(report['keywords']['directions'])},
             'coverage':[{'source':r['query']['source'],'marketplace':r['query'].get('marketplace'),
                          'status':r.get('collection_status'),'reason':r.get('block_reason'),'rows':len(r.get('records',[]))} for r in results]}
+    target = plan.get('shortlist_limit', 50)
+    shortfall = max(0, target - output['counts']['accepted']) if target is not None else None
+    output['counts'].update(target=target, shortfall=shortfall)
+    output['product_history'] = []
+    output['product_evidence_requests'] = []
+    for review in reviews:
+        if not review['relevant']:
+            continue
+        key = (review['marketplace'], review['asin'])
+        if key not in eligible_ids:
+            continue
+        history_path = folder / f'product-history-{key[0]}-{key[1]}.json'
+        history = json.loads(history_path.read_text()) if history_path.exists() else {}
+        if (history.get('marketplace'), history.get('asin')) == key and history.get('history'):
+            output['product_history'].append(history)
+        elif not (review.get('lifecycle_analysis') or {}).get('history'):
+            output['product_evidence_requests'].append({
+                'skill_action': 'collect_product_evidence', 'marketplace': key[0],
+                'asins': [key[1]], 'run_dir': str(folder), 'as_of_date': plan['as_of_date']})
+    if shortfall:
+        output['next_required_action'] = (
+            f'目标{target}个已核实父体，当前{output["counts"]["accepted"]}个，还缺{shortfall}个。'
+            '继续审阅、补数或按原范围扩大查询；不得用固定ASIN名单批量淘汰。'
+            '已穷尽来源或遇到实际访问限制时，保留PARTIAL并说明尝试与缺口。')
+        if output['status'] == 'COMPLETE':
+            output['status'] = 'PARTIAL'
+    if output['product_evidence_requests']:
+        output['evidence_next_action'] = '先调用collect_product_evidence读取销量趋势表，再提交有实际月度点的lifecycle_analysis；不能只检查查竞品首页文字就认定无历史。'
     if not waiting and not pending and not plan['blocking_items'] and (products or report['keywords']['directions']):
         eligible=[p for p in shortlisted if p.get('verified_parent_asin') and product_identity(p) in review_index
                   and not any(c['status']=='fail' for c in p.get('filter_checks',[]))]

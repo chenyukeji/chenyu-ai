@@ -92,3 +92,14 @@ def test_review_counts_require_unique_real_sample_mappings(problem):
     if problem == 'wrong_market': reviews['samples'][0]['marketplace'] = 'DE'
     if problem == 'no_scope': del reviews['sampling_scope']
     with pytest.raises(ValueError): analysis_columns(item(), data, '2026-10-13')
+
+
+def test_lower_bound_sales_are_disclosed_in_workbook_evidence():
+    data = analysis()
+    for point in data['lifecycle_analysis']['history']:
+        point.update(value_kind='lower_bound', sales_display='100+')
+    result = analysis_columns(item(), data, '2026-10-13')
+    assert any('下限值' in note for note in result['analysis_notes'])
+    data['lifecycle_analysis']['history'][0]['value_kind'] = 'exact'
+    with pytest.raises(ValueError, match='销量下限'):
+        analysis_columns(item(), data, '2026-10-13')

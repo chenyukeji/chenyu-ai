@@ -62,6 +62,8 @@ def analysis_columns(item, review, as_of_date=None):
             if month in months:
                 raise ValueError('同月历史销量不得重复或父子体相加')
             months.add(month)
+            if point.get('value_kind', 'estimate') not in ('estimate', 'lower_bound'):
+                raise ValueError('历史销量必须标明估算值或销量下限')
             series.add((point['asin'], point['sales_scope']))
             sources.add(str(point['source_ref']))
         if len(series) > 1:
@@ -80,6 +82,8 @@ def analysis_columns(item, review, as_of_date=None):
         if months:
             labels = sorted(str(p['month']) for p in history)
             notes.append(f'历史月销依据：{labels[0]}至{labels[-1]}，{len(months)}个完整月；' + '、'.join(sorted(sources)))
+            if any(p.get('value_kind') == 'lower_bound' for p in history):
+                notes.append('销量含网页显示的下限值（加号），不代表精确销量，不能据此计算精确增长率。')
 
     comments = review.get('review_analysis')
     comment_state = _state(comments, 'review_analysis')
