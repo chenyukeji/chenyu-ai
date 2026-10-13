@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Extract XLSX text and original drawing media without assigning semantic roles."""
+"""Extract XLS/XLSX brief text and candidates; extract drawing media for XLSX."""
 import argparse
 import hashlib
 import json
 import posixpath
-import re
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
+from brief_candidates import add_candidates
 
 NS = {
     's': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
@@ -83,15 +83,89 @@ def marker(anchor, tag):
     return {c.tag.split('}')[-1]: int(c.text) for c in node}
 
 
+def cell_address(row, col):
+    letters = ''
+    while col:
+        col, remainder = divmod(col - 1, 26)
+        letters = chr(65 + remainder) + letters
+    return letters + str(row)
+
+
+def inspect_cell(result, sheet, cell):
+    text = str(cell['value']) + ' ' + str(cell.get('formula') or '')
+    if 'DISPIMG' in text.upper() or 'IMAGE(' in text.upper():
+        result['warnings'].append({'kind': 'image_formula_requires_review', 'sheet': sheet, 'cell': cell['cell']})
+    if cell.get('type') == 'e':
+        result['warnings'].append({'kind': 'cell_error_requires_review', 'sheet': sheet, 'cell': cell['cell'], 'value': cell['value']})
+
+
+def extract_xls(source, result):
+    try:
+        import xlrd
+    except ImportError as exc:
+        raise ValueError('Legacy .xls text extraction requires xlrd (python -m pip install xlrd). '
+                         'Alternatively convert a temporary copy to .xlsx and verify original text and images.') from exc
+    try:
+        book = xlrd.open_workbook(str(source), formatting_info=True, on_demand=True)
+    except xlrd.XLRDError as exc:
+        raise ValueError('Cannot read legacy .xls: ' + str(exc)) from exc
+    try:
+        for sheet in book.sheets():
+            cells = []
+            for row in range(sheet.nrows):
+                for col, cell in enumerate(sheet.row(row)):
+                    if cell.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
+                        continue
+                    value = cell.value
+                    typ = str(cell.ctype)
+                    if cell.ctype == xlrd.XL_CELL_ERROR:
+                        value = xlrd.error_text_from_code.get(value, str(value))
+                        typ = 'e'
+                    elif cell.ctype == xlrd.XL_CELL_NUMBER and value.is_integer():
+                        value = int(value)
+                    entry = {'cell': cell_address(row + 1, col + 1), 'value': str(value), 'type': typ, 'formula': None}
+                    cells.append(entry)
+                    inspect_cell(result, sheet.name, entry)
+            info = {
+                'name': sheet.name, 'part': None, 'cells': cells,
+                'merged_ranges': [cell_address(r1 + 1, c1 + 1) + ':' + cell_address(r2, c2)
+                                  for r1, r2, c1, c2 in sheet.merged_cells],
+                'columns': [], 'rows': [],
+            }
+            add_candidates(info)
+            result['sheets'].append(info)
+    finally:
+        book.release_resources()
+    result['warnings'].append({
+        'kind': 'legacy_xls_media_not_extracted',
+        'details': 'Only cell values and merged ranges read; formulas may be cached values. '
+                   'Drawing images, WPS cell images, objects and anchors remain unverified. '
+                   'Convert a copy or inspect the original with a spreadsheet/OLE tool; empty images does not mean no images.',
+    })
+
+
 def extract(source, out):
-    if source.suffix.lower() != '.xlsx':
-        raise ValueError('Only .xlsx is supported. Convert legacy .xls on a copy and verify images separately.')
+    with source.open('rb') as stream:
+        signature = stream.read(8)
+    # OLE may contain a ZIP attachment that also passes is_zipfile().
+    if signature == bytes.fromhex('d0cf11e0a1b11ae1'):
+        source_format = 'xls'
+    elif zipfile.is_zipfile(source):
+        source_format = 'xlsx'
+    else:
+        raise ValueError('Unsupported workbook content; expected XLSX ZIP or legacy XLS/OLE, regardless of extension.')
     if out.exists() and any(out.iterdir()):
         raise ValueError('Output directory must be empty; use a new run directory.')
     out.mkdir(parents=True, exist_ok=True)
     media_dir = out / 'media'
     media_dir.mkdir(exist_ok=True)
     result = {'source': str(source.resolve()), 'sheets': [], 'media': [], 'images': [], 'embedded_objects': [], 'warnings': [], 'anchor_units': 'row/col are zero-based; offsets and extents are EMU'}
+    result['source_format'] = source_format
+    if source_format == 'xls':
+        extract_xls(source, result)
+        result['unplaced_media'] = []
+        (out / 'manifest.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+        return result
     with zipfile.ZipFile(source) as z:
         names = z.namelist()
         if 'xl/workbook.xml' not in names:
@@ -153,16 +227,16 @@ def extract(source, out):
                     value = ''.join(t.text or '' for t in c.findall('.//s:t', NS))
                 formula = c.findtext('s:f', namespaces=NS)
                 if value or formula:
-                    cells.append({'cell': c.get('r'), 'value': value, 'type': typ, 'formula': formula})
-                if formula and ('DISPIMG' in formula.upper() or 'IMAGE(' in formula.upper()):
-                    result['warnings'].append({'kind': 'image_formula_requires_review', 'sheet': sh.get('name'), 'cell': c.get('r')})
+                    entry = {'cell': c.get('r'), 'value': value, 'type': typ, 'formula': formula}
+                    cells.append(entry)
+                    inspect_cell(result, sh.get('name'), entry)
             info = {
                 'name': sh.get('name'), 'part': part, 'cells': cells,
                 'merged_ranges': [m.get('ref') for m in root.findall('s:mergeCells/s:mergeCell', NS)],
                 'columns': [dict(c.attrib) for c in root.findall('s:cols/s:col', NS)],
                 'rows': [dict(r.attrib) for r in root.findall('s:sheetData/s:row', NS)],
-                'task_marker_candidates': [c for c in cells if re.fullmatch(r'(?:第\s*[零一二三四五六七八九十百\d]+\s*张|图\s*\d+)', c['value'].strip())],
             }
+            add_candidates(info)
             result['sheets'].append(info)
             sr = relationships(z, part)
             for extrel in sr.values():
