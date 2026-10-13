@@ -13,6 +13,7 @@ import re
 from category_sources import normalize_url
 from selection_analysis import analyze_keywords, merge_products, summarize_products, balanced_shortlist, group_product_families, product_identity
 import selection_collectors as collectors
+from product_evidence import ANALYSIS_REQUIREMENTS, analysis_columns
 from strategy_h import target_months
 
 SOURCES = ('amazon_new_releases', 'sellersprite_new', 'sellersprite_surge',
@@ -147,18 +148,17 @@ def original_style_rows(rows, report):
         summary = re.split(r'[。；;]', analysis, maxsplit=1)[0].strip()
         if not re.search(r'[\u3400-\u9fff]', summary):
             summary = ''
-        category = str(row.get('所在品类') or '')
-        if '圣诞' in category or 'christmas' in category.casefold():
-            lifecycle = '10–12月（圣诞季，需复核）'
-        elif '万圣' in category or 'halloween' in category.casefold():
-            lifecycle = '8–10月（万圣节季，需复核）'
-        else:
-            lifecycle = '需结合历史趋势复核'
+        item = products.get((row['站点'], row['ASIN'])) or {'marketplace': row['站点'], 'asin': row['ASIN']}
+        review = next((r for r in report.get('reviews', [])
+                       if (r.get('marketplace'), r.get('asin')) == (row['站点'], row['ASIN'])), {})
+        evidence = analysis_columns(item, review, report.get('plan', {}).get('as_of_date'))
         priority = row.get('优先级') or ''
         conclusion = {'优先研究': '🟢 优先研究', '继续观察': '🟡 继续观察',
                       '低优先级': '🔴 低优先级', '待补数据': '🟡 待补数据',
                       '待核对相关性': '🟡 待核对相关性'}.get(priority, priority)
-        reasons = [analysis]
+        reasons = [analysis, *evidence['analysis_notes']]
+        if evidence['analysis_missing']:
+            reasons.append("分析缺项：" + "；".join(evidence['analysis_missing']))
         for label, key in (('命中来源', '命中来源'), ('历史命中月份', '历史命中月份'),
                            ('关联关键词', '关联关键词'), ('证据缺项', '证据缺项')):
             if row.get(key):
@@ -167,7 +167,7 @@ def original_style_rows(rows, report):
                        'Review数量': row.get('评论量'), '售价（当地币种）': row.get('售价'),
                        '大品类排名': current.get('bsr'), '所在品类': row.get('所在品类'),
                        '预估月销量': row.get('当前预估月销量'), '产品优点&特征': summary,
-                       '缺点': '', '生命周期': lifecycle, 'ASIN': row['ASIN'],
+                       '缺点': evidence['缺点'], '生命周期': evidence['生命周期'], 'ASIN': row['ASIN'],
                        '亚马逊产品链接': row.get('亚马逊产品链接'), '图片': row.get('图片'),
                        '结论': conclusion, '理由': '\n'.join(x for x in reasons if x)})
     return result
@@ -362,6 +362,10 @@ def run_selection(payload):
     if any((r.get('marketplace'),r.get('asin')) not in known or type(r.get('relevant')) is not bool
            or not r.get('reason') for r in submitted):
         raise ValueError('reviews 必须对应本次父体代表商品，包含 relevant 布尔值和证据理由')
+    for review in submitted:
+        if review['relevant']:
+            item = next(p for p in shortlisted if product_identity(p) == (review['marketplace'], review['asin']))
+            analysis_columns(item, review, plan['as_of_date'])
     if submitted and payload.get('evidence_id') is not None:
         current_keywords = analyze_keywords([row for result in results
             if result['query']['source'] == 'keyword_trends' for row in result.get('records', [])], plan['as_of_date'])
@@ -401,7 +405,7 @@ def run_selection(payload):
         reviews = [r for r in reviews if (r['marketplace'], r['asin']) in unchanged]
     keyword_records=[r for result in results if result['query']['source']=='keyword_trends' for r in result.get('records',[])]
     report={'version':VERSION,'plan':plan,'results':results,'products':products,'families':shortlisted,
-            'keywords':analyze_keywords(keyword_records,plan['as_of_date']), 'pending_queries':pending,
+            'keywords':analyze_keywords(keyword_records,plan['as_of_date']), 'reviews': reviews, 'pending_queries':pending,
             'candidate_count':len(products),'family_count':len(shortlisted),'shortlist_count':len(shortlisted)}
     write_json(folder/'selection-evidence.json',report)
     evidence_id=query_id({'context':review_context,'products':shortlisted,'keywords':report['keywords']})
@@ -421,6 +425,7 @@ def run_selection(payload):
                     if p.get('verified_parent_asin') and not any(c['status'] == 'fail' for c in p.get('filter_checks', []))}
     output={'ok':True,'status':status,'run_dir':str(folder),'evidence_path':str(folder/'selection-evidence.json'),
             'blocking_items':plan['blocking_items'],'pending_queries':pending,'analysis_requests':waiting,
+            'analysis_requirements': ANALYSIS_REQUIREMENTS,
             'evidence_id':evidence_id,'counts':{'products':len(products),'shortlist':len(shortlisted),'families':len(shortlisted),
             'reviewed':len(reviews),'remaining':len(eligible_ids - set(review_index)),
             'accepted':sum(r['relevant'] for r in reviews if (r['marketplace'], r['asin']) in eligible_ids),
@@ -433,6 +438,13 @@ def run_selection(payload):
         if plan.get('shortlist_limit') is not None:
             eligible = [p for p in eligible if review_index[product_identity(p)]['relevant']][:plan['shortlist_limit']]
         rows=summarize_products(eligible,reviews)
+        output['analysis_gaps'] = [
+            {'marketplace': p['marketplace'], 'asin': p['asin'], 'missing': evidence['analysis_missing']}
+            for p in eligible if review_index[product_identity(p)]['relevant']
+            if (evidence := analysis_columns(p, review_index[product_identity(p)], plan['as_of_date']))['analysis_missing']
+        ]
+        if output['analysis_gaps']:
+            output['status'] = 'PARTIAL'
         missing={(p['marketplace'],p['asin']) for p in eligible if any(c['status']=='missing' for c in p.get('filter_checks',[]))}
         for row in rows:
             if (row['站点'],row['ASIN']) in missing: row['优先级']='待补数据';row['证据缺项']+='；筛选条件无法完整核实'

@@ -55,6 +55,8 @@
 
 `AWAITING_ANALYSIS`：读取 `selection-evidence.json` 和本批 `analysis_requests`，对每个父体代表商品填写 `reviews`：`marketplace`、`asin`、`relevant`（布尔值）、`priority`（优先研究/继续观察/低优先级）、`reason`。不相关商品用 `relevant=false` 并写原因。以相同 `run_dir`、返回的 `evidence_id` 和本批 `reviews` 调用 `resume_selection`；程序累计审核记录并返回下一批，继续直到没有待审候选或达到用户明确指定的通过数量。不能把一批完成当作整个任务完成。历史任务先审阅指定月份有证据的父体，并轮流覆盖不同关键词，当前宽类新品不得挤掉历史候选。理由说明用户范围匹配、可核验的需求/销量/竞争证据、季节窗口及关键缺项。缺关键当前数据时不能强推，程序会保留待补数据。
 
+每个入选商品同时按 [历史销量与评论证据](product-evidence.md) 补取月销量曲线与评论正文，并在 `reviews` 中提交 `lifecycle_analysis`、`review_analysis`。`analysis_requirements` 会提示所需材料；这不依赖是否启用历史飙升榜来源。只有当前指标、未提交两项分析时导出 `PARTIAL`，`analysis_gaps` 指明缺项；不能将此结果描述为分析完成。
+
 审阅同时核对：品牌需求与通用品需求、当前搜索走势和历史季节回升、父子体销量口径、近期上架商品实际表现、同类相关性。商品不足必须有产品/评论证据，不能凭低销量编造缺点。搜索排名变化不是搜索量变化；缺少月份不填零；只有样本时不计算全市场垄断率；新品榜数据库与实时同一榜单不重复计作独立证据。
 
 `associations` 可补充有来源的关键词与商品对应关系：`marketplace/asin/keyword/relation/source_ref`。只有商品确实相关时才用于解释；同一个关键词在多个商品中不能重复算作市场规模。

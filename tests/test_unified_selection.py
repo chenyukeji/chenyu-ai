@@ -155,7 +155,7 @@ def test_changed_scope_does_not_reuse_reviews(monkeypatch,tmp_path):
     monkeypatch.setattr(flow,'collect_query',lambda *args:{'collection_status':'complete','records':[product()]})
     p={'scope':scope(['sellersprite_new']),'run_dir':str(tmp_path),'as_of_date':'2026-10-11','enrich':False,
        'reviews':[{'marketplace':'US','asin':'B012345678','relevant':True,'priority':'继续观察','reason':'本次商品用途与圣诞装饰相关'}]}
-    assert flow.run_selection(p)['status']=='COMPLETE'
+    assert flow.run_selection(p)['status']=='PARTIAL'  # Sales/review analysis still missing.
     p.pop('reviews');p['scope']['categories'][0]['keywords']['US']=['birthday decorations']
     assert flow.run_selection(p)['status']=='AWAITING_ANALYSIS'
 
@@ -193,8 +193,8 @@ def test_unified_workbook_restores_original_main_table(monkeypatch, tmp_path):
     assert [cell.value for cell in ws[1]] == HEADERS
     assert ws.cell(2, 5).value == 47302
     assert ws.cell(2, 8).value == '圣诞树挂饰具有手作特点'
-    assert ws.cell(2, 9).value is None
-    assert ws.cell(2, 10).value == '10–12月（圣诞季，需复核）'
+    assert ws.cell(2, 9).value == '未读取评论，尚未完成缺点分析'
+    assert ws.cell(2, 10).value == '未取得历史月销量，尚不能判断销售窗口'
     assert ws.cell(2, 14).value == '🟢 优先研究'
     assert ws.cell(2, 15).value.startswith('圣诞树挂饰')
     assert ws.cell(1, 1).fill.fgColor.rgb == '00C6E0B4'
@@ -291,7 +291,8 @@ def test_default_fifty_or_explicit_all_in_resumable_batches(monkeypatch, tmp_pat
                                 'reviews': [review(p) for p in r['analysis_requests']]})
         assert r['counts']['reviewed'] == expected_reviewed
         assert len(r['analysis_requests']) == expected_next
-    assert r['status'] == 'COMPLETE' and r['workbook']['row_count'] == (125 if unlimited else 50)
+    assert r['status'] == 'PARTIAL'  # Sales/review analysis still missing.
+    assert r['analysis_gaps'] and r['workbook']['row_count'] == (125 if unlimited else 50)
     assert len(calls) == 1
 
 
@@ -370,7 +371,8 @@ def test_enrichment_advances_with_review_batches_without_requerying_previous_bat
         assert all(p['current']['price'] == 20 for p in r['analysis_requests'])
         r = flow.run_selection({'run_dir': str(tmp_path), 'evidence_id': r['evidence_id'],
                                 'reviews': [review(p) for p in r['analysis_requests']]})
-    assert r['status'] == 'COMPLETE' and r['workbook']['row_count'] == 5
+    assert r['status'] == 'PARTIAL'  # Sales/review analysis still missing.
+    assert r['analysis_gaps'] and r['workbook']['row_count'] == 5
     assert list(map(len, calls)) == [2, 2, 1]
 
 
@@ -379,7 +381,8 @@ def test_refresh_invalidates_reviews_when_product_evidence_changes(monkeypatch, 
     monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': rows})
     r = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path), 'enrich': False})
     r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
-    assert r['status'] == 'COMPLETE'
+    assert r['status'] == 'PARTIAL'  # Sales/review analysis still missing.
+    assert r['analysis_gaps']
     rows[0]['estimated_sales'] = 0
     r = flow.run_selection({'run_dir': str(tmp_path), 'refresh': True})
     assert r['status'] == 'AWAITING_ANALYSIS' and r['counts']['reviewed'] == 0
@@ -523,3 +526,25 @@ def test_complete_lookup_without_parent_does_not_prevent_parent_retry(monkeypatc
     assert r['counts']['pending_parent'] == 1
     r = flow.run_selection({'run_dir': str(tmp_path)})
     assert len(calls) == 2 and r['counts']['pending_parent'] == 0
+
+
+def test_resume_adds_evidence_to_workbook_and_clears_partial_status(monkeypatch, tmp_path):
+    from test_product_evidence import analysis
+    from openpyxl import load_workbook
+    monkeypatch.setattr(flow, 'collect_query', lambda *args: {
+        'collection_status': 'complete', 'records': [product()]})
+    response = flow.run_selection({'scope': scope(['sellersprite_new']), 'run_dir': str(tmp_path),
+                                   'as_of_date': '2026-10-13', 'enrich': False})
+    plain = review(response['analysis_requests'][0])
+    response = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [plain]})
+    assert response['status'] == 'PARTIAL' and response['analysis_gaps']
+    completed = {**plain, **analysis()}
+    response = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [completed]})
+    assert response['status'] == 'COMPLETE' and response['analysis_gaps'] == []
+    wb = load_workbook(response['workbook']['path'])
+    assert '所读样本 1/2 条' in wb.active.cell(2, 9).value
+    assert wb.active.cell(2, 10).value == completed['lifecycle_analysis']['summary']
+    wb.close()
+    evidence = json.loads(Path(response['evidence_path']).read_text())
+    assert evidence['reviews'][0]['review_analysis']['samples'][0]['text'] == 'The fan is noisy.'
+    assert flow.run_selection({'run_dir': str(tmp_path)})['status'] == 'COMPLETE'
