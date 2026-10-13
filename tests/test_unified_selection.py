@@ -193,8 +193,8 @@ def test_unified_workbook_restores_original_main_table(monkeypatch, tmp_path):
     assert [cell.value for cell in ws[1]] == HEADERS
     assert ws.cell(2, 5).value == 47302
     assert ws.cell(2, 8).value == '圣诞树挂饰具有手作特点'
-    assert ws.cell(2, 9).value == '未读取评论，尚未完成缺点分析'
-    assert ws.cell(2, 10).value == '未取得历史月销量，尚不能判断销售窗口'
+    assert ws.cell(2, 9).value is None
+    assert ws.cell(2, 10).value is None
     assert ws.cell(2, 14).value == '🟢 优先研究'
     assert ws.cell(2, 15).value.startswith('圣诞树挂饰')
     assert ws.cell(1, 1).fill.fgColor.rgb == '00C6E0B4'

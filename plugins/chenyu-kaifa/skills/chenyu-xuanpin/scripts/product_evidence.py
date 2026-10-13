@@ -9,7 +9,7 @@ from selection_analysis import month_index, number
 
 ANALYSIS_REQUIREMENTS = {
     'lifecycle_analysis': '读取卖家精灵该商品历史月销量，优先24个月、至少12个完整连续月；写可售窗口与旺淡季，不用榜单命中月份或关键词热度替代。结构见 references/product-evidence.md。',
-    'review_analysis': '读取真实买家评论，记录原文、日期、星级、来源和变体；按独立评论归纳产品缺点及样本频次。无权限/无数据须记录实际阻塞，不得留空冒充已分析。',
+    'review_analysis': '读取真实买家评论，记录原文、日期、星级、来源和变体；按独立评论归纳产品缺点及样本频次。无权限/无数据时缺点列留空，实际阻塞记录到任务证据，不能标为已分析。',
 }
 
 
@@ -41,7 +41,7 @@ def analysis_columns(item, review, as_of_date=None):
     missing = []
     notes = []
     if life_state == 'missing':
-        life_text = '未取得历史月销量，尚不能判断销售窗口'
+        life_text = ''
         missing.append('历史销量分析未提交')
     else:
         history = lifecycle.get('history') or []
@@ -73,10 +73,9 @@ def analysis_columns(item, review, as_of_date=None):
                 raise ValueError('历史销量分析缺少 summary')
             life_text = lifecycle['summary']
         else:
-            prefix = '历史不足' if life_state == 'insufficient' else '历史数据未取得'
-            life_text = f"{prefix}：{lifecycle['reason']}"
-            if lifecycle.get('summary'):
-                life_text += f"；有限观察：{lifecycle['summary']}"
+            life_text = ''
+            if life_state == 'insufficient' and history and lifecycle.get('summary'):
+                life_text = f"有限观察：{lifecycle['summary']}"
             missing.append(f"生命周期：{lifecycle['reason']}")
         if months:
             labels = sorted(str(p['month']) for p in history)
@@ -85,10 +84,10 @@ def analysis_columns(item, review, as_of_date=None):
     comments = review.get('review_analysis')
     comment_state = _state(comments, 'review_analysis')
     if comment_state == 'missing':
-        cons = '未读取评论，尚未完成缺点分析'
+        cons = ''
         missing.append('评论分析未提交')
     elif comment_state != 'analyzed':
-        cons = f"评论分析未完成：{comments['reason']}"
+        cons = ''
         missing.append(f"评论：{comments['reason']}")
     else:
         samples = comments.get('samples')
@@ -121,7 +120,9 @@ def analysis_columns(item, review, as_of_date=None):
             if len(set(cited)) != len(cited) or not set(cited) <= ids:
                 raise ValueError('缺点引用了缺失或重复的评论')
             parts.append(f"{finding['summary']}（所读样本 {len(cited)}/{len(ids)} 条）")
-        cons = '；'.join(parts) if parts else f'已读{len(ids)}条评论，样本内未归纳出明确产品缺点'
+        cons = '；'.join(parts)
+        if not parts:
+            notes.append(f'已读{len(ids)}条评论，样本内未归纳出明确产品缺点')
         notes.append(f"评论采样范围：{comments['sampling_scope']}；样本频次不代表全部买家。")
         notes.append('评论依据：' + '、'.join(dict.fromkeys(str(s['source_ref']) for s in samples)))
     return {'生命周期': life_text, '缺点': cons, 'analysis_missing': missing, 'analysis_notes': notes}

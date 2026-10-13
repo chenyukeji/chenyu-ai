@@ -45,17 +45,20 @@ def test_evidence_reaches_original_workbook_columns():
 def test_missing_data_differs_from_reviewed_without_findings():
     missing = analysis_columns(item(), {}, '2026-10-13')
     assert len(missing['analysis_missing']) == 2
-    assert '未读取' in missing['缺点']
+    assert missing['缺点'] == missing['生命周期'] == ''
     done = analysis(); done['review_analysis']['findings'] = []
     reviewed = analysis_columns(item(), done, '2026-10-13')
-    assert '已读2条' in reviewed['缺点'] and not reviewed['analysis_missing']
+    assert reviewed['缺点'] == '' and not reviewed['analysis_missing']
+    assert any('已读2条' in note for note in reviewed['analysis_notes'])
 
 
 def test_unavailable_data_keeps_reason():
     blocked = {'lifecycle_analysis': {'status': 'unavailable', 'reason': '历史曲线权限不足'},
                'review_analysis': {'status': 'unavailable', 'reason': '评论页面要求验证'}}
     result = analysis_columns(item(), blocked, '2026-10-13')
-    assert '权限不足' in result['生命周期'] and '要求验证' in result['缺点']
+    assert result['生命周期'] == result['缺点'] == ''
+    assert any('权限不足' in reason for reason in result['analysis_missing'])
+    assert any('要求验证' in reason for reason in result['analysis_missing'])
     assert len(result['analysis_missing']) == 2
 
 
