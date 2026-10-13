@@ -1,4 +1,6 @@
 import importlib.util
+import sys
+from unittest.mock import patch
 import copy
 import tempfile
 import unittest
@@ -902,7 +904,7 @@ class ListingTests(unittest.TestCase):
     @classmethod
     def localized_search_package(cls):
         data = cls.audited_listing_package()
-        data['search_term_policy_version'] = 3
+        data['search_term_policy_version'] = 4
         data['listings'][0]['search_terms'] += ' wintermotiv'
         data['competitors'][0]['title'] += ' Winter motif'
         data['title_candidate_audit'] = {'all_user_references': [{'asin': 'B012345678'}]}
@@ -913,6 +915,11 @@ class ListingTests(unittest.TestCase):
                          search_marketplace='DE', search_query=audit['phrase'],
                          search_evidence='internal/de-local-query-results.json',
                          specificity='product_specific', product_match_reason='Matches the paper ornament product type.')
+        data['search_term_concepts'] = []
+        data['search_query_inventory'] = []
+        for index, audit in enumerate(data['search_term_audits']):
+            audit['concept_id'] = str(index)
+            data['search_term_concepts'].append({'id': str(index), 'source_phrase': audit['source_phrase'], 'meaning': 'Product-specific source concept'})
         data['listings'][0]['search_term_expansion'] = {
             'queries': [a['phrase'] for a in data['search_term_audits']],
             'reviewed_phrases': [a['phrase'] for a in data['search_term_audits']],
@@ -964,7 +971,70 @@ class ListingTests(unittest.TestCase):
         data = self.audited_listing_package()
         data['search_term_policy_version'] = 2
         errors = package_validator.validate(data)['errors']
-        self.assertTrue(any('Delivery requires search_term_policy_version=3' in e for e in errors))
+        self.assertTrue(any('Delivery requires search_term_policy_version=4' in e for e in errors))
+
+    def test_specific_source_supported_long_tail_does_not_need_majority_results(self):
+        data = self.localized_search_package()
+        audit = data['search_term_audits'][1]
+        audit.update(relevance_basis='source_product_match', relevance_fact_ids=['F1'],
+                     source_evidence='reference title and product material record',
+                     search_intent='same_product', relevant_results=3, relevance_band='low')
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        audit['relevance_fact_ids'] = ['invented']
+        self.assertTrue(any('applicable confirmed' in e for e in package_validator.validate(data)['errors']))
+        audit['relevance_fact_ids'] = ['F1']
+        audit['search_intent'] = 'different_product'
+        self.assertTrue(any('different-product search intent' in e for e in package_validator.validate(data)['errors']))
+        audit.update(search_intent='not_measured', relevance_band='not_measured',
+                     organic_results_checked=None, relevant_results=None)
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        audit['relevant_results'] = 20
+        self.assertTrue(any('invented counts' in e for e in package_validator.validate(data)['errors']))
+
+    def test_v4_search_concentration_is_not_an_adoption_gate(self):
+        data = self.localized_search_package()
+        audit = data['search_term_audits'][1]
+        audit.update(relevant_results=1, relevance_band='low')
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        audit.update(organic_results_checked=3, relevant_results=1)
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        audit['search_intent'] = 'different_product'
+        self.assertTrue(any('different-product search intent' in e
+                            for e in package_validator.validate(data)['errors']))
+
+    def test_research_inventory_and_prior_terms_cannot_be_silently_dropped(self):
+        data = self.localized_search_package()
+        data['search_query_inventory'] = [{'marketplace': 'DE', 'query': 'gedrehte Creolen'}]
+        data['listings'][0]['previous_search_terms'] = 'zuckerstangen'
+        data['search_term_concepts'].append({'id': 'candy', 'source_phrase': 'Candy', 'meaning': 'Candy theme'})
+        errors = package_validator.validate(data)['errors']
+        self.assertTrue(any('saved search query has no decision' in e for e in errors))
+        self.assertTrue(any('prior search terms removed without review' in e for e in errors))
+        self.assertTrue(any('omits source concepts: candy' in e for e in errors))
+
+    def test_search_packing_uses_utf8_and_keeps_filling_after_large_candidate(self):
+        with patch.dict(sys.modules, {'validate_listing_package': package_validator}):
+            packer = module('pack_search_terms')
+        result = packer.pack('FR', '<p>créoles de Noël</p>',
+                             ['créoles sucre orge', 'créoles multicolores', 'créoles étoile', 'créoles orge'], limit=18)
+        self.assertEqual(result['search_terms'], 'sucre orge étoile')
+        self.assertEqual(result['utf8_bytes'], 18)
+        self.assertEqual(result['decisions'][1]['exclusion_reason'], 'byte_limit')
+        self.assertEqual(result['decisions'][3]['decision'], 'adopt')
+        exact = packer.pack('FR', '', ['é' * 124, 'x'])
+        self.assertEqual(exact['utf8_bytes'], 248)
+        self.assertEqual(exact['decisions'][1]['exclusion_reason'], 'byte_limit')
+
+    def test_query_inventory_collects_queries_missing_from_final_review(self):
+        collector = module('collect_search_query_inventory')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'search-extra.json').write_text(
+                '{"ES2":{"url":"https://www.amazon.es/s?k=aros","query":"aros", "results":[]},'
+                '"FR":{"query":"créoles rondes","results":[]}}')
+            rows = collector.collect(root)
+            self.assertEqual({(r['marketplace'], r['query']) for r in rows},
+                             {('ES', 'aros'), ('FR', 'créoles rondes')})
 
     def test_search_terms_v2_requires_expansion_before_accepting_short_field(self):
         data = self.audited_listing_package()

@@ -7,7 +7,7 @@
 ```json
 {
   "source_mapping_version": 2,
-  "search_term_policy_version": 3,
+  "search_term_policy_version": 4,
   "targets": ["DE"],
   "variants": [{"id": "V1", "marketplaces": ["DE"]}],
   "facts": [
@@ -222,15 +222,17 @@
 
 ### search_term_audits
 
-必须同时遵守 [跨语言搜索词与短字段复核](search-localization.md) 的 v3 字段契约：每条保留 `source_phrase`、`source_language`、`target_language`、目标语言 `phrase`、`search_marketplace`、`search_query`、`search_evidence`；外语源使用 `localization_method=ai`，排除项用枚举原因和 `exclusion_detail`。不足 240 字节还需 `reviewed_phrases` 覆盖全部候选、标题来源覆盖 `all_user_references` 中所有有效参考。CLI 交付校验要求 v3，不能以旧版兼容模式交付。
+v4 新增概念台账 `search_term_concepts`、完整查询清单 `search_query_inventory`、审核关联 `concept_id`，重做须带 `previous_search_terms` 及必要的逐词排除记录。具体长尾可用 `source_product_match` 依据，不以精确款式在20条结果中的占比作为唯一入选条件。完整字段见跨语言复核末节。
+
+必须同时遵守 [跨语言搜索词与短字段复核](search-localization.md) 的 v4 字段契约：每条保留 `source_phrase`、`source_language`、`target_language`、目标语言 `phrase`；实际搜索时填写 `search_marketplace`、`search_query`、`search_evidence`，无需搜索的产品匹配路径保存来源与事实依据；外语源使用 `localization_method=ai`，排除项用枚举原因和 `exclusion_detail`。不足 240 字节还需 `reviewed_phrases` 覆盖全部候选、标题来源覆盖 `all_user_references` 中所有有效参考。CLI 交付校验要求 v4，不能以旧版兼容模式交付。
 
 - 每个含竞品证据的站点/变体保存卖家精灵反查、全部有效参考链接标题词以及 Amazon 搜索相关性记录；前台去重后有效词不足时，继续加入其他同类商品标题词。
 - 卖家精灵候选使用 `source_tool=sellersprite_reverse_asin`；必须包含 `primary_reference_asin` 的反查，补查其他相关 ASIN 时可增加记录，所有反查 `source_asin` 均须存在于 `competitors`。
 - 参考标题候选使用 `source_tool=reference_title_terms`、`source_field=title`，其 `source_asin` 必须存在于 `competitors`；可以来自任一有效参考链接，不限第一条。
 - 额外同类商品标题候选使用 `source_tool=same_category_title_terms`、`source_field=title`；对应 ASIN 与标题须加入 `competitors`，并先排除不同产品结构、用途、规格和配件词。此来源补充前两类，不替代全部有效参考链接的检查。
-- `organic_results_checked` 至少 20；`relevant_results / organic_results_checked` 不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。
-- 新生成或重做包设置顶层 `search_term_policy_version=3`。`decision=adopt` 只允许 `high`，并要求 `specificity=product_specific` 与非空 `product_match_reason`（具体解释产品类型、结构或用途匹配）；泛词即使自然位比例高也不采用。`medium` 先细化后再验证。跨站点数据必须设置 `local_volume_claimed=false`。旧包默认版本 1 可读取，但会收到升级提示，修改或交付须升级。
-- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元；反过来，已采用且前台未覆盖的有效词元也必须全部写入。有充足高相关词时目标 240–249 UTF-8 字节。低于 240 字节时每个 listing 必须保存 `search_term_expansion: {"queries": ["实际执行的补查站点、查询词或反查 ASIN"], "shortfall_reason": "补查后仍无法扩充的具体原因，对应候选及排除记录"}`；不允许空值或未执行的查询。短字段还须通过 v3 的逐候选排除与全部参考标题本地化覆盖检查，不强制填充泛词。超过上限时允许把放不下的合格候选记为 `decision=exclude`、`exclusion_reason=byte_limit`，按相关性和新增检索叫法择优；校验器拒绝仍可容纳的字节排除理由。来源审查与产品匹配为人工语义审核，脚本只能检查字段和数值。
+- 有搜索则 `organic_results_checked` 如实记录（可少于 20）；无搜索用 source_product_match，计数留 null，等级 not_measured。以下比例只作集中度记录，不作选词门槛：`relevant_results / organic_results_checked` 不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。
+- 新生成或重做包设置顶层 `search_term_policy_version=4`。`decision=adopt` 使用真实来源与本品适用性判断；搜索可采用任意集中度等级，无搜索用 `source_product_match` 的来源与事实依据，并要求 `specificity=product_specific` 与非空 `product_match_reason`（具体解释产品类型、结构或用途匹配）；泛词即使自然位比例高也不采用。不得仅因 `medium`/`low`、不足 20 条或未搜索而删除准确的产品候选。跨站点数据必须设置 `local_volume_claimed=false`。旧包默认版本 1 可读取，但会收到升级提示，修改或交付须升级。
+- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元；反过来，已采用且前台未覆盖的有效词元也必须全部写入。有充足高相关词时目标 240–249 UTF-8 字节。低于 240 字节时每个 listing 必须保存 `search_term_expansion: {"queries": ["实际执行的补查站点、查询词或反查 ASIN"], "shortfall_reason": "补查后仍无法扩充的具体原因，对应候选及排除记录"}`；不允许空值或未执行的查询。短字段还须通过 v4 的逐候选排除与全部参考标题本地化覆盖检查，不强制填充泛词。超过上限时允许把放不下的合格候选记为 `decision=exclude`、`exclusion_reason=byte_limit`，按相关性和新增检索叫法择优；校验器拒绝仍可容纳的字节排除理由。来源审查与产品匹配为人工语义审核，脚本只能检查字段和数值。
 
 ## 脚本
 

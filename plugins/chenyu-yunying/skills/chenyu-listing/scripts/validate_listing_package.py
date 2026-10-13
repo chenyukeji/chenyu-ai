@@ -768,7 +768,7 @@ def validate_numbered_bullet_references(errors, market, variant_id, listing, com
                 errors.append(f'{market}/{variant_id} bullet {index} cites missing competitor point: {asin.upper()} 第{number}点')
 
 
-def validate_search_localization(errors, audit):
+def validate_search_localization(errors, audit, *, source_supported=False):
     """Check the source-to-local-query record, not the translation's semantics."""
     label = f"search term audit {audit.get('marketplace')}/{audit.get('variant_id')}"
     target = MARKETS.get(audit.get('marketplace'), ('', ()))[0].split('-')[0]
@@ -789,11 +789,11 @@ def validate_search_localization(errors, audit):
                 and words(source_phrase) == words(audit.get('phrase', ''))
                 and not str(audit.get('localization_note') or '').strip()):
             errors.append(f'{label} unchanged foreign phrase requires a local-usage explanation')
-    if (audit.get('search_marketplace') != audit.get('marketplace')
+    if not source_supported and (audit.get('search_marketplace') != audit.get('marketplace')
             or not words(audit.get('phrase', ''))
             or words(audit.get('search_query', '')) != words(audit.get('phrase', ''))):
         errors.append(f'{label} must search the localized phrase in the target marketplace')
-    if not isinstance(audit.get('search_evidence'), str) or not audit['search_evidence'].strip():
+    if not source_supported and (not isinstance(audit.get('search_evidence'), str) or not audit['search_evidence'].strip()):
         errors.append(f'{label} requires search_evidence for the actual local query')
     if audit.get('decision') not in ('adopt', 'exclude'):
         errors.append(f'{label} decision must be adopt or exclude')
@@ -809,15 +809,72 @@ def validate_search_localization(errors, audit):
             errors.append(f'{label} cannot exclude a high-relevance phrase as low_relevance')
 
 
+def validate_search_coverage(data, errors):
+    """Reconcile raw research, semantic concepts and prior output with decisions."""
+    concepts = data.get('search_term_concepts')
+    inventory = data.get('search_query_inventory')
+    if not isinstance(concepts, list) or not concepts:
+        errors.append('search_term_concepts must list the source concepts before localization')
+        concepts = []
+    concept_ids = set()
+    for concept in concepts:
+        if (not isinstance(concept, dict) or not isinstance(concept.get('id'), str)
+                or not concept['id'].strip() or not str(concept.get('source_phrase') or '').strip()
+                or not str(concept.get('meaning') or '').strip()):
+            errors.append('search_term_concepts requires id, source_phrase and meaning')
+            continue
+        if concept['id'] in concept_ids:
+            errors.append('search_term_concepts has duplicate id: ' + concept['id'])
+        concept_ids.add(concept['id'])
+    if not isinstance(inventory, list):
+        errors.append('search_query_inventory must be collected from all saved query files')
+        inventory = []
+    for listing in data.get('listings', []):
+        market, variant = listing.get('marketplace'), listing.get('variant_id')
+        label = f'{market}/{variant}'
+        audits = [a for a in data.get('search_term_audits', [])
+                  if a.get('marketplace') == market and a.get('variant_id') == variant]
+        audited_ids = {a.get('concept_id') for a in audits}
+        if concept_ids - audited_ids:
+            errors.append(f'{label} omits source concepts: {", ".join(sorted(concept_ids - audited_ids))}')
+        if any(a.get('concept_id') not in concept_ids for a in audits):
+            errors.append(f'{label} audit must reference a known concept_id')
+        queried = {tuple(words(a.get('search_query', ''))) for a in audits if a.get('search_query')}
+        exclusions = listing.get('search_query_exclusions', [])
+        for entry in exclusions if isinstance(exclusions, list) else []:
+            if (isinstance(entry, dict) and entry.get('reason') in
+                    ('front_end_covered', 'product_mismatch', 'low_relevance', 'byte_limit', 'invalid_capture')
+                    and str(entry.get('detail') or '').strip()):
+                queried.add(tuple(words(entry.get('query', ''))))
+        for query in inventory:
+            if (isinstance(query, dict) and query.get('marketplace') == market
+                    and tuple(words(query.get('query', ''))) not in queried):
+                errors.append(f'{label} saved search query has no decision: {query.get("query", "")}')
+        previous = set(words(listing.get('previous_search_terms', '')))
+        front = ' '.join([str(listing.get('title', '')), str(listing.get('item_highlights', '')),
+                          *map(str, listing.get('bullets', [])),
+                          re.sub(r'<[^>]+>', ' ', str(listing.get('description', ''))),
+                          *map(str, listing.get('front_end_attributes', []))])
+        removed = previous - set(words(listing.get('search_terms', ''))) - set(words(front))
+        previous_exclusions = listing.get('previous_term_exclusions', [])
+        for entry in previous_exclusions if isinstance(previous_exclusions, list) else []:
+            if (isinstance(entry, dict) and entry.get('reason') in
+                    ('product_mismatch', 'low_relevance', 'byte_limit')
+                    and str(entry.get('detail') or '').strip()):
+                removed -= set(words(entry.get('term', '')))
+        if removed:
+            errors.append(f'{label} prior search terms removed without review: {", ".join(sorted(removed))}')
+
+
 def validate(data, *, require_current_search_policy=True):
     errors, warnings = [], []
     search_policy = data.get('search_term_policy_version', 1)
-    if type(search_policy) is not int or search_policy not in (1, 2, 3):
-        errors.append('search_term_policy_version must be 1, 2 or 3')
-    if require_current_search_policy and search_policy != 3:
-        errors.append('Delivery requires search_term_policy_version=3 with AI localization and candidate-level expansion review')
-    if search_policy in (1, 2):
-        warnings.append('Legacy search-term policy: upgrade to search_term_policy_version=3 before delivery')
+    if type(search_policy) is not int or search_policy not in (1, 2, 3, 4):
+        errors.append('search_term_policy_version must be 1, 2, 3 or 4')
+    if require_current_search_policy and search_policy != 4:
+        errors.append('Delivery requires search_term_policy_version=4 with AI localization and candidate-level expansion review')
+    if search_policy in (1, 2, 3):
+        warnings.append('Legacy search-term policy: upgrade to search_term_policy_version=4 before delivery')
     mapping_version = data.get('source_mapping_version', 1)
     if mapping_version not in (1, 2):
         errors.append('source_mapping_version must be 1 or 2')
@@ -891,8 +948,9 @@ def validate(data, *, require_current_search_policy=True):
     for audit in search_term_audits:
         key = (audit.get('marketplace'), audit.get('variant_id'))
         audits_by_key.setdefault(key, []).append(audit)
-        if search_policy == 3:
-            validate_search_localization(errors, audit)
+        source_supported = search_policy == 4 and audit.get('relevance_basis') == 'source_product_match'
+        if search_policy in (3, 4):
+            validate_search_localization(errors, audit, source_supported=source_supported)
         source_asin = str(audit.get('source_asin', '')).strip()
         if not ASIN.fullmatch(source_asin):
             errors.append(f'search term audit {key[0]}/{key[1]} requires a valid source_asin')
@@ -910,11 +968,35 @@ def validate(data, *, require_current_search_policy=True):
                 f'search term audit {key[0]}/{key[1]} from {source_tool} '
                 'must use source_field=title'
             )
+        if (search_policy == 4 and audit.get('decision') == 'adopt'
+                and audit.get('search_intent') == 'different_product'):
+            errors.append(f'search term audit {key[0]}/{key[1]} cannot adopt a different-product search intent')
+        if source_supported:
+            ids = audit.get('relevance_fact_ids')
+            valid_facts = {f.get('id') for f in facts if f.get('status') == 'confirmed'
+                           and f.get('source_type') in ('own_product', 'same_product_evidence', 'material_match_evidence')
+                           and (not f.get('variant_ids') or audit.get('variant_id') in f['variant_ids'])}
+            if (audit.get('decision') == 'adopt' and (not isinstance(ids, list) or not ids
+                    or any(not isinstance(i, str) or i not in valid_facts for i in ids))):
+                errors.append(f'search term audit {key[0]}/{key[1]} source_product_match requires applicable confirmed relevance_fact_ids')
+            if (not str(audit.get('source_evidence') or '').strip()
+                    or (audit.get('decision') == 'adopt' and (audit.get('specificity') != 'product_specific'
+                    or not str(audit.get('product_match_reason') or '').strip()))):
+                errors.append(f'search term audit {key[0]}/{key[1]} source_product_match requires specific source evidence and product match explanation')
+            if audit.get('decision') == 'adopt' and audit.get('search_intent') not in ('same_product', 'not_measured'):
+                errors.append(f'search term audit {key[0]}/{key[1]} source evidence cannot override a different-product search intent')
+            if audit.get('local_volume_claimed') is not False:
+                errors.append(f'search term audit {key[0]}/{key[1]} source evidence does not establish local search volume')
+            if audit.get('relevance_band') == 'not_measured':
+                if audit.get('organic_results_checked') is not None or audit.get('relevant_results') is not None:
+                    errors.append(f'search term audit {key[0]}/{key[1]} unmeasured search must not contain invented counts')
+                continue
         checked = audit.get('organic_results_checked')
         relevant = audit.get('relevant_results')
-        if (isinstance(checked, bool) or not isinstance(checked, int) or checked < 20):
+        minimum_checked = 1 if search_policy == 4 else 20
+        if (isinstance(checked, bool) or not isinstance(checked, int) or checked < minimum_checked):
             errors.append(
-                f'search term audit {key[0]}/{key[1]} must check at least 20 organic results'
+                f'search term audit {key[0]}/{key[1]} must check at least {minimum_checked} organic results'
             )
             continue
         if (isinstance(relevant, bool) or not isinstance(relevant, int)
@@ -929,12 +1011,12 @@ def validate(data, *, require_current_search_policy=True):
             errors.append(
                 f'search term audit {key[0]}/{key[1]} relevance_band must be {expected_band}'
             )
-        if audit.get('decision') == 'adopt' and expected_band == 'low':
+        if search_policy != 4 and audit.get('decision') == 'adopt' and expected_band == 'low':
             errors.append(
                 f'search term audit {key[0]}/{key[1]} must not adopt a low-relevance phrase'
             )
-        if search_policy in (2, 3) and audit.get('decision') == 'adopt':
-            if expected_band != 'high':
+        if search_policy in (2, 3, 4) and audit.get('decision') == 'adopt':
+            if search_policy != 4 and expected_band != 'high':
                 errors.append(f'search term audit {key[0]}/{key[1]} must adopt only high-relevance phrases')
             if audit.get('specificity') != 'product_specific':
                 errors.append(f'search term audit {key[0]}/{key[1]} must be product_specific, not generic')
@@ -1420,7 +1502,7 @@ def validate(data, *, require_current_search_policy=True):
                     'target 240–249 when supported: expand omitted reference-title terms and '
                     'high-relevance reverse-ASIN keywords, never generic filler'
                 )
-                if search_policy in (2, 3):
+                if search_policy in (2, 3, 4):
                     expansion = listing.get('search_term_expansion')
                     expansion = expansion if isinstance(expansion, dict) else {}
                     queries = expansion.get('queries')
@@ -1520,7 +1602,7 @@ def validate(data, *, require_current_search_policy=True):
                                 f'{market}/{variant_id} title-term audit source_asin must '
                                 'match a competitor record'
                             )
-                    if search_policy == 3:
+                    if search_policy in (3, 4):
                         for audit in audits:
                             phrase_tokens = set(words(audit.get('phrase', '')))
                             incremental = (phrase_tokens - front_end_words
@@ -1581,7 +1663,7 @@ def validate(data, *, require_current_search_policy=True):
                             f'{market}/{variant_id} search_terms omits audited incremental '
                             f'tokens: {", ".join(unused_adopted)}'
                         )
-                    if search_policy in (2, 3):
+                    if search_policy in (2, 3, 4):
                         for audit in audits:
                             if (audit.get('decision') != 'exclude'
                                     or audit.get('exclusion_reason') != 'byte_limit'):
@@ -1663,6 +1745,9 @@ def validate(data, *, require_current_search_policy=True):
         validate_field_fact_ids(
             errors, market, variant_id, listing, fact_by_id
         )
+
+    if search_policy == 4:
+        validate_search_coverage(data, errors)
 
     missing = sorted(expected - set(listing_by_key))
     for market, variant_id in missing:
