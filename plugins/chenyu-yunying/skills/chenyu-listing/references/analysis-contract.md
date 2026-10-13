@@ -7,6 +7,7 @@
 ```json
 {
   "source_mapping_version": 2,
+  "search_term_policy_version": 2,
   "targets": ["DE"],
   "variants": [{"id": "V1", "marketplaces": ["DE"]}],
   "facts": [
@@ -70,6 +71,8 @@
       "organic_results_checked": 20,
       "relevant_results": 16,
       "relevance_band": "high",
+      "specificity": "product_specific",
+      "product_match_reason": "完整短语指向铺在圣诞树底部的装饰垫，结构与用途匹配",
       "decision": "adopt",
       "local_volume_claimed": false
     },
@@ -84,6 +87,8 @@
       "organic_results_checked": 20,
       "relevant_results": 15,
       "relevance_band": "high",
+      "specificity": "product_specific",
+      "product_match_reason": "完整短语指向铺在圣诞树底部的装饰垫，结构与用途匹配",
       "decision": "adopt",
       "local_volume_claimed": false
     }
@@ -210,8 +215,8 @@
 - 参考标题候选使用 `source_tool=reference_title_terms`、`source_field=title`，其 `source_asin` 必须存在于 `competitors`；可以来自任一有效参考链接，不限第一条。
 - 额外同类商品标题候选使用 `source_tool=same_category_title_terms`、`source_field=title`；对应 ASIN 与标题须加入 `competitors`，并先排除不同产品结构、用途、规格和配件词。此来源补充前两类，不替代全部有效参考链接的检查。
 - `organic_results_checked` 至少 20；`relevant_results / organic_results_checked` 不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。
-- `decision=adopt` 不能用于 `low` 候选。跨站点数据必须设置 `local_volume_claimed=false`。
-- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元；反过来，已采用且前台未覆盖的有效词元也必须全部写入。最终只剩一两个不同词元时，校验器提示补查更多目标站点同类标题及相关 ASIN 反查；完成候选与排除审计后仍可留短，不虚构词。
+- 新生成或重做包设置顶层 `search_term_policy_version=2`。`decision=adopt` 只允许 `high`，并要求 `specificity=product_specific` 与非空 `product_match_reason`（具体解释产品类型、结构或用途匹配）；泛词即使自然位比例高也不采用。`medium` 先细化后再验证。跨站点数据必须设置 `local_volume_claimed=false`。旧包默认版本 1 可读取，但会收到升级提示，修改或交付须升级。
+- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元；反过来，已采用且前台未覆盖的有效词元也必须全部写入。有充足高相关词时目标 240–249 UTF-8 字节。低于 240 字节时每个 listing 必须保存 `search_term_expansion: {"queries": ["实际执行的补查站点、查询词或反查 ASIN"], "shortfall_reason": "补查后仍无法扩充的具体原因，对应候选及排除记录"}`；不允许空值或未执行的查询。短字段有真实补查和具体原因即可通过，不强制填充泛词。超过上限时允许把放不下的合格候选记为 `decision=exclude`、`exclusion_reason=byte_limit`，按相关性和新增检索叫法择优；校验器拒绝仍可容纳的字节排除理由。来源审查与产品匹配为人工语义审核，脚本只能检查字段和数值。
 
 ## 脚本
 

@@ -38,6 +38,7 @@ ITEM_HIGHLIGHTS_LIMIT = 125
 ITEM_HIGHLIGHTS_TARGET_MINIMUM = 120
 BULLET_BODY_MINIMUM = 201
 SEARCH_TERMS_MAX_BYTES = 249
+SEARCH_TERMS_TARGET_BYTES = 240
 BUYER_FACT_FIELDS = (
     'title', 'item_highlights', 'bullet_1', 'bullet_2', 'bullet_3',
     'bullet_4', 'bullet_5', 'description',
@@ -769,6 +770,11 @@ def validate_numbered_bullet_references(errors, market, variant_id, listing, com
 
 def validate(data):
     errors, warnings = [], []
+    search_policy = data.get('search_term_policy_version', 1)
+    if type(search_policy) is not int or search_policy not in (1, 2):
+        errors.append('search_term_policy_version must be 1 or 2')
+    if search_policy == 1:
+        warnings.append('Legacy search-term policy: upgrade to search_term_policy_version=2 for specific high-relevance terms and expansion review')
     mapping_version = data.get('source_mapping_version', 1)
     if mapping_version not in (1, 2):
         errors.append('source_mapping_version must be 1 or 2')
@@ -882,6 +888,14 @@ def validate(data):
             errors.append(
                 f'search term audit {key[0]}/{key[1]} must not adopt a low-relevance phrase'
             )
+        if search_policy == 2 and audit.get('decision') == 'adopt':
+            if expected_band != 'high':
+                errors.append(f'search term audit {key[0]}/{key[1]} must adopt only high-relevance phrases')
+            if audit.get('specificity') != 'product_specific':
+                errors.append(f'search term audit {key[0]}/{key[1]} must be product_specific, not generic')
+            reason = audit.get('product_match_reason')
+            if not isinstance(reason, str) or not reason.strip():
+                errors.append(f'search term audit {key[0]}/{key[1]} requires product_match_reason')
         if (audit.get('source_marketplace') != audit.get('marketplace')
                 and audit.get('local_volume_claimed') is not False):
             errors.append(
@@ -1355,6 +1369,25 @@ def validate(data):
                     f'{market}/{variant_id} search_terms must use single spaces as separators'
                 )
             byte_count = len(search_terms.encode('utf-8'))
+            if byte_count < SEARCH_TERMS_TARGET_BYTES:
+                warnings.append(
+                    f'{market}/{variant_id} search_terms uses only {byte_count} UTF-8 bytes; '
+                    'target 240–249 when supported: expand omitted reference-title terms and '
+                    'high-relevance reverse-ASIN keywords, never generic filler'
+                )
+                if search_policy == 2:
+                    expansion = listing.get('search_term_expansion')
+                    expansion = expansion if isinstance(expansion, dict) else {}
+                    queries = expansion.get('queries')
+                    reason = expansion.get('shortfall_reason')
+                    if (not isinstance(queries, list) or not queries
+                            or any(not isinstance(query, str) or not query.strip()
+                                   for query in queries)
+                            or not isinstance(reason, str) or not reason.strip()):
+                        errors.append(
+                            f'{market}/{variant_id} search_terms below 240 bytes requires '
+                            'search_term_expansion with actual queries and shortfall_reason'
+                        )
             if byte_count > SEARCH_TERMS_MAX_BYTES:
                 errors.append(
                     f'{market}/{variant_id} search_terms uses {byte_count} UTF-8 bytes; '
@@ -1464,6 +1497,21 @@ def validate(data):
                             f'{market}/{variant_id} search_terms omits audited incremental '
                             f'tokens: {", ".join(unused_adopted)}'
                         )
+                    if search_policy == 2:
+                        for audit in audits:
+                            if (audit.get('decision') != 'exclude'
+                                    or audit.get('exclusion_reason') != 'byte_limit'):
+                                continue
+                            extra = sorted(
+                                set(words(audit.get('phrase', '')))
+                                - front_end_words - set(terms)
+                                - SEARCH_TERMS_STOP_WORDS.get(market, set())
+                            )
+                            if extra and len((search_terms + ' ' + ' '.join(extra)).encode('utf-8')) <= SEARCH_TERMS_MAX_BYTES:
+                                errors.append(
+                                    f'{market}/{variant_id} byte_limit exclusion still fits '
+                                    f'within 249 bytes: {audit.get("phrase", "")}'
+                                )
         visible = '\n'.join([str(listing.get('title', '')), item_highlights,
                              *map(str, bullets), description_text,
                              str(listing.get('search_terms', ''))])

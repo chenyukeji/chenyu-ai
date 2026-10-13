@@ -576,8 +576,9 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('Chinese description omits confirmed compatibility terms'
                             in error for error in errors))
 
-    def test_listing_package_requires_all_adopted_incremental_tokens(self):
-        data = copy.deepcopy(self.listing_package())
+    @classmethod
+    def audited_listing_package(cls):
+        data = copy.deepcopy(cls.listing_package())
         data['competitors'] = [{
             'id': 'C1', 'marketplace': 'DE', 'product_group': 'P1',
             'status': 'complete', 'asin': 'B012345678',
@@ -628,6 +629,11 @@ class ListingTests(unittest.TestCase):
                 'local_volume_claimed': False,
             },
         ]
+        return data
+
+    def test_listing_package_requires_all_adopted_incremental_tokens(self):
+        data = self.audited_listing_package()
+        listing = data['listings'][0]
         result = package_validator.validate(data)
         self.assertFalse(result['ready_for_delivery'])
         self.assertTrue(any('omits audited incremental tokens: wintermotiv' in error
@@ -887,6 +893,68 @@ class ListingTests(unittest.TestCase):
         self.assertFalse(package_validator.repeats_pack_count_in_highlights(
             'Sacs cadeaux de Noël avec 8 motifs pour différentes occasions',
             8, '8', ['sacs cadeaux de Noël']))
+
+    def test_search_terms_v2_requires_expansion_before_accepting_short_field(self):
+        data = self.audited_listing_package()
+        data['search_term_policy_version'] = 2
+        listing = data['listings'][0]
+        listing['search_terms'] += ' wintermotiv'
+        for audit in data['search_term_audits']:
+            audit.update(specificity='product_specific',
+                         product_match_reason='The full phrase matches the product type and intended use.')
+        result = package_validator.validate(data)
+        self.assertTrue(any('below 240 bytes requires' in e for e in result['errors']))
+        for invalid in (None, [], {'queries': [''], 'shortfall_reason': 'short'},
+                        {'queries': ['actual query'], 'shortfall_reason': ''}):
+            listing['search_term_expansion'] = invalid
+            self.assertFalse(package_validator.validate(data)['ready_for_delivery'])
+        listing['search_term_expansion'] = {
+            'queries': ['DE reference titles and additional paper ornament reverse-ASIN candidates'],
+            'shortfall_reason': 'Other audited terms overlap front-end copy or describe different structures.',
+        }
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        audit = data['search_term_audits'][0]
+        audit.update(relevant_results=12, relevance_band='medium')
+        self.assertTrue(any('only high-relevance' in e
+                            for e in package_validator.validate(data)['errors']))
+        audit.update(relevant_results=16, relevance_band='high', specificity='generic')
+        self.assertTrue(any('not generic' in e
+                            for e in package_validator.validate(data)['errors']))
+        audit.update(specificity='product_specific', product_match_reason='')
+        self.assertTrue(any('product_match_reason' in e
+                            for e in package_validator.validate(data)['errors']))
+
+    def test_search_terms_v2_byte_limits_count_utf8(self):
+        data = self.listing_package()
+        data['search_term_policy_version'] = 2
+        listing = data['listings'][0]
+        # Synthetic terms isolate the byte boundaries from semantic review.
+        for byte_count in (239, 240, 249, 250):
+            listing['search_terms'] = 'é' * (byte_count // 2) + ('x' if byte_count % 2 else '')
+            errors = package_validator.validate(data)['errors']
+            self.assertEqual(any('below 240 bytes requires' in e for e in errors), byte_count < 240)
+            self.assertEqual(any('maximum is 249' in e for e in errors), byte_count > 249)
+        data['search_term_policy_version'] = True
+        self.assertTrue(any('search_term_policy_version must be' in e
+                            for e in package_validator.validate(data)['errors']))
+
+    def test_search_terms_v2_rejects_false_byte_limit_exclusion(self):
+        data = self.audited_listing_package()
+        data['search_term_policy_version'] = 2
+        data['listings'][0]['search_term_expansion'] = {
+            'queries': ['DE reference and reverse-ASIN expansion'],
+            'shortfall_reason': 'Remaining phrases were checked for product match and front-end overlap.',
+        }
+        for audit in data['search_term_audits']:
+            audit.update(specificity='product_specific', product_match_reason='Matches product structure.')
+        last = data['search_term_audits'][-1]
+        last.update(decision='exclude', exclusion_reason='byte_limit')
+        self.assertTrue(any('byte_limit exclusion still fits' in e
+                            for e in package_validator.validate(data)['errors']))
+        last['phrase'] = 'é' * 130
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        last.update(phrase='dekoration', exclusion_reason='front_end_covered')
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
 
     def test_short_search_terms_prompts_more_research_without_inventing_words(self):
         data = copy.deepcopy(self.listing_package())

@@ -179,10 +179,10 @@ Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805
 1. 将第一条同款链接 ASIN 记录为 `primary_reference_asin`。
 2. 使用卖家精灵反查该 ASIN 的自然关键词，记录来源站点和 `source_tool=sellersprite_reverse_asin`。
 3. 读取全部有效参考链接标题，提取其中与本品一致的产品词、同义词、当地常用词形和高相关长尾词，逐条记录来源 ASIN、`source_field=title` 和 `source_tool=reference_title_terms`。删除品牌、错误规格、不同功能和竞品身份词。
-4. 先按当地产品名称、同义称呼、结构/用途叫法和词形整理候选；前台去重后若只剩一两个有效增量词，再查目标站点其他同类商品标题及更多相关 ASIN 的真实反查词，不限于开发文档链接。额外标题来源记为 `source_tool=same_category_title_terms`、`source_field=title`，并将商品 ASIN 和标题纳入竞品记录；其他反查来源仍记为 `source_tool=sellersprite_reverse_asin`。先判断商品类型、结构和实际用途是否与自有产品匹配；不能把硬质窗板、单独软管等相邻品类的词当作软布窗户密封套同义词。
+4. 先按当地产品名称、同义称呼、结构/用途叫法和词形整理候选；前台去重后若不足 240 UTF-8 字节，再查目标站点其他同类商品标题及更多相关 ASIN 的真实反查词，不限于开发文档链接。额外标题来源记为 `source_tool=same_category_title_terms`、`source_field=title`，并将商品 ASIN 和标题纳入竞品记录；其他反查来源仍记为 `source_tool=sellersprite_reverse_asin`。先判断商品类型、结构和实际用途是否与自有产品匹配；不能把硬质窗板、单独软管等相邻品类的词当作软布窗户密封套同义词。
 5. 合并三类候选但不丢失来源，对每个候选短语在目标 Amazon 站点检查前 20 个自然商品，广告位不计。
 6. 记录 `organic_results_checked`、`relevant_results` 和 `relevance_band`：占比不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。未实际检查时不填写虚构数字或等级，候选只留内部研究记录；该站 Search Terms 不作为已完成交付。
-7. `high` 优先采用，`medium` 按剩余字节采用，`low` 通常排除。结果主要为配件或其他品类时直接排除。
+7. 只采用 `high` 且明确指向本品产品类型、结构或用途的短语。`medium` 先细化检索短语再验证，`low` 排除；不能为补长度降低相关性要求。结果主要为配件或其他品类时直接排除。高自然位占比不等于词足够具体，单独的节日、礼物、家居、装饰、派对或形容词等泛词不凭流量入选；完整产品短语中的适用增量词不因单个词看似宽泛而机械删除。
 8. 来源站点与目标站点不同时，候选只作语义参考，不声称当地搜索量。
 
 ### 最终填写
@@ -191,8 +191,10 @@ Item Highlights：Compatibles Frigidaire PureAir Ultra 2 et Electrolux 242047805
 - 候选研究保留完整短语；最终 Search Terms 按词元去重，所以不要求保留原短语词序。
 - 全部小写、单行、单空格、无标点；不重复词，不写停用词。
 - 排除品牌、ASIN、竞品身份、错误规格、无依据功能、主观宣传词、临时性表达和无关流量词。
-- 不超过 249 UTF-8 字节。高相关增量词不足时留短，不用泛词填满。
-- 所有 `decision=adopt` 且前台未覆盖的有效词元都必须进入 Search Terms；如果结果仅一两个词或仍明显偏短，回查全部参考标题、更多目标站点同类标题及相关 ASIN 反查词，记录查过的候选、排除理由和无法扩充的原因。无需凑满 249 字节，不加入泛词。
+- 不超过 249 UTF-8 字节；有充足有效候选时目标 240–249 字节，尽可能接近上限。交付参考列注明实际字节数。
+- 从全部参考标题中补齐前台遗漏的产品词、同义称呼、具体长尾词，并与卖家精灵真实反查中的高相关词合并；任一来源的合格词都可以进入最终字段，不要求每个词同时来自两种来源，也不设来源配额。
+- 所有 `decision=adopt` 且前台未覆盖的有效词元都必须进入 Search Terms。不足 240 字节时继续补查，保存 `search_term_expansion.queries` 与 `shortfall_reason`；只有真实补查后仍缺少合格增量词才可留短，不能只写“词不够”。达到目标后仍有高价值词可容纳时继续加入。
+- 新生成或修改交付的包设置 `search_term_policy_version=2`；采用候选记录 `specificity=product_specific` 和 `product_match_reason`，说明为什么该完整检索短语对应本品。超出字节上限时按相关性和新增检索叫法择优，放不下的候选用 `decision=exclude`、`exclusion_reason=byte_limit` 留档；不能以字节不足为由漏掉仍放得下的合格增量词。数值校验不代替对词义与来源真实性的复核。
 
 ## 审核
 
