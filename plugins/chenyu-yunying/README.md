@@ -11,6 +11,7 @@
 | [竞品研究](skills/chenyu-jingpin/SKILL.md) | 按站点／ASIN 获取标题、五点、普通／A+描述与图片证据 | 共用研究包；网站不单列任务入口 |
 | [Listing](skills/chenyu-listing/SKILL.md) | 结合确认的自有事实与竞品证据写本地化内容 | 默认 DE／FR／IT／ES 四站 Listing，UK 按需加入 |
 | [作图要求](skills/chenyu-zuotuyaoqiu/SKILL.md) | 明确图号、变体、画面、准确文案、参考图和验收条件 | 含嵌入参考图片的作图 Excel |
+| [产品分类申诉信](skills/chenyu-shensuxin/SKILL.md) | 核对本产品事实、站点通知与历史回复，生成简短申诉及待补证据 | 待人工提交的文案草稿 |
 | [订单商业发票](skills/chenyu-invoice/SKILL.md) | 核对 Amazon.fr EUR 订单，按 JiuYue / Renhaoyuan 卖家选择固定 PDF 母版 | 按订单编号命名的商业发票 PDF |
 
 ## 业务流程
