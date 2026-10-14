@@ -5,9 +5,9 @@
 ## 版式必须原样保留
 
 - 纸张：A4，595.3 × 841.9 pt，页边距和上下留白均使用 PDF 母版原位置。
-- 抬头：居中 `shenzhenshijiuyuekejiyouxiangongsi`，左侧地址、电话、`COMMERCIAL INVOICE` 原样保留；不得替换为统一新字体。
+- 抬头：按 [卖家母版](seller-templates.md) 居中打印完整公司名称。原母版为 `shenzhenshijiuyuekejiyouxiangongsi`；Renhaoyuan 母版为 `shenzhenshirenhaoyuanmaoyiyouxiangongsi`，不能只写店铺简称。各母版左侧地址、电话与 `COMMERCIAL INVOICE` 保持已确认版式。
 - 左栏：`Importer/Buyer/Receiver:` **仅填收件人姓名**（如虚构样例 Camille EXEMPLE），不填企业买家显示名；`Contact:` 和 `Company Name:` **标签不删除，但值留空**；`Address:` 仅填写街道与楼栋，不重复姓名；其余标签 `City:`、`Country:`、`Post code:`、`Tel:`、`Remote area:`、`Shipping way`、`Tracking number:` 的位置不变。
-- 右栏：`Manufacturer/Seller/Shipper:`、`Sales:`、原卖家公司地址、`VAT number:`、`Date:` 均使用原位置；卖家公司和电话是固定模板信息，卖家主体若发生变化必须换母版，不能默默套用。
+- 右栏：`Manufacturer/Seller/Shipper:`、`Sales:`、卖家地址、`VAT number:`、`Date:` 使用原位置。Renhaoyuan 的 Sales 为 `Renhaoyuan`，附已确认邮箱；地址用拼音，不含 Business registration。卖家身份、地址及电话与所选母版一致，不默默套用另一卖家。
 - **Shipping way 固定为 `Paypal package`**，本值已经印在原母版上，不因 Amazon FBA / 加急改变。
 - **表格的列宽、边框、灰色表头、留白都从原母版读取，不重新绘制。** `Item No.` 使用 Amazon 订单号分三行居中，**不是 SKU**；`Item Name` 用约 12pt Times 粗体居中自动换行，`Description` 用粗体居中短商品名且不得默认空白；单价、数量和行金额用 12pt 衬线字体居中。长标题必要时小幅缩小字号，不可截断和溢出。
 - 页尾：保留原样的 `Shipping fee:`、`Total Amount:`、`VAT(20%*Price):`，底部 `TRADIN` / `G TERM:` / `ORGIN:` 以及横线。不要加原模板没有的 `Items subtotal:` 行或页脚装饰。
@@ -29,14 +29,14 @@
 
 ## 页面和异常
 
-- 仅针对**法国站 EUR** 与此卖家原母版；其他站点/币种需要用户提供对应样式母版，不能假装“完全匹配”。
+- 仅针对**法国站 EUR** 与已登记卖家母版；其他站点/币种需要对应已确认母版。
 - 一页一个商品项；多商品复制原母版到第二页，不压缩行高。合计与 VAT 只在最后一页出现。
-- 卖家主体不符、国家名或地址无法在固定栏中排下、超长标题最小字号仍超出时，停止并说明需要扩展模板；不偷偷删字。
+- 卖家主体与所选母版不符、国家名或地址无法在固定栏中排下、超长标题最小字号仍超出时，停止并说明需要匹配或扩展母版；不偷偷删字。
 - 生成后渲染 A4 图像，逐项检查 PDF 原母版灰色表头及边线、收件人、地址、`Item No.`、`Item Name`、`Description`、单价、数量、合计与 VAT，所有新内容均可选择复制。
 
 ## 跨国订单与运费促销
 
-- `Country` 原母版静态打印 France：若订单实际为 Belgium 等非法国地址，必须先仅擦除 France 值，再以相同位置/字号打印实际英文国名，不可出现两国叠字。
+- 原母版 `Country` 静态打印 France；Renhaoyuan 空白母版没有预填国家。按各母版情况只清除该值并打印本单英文国家，不可漏填或出现两国叠字。
 - `shipping_fee` 与 `shipping_discount` 均记录原值；固定表格的 `Shipping fee` 单行展示净运费，金额 `shipping_fee - shipping_discount`，无运费时留空，不能把促销抵扣再当成额外收入。
 - 原模板的 `VAT(20%*Price)` 保留用户指定的含税计算口径，但是否适用于 Belgium 等跨境订单必须与 Amazon 税务记录核实，不把模板口径宣传为法定正确税率。
 

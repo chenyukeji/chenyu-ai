@@ -323,5 +323,137 @@ class InvoiceTests(unittest.TestCase):
         self.assertEqual(SAMPLE['buyer']['name'],'Camille EXEMPLE')
         self.assertEqual(SAMPLE['order_id'],'403-1234567-7654321')
 
+    def test_renhaoyuan_template_selects_matching_legal_company(self):
+        data=deepcopy(SAMPLE)
+        data['seller_template']='Renhaoyuan'
+        data['buyer']['name']='Pickup EXEMPLE'
+        data['buyer']['country']='Belgium'
+        text=self.render_text(data)[0]
+        self.assertIn('shenzhenshirenhaoyuanmaoyiyouxiangongsi',text)
+        self.assertIn('Renhaoyuan',text)
+        self.assertIn('+8613242020247',text)
+        self.assertIn('renhaoyuanmaoyi@outlook.com',text)
+        self.assertIn('longgangqu',text)
+        self.assertIn('2B109',text)
+        self.assertIn('Pickup EXEMPLE',text)
+        self.assertIn('Belgium',text)
+        for old in ['shenzhenshijiuyuekejiyouxiangongsi','+8617371452467','JiuYue_KeJi','Business registration','France']:
+            self.assertNotIn(old,text)
+        self.assertFalse(any('\u4e00' <= c <= '\u9fff' for c in text))
+
+    def test_renhaoyuan_inferred_from_seller_identity(self):
+        for identity in [
+            {'company':'shenzhenshirenhaoyuanmaoyiyouxiangongsi'},
+            {'store_name':'Renhaoyuan'},
+            {'sales_name':'Renhaoyuan'},
+        ]:
+            with self.subTest(identity=identity):
+                data=deepcopy(SAMPLE)
+                data['seller']=identity
+                normalized=mod.normalize(data)
+                self.assertEqual(normalized['seller_template'],'renhaoyuan')
+                self.assertIn('shenzhenshirenhaoyuanmaoyiyouxiangongsi',self.render_text(data)[0])
+
+    def test_renhaoyuan_blank_country_can_fill_france(self):
+        data=deepcopy(SAMPLE)
+        data['seller_template']='renhaoyuan'
+        text=self.render_text(data)[0]
+        self.assertEqual(text.count('France'),1)
+
+    def test_cli_template_overrides_legacy_default(self):
+        with tempfile.TemporaryDirectory() as td:
+            directory=Path(td)
+            input_file=directory/'example.json'
+            input_file.write_text(json.dumps(SAMPLE),encoding='utf-8')
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                mod.main(['--input',str(input_file),'--template','renhaoyuan','--output',str(directory)])
+            with fitz.open(directory/f'{SAMPLE["order_id"]}.pdf') as doc:
+                self.assertIn('shenzhenshirenhaoyuanmaoyiyouxiangongsi',doc[0].get_text())
+
+    def test_conflicting_template_selectors_are_rejected(self):
+        data=deepcopy(SAMPLE)
+        data['seller_template']='renhaoyuan'
+        data['seller']={'company':mod.SOURCE_SELLER_COMPANY}
+        with self.assertRaisesRegex(ValueError,'Conflicting seller template'):
+            mod.normalize(data)
+        data['seller']={}
+        with self.assertRaisesRegex(ValueError,'Conflicting seller template'):
+            mod.normalize(data,template='jiuyue')
+        with self.assertRaisesRegex(ValueError,'Unknown seller template'):
+            mod.normalize(data,template='../unapproved.pdf')
+
+    def test_renhaoyuan_conflicting_contact_is_rejected(self):
+        for field,value in [('tel','+0000000000'),('email','other@example.test'),('sales_name','Other seller')]:
+            data=deepcopy(SAMPLE)
+            data['seller_template']='renhaoyuan'
+            data['seller']={field:value}
+            with self.subTest(field=field),self.assertRaisesRegex(ValueError,f'seller.{field} differs'):
+                mod.normalize(data)
+
+    def test_known_chinese_address_accepted_but_prints_pinyin(self):
+        data=deepcopy(SAMPLE)
+        data['seller_template']='renhaoyuan'
+        data['seller']={'address_lines':mod.SELLER_PROFILES['renhaoyuan']['source_address_lines']}
+        text=self.render_text(data)[0]
+        self.assertIn('huananguoji',text)
+        self.assertFalse(any('\u4e00' <= c <= '\u9fff' for c in text))
+
+    def test_renhaoyuan_blank_template_has_no_order_values(self):
+        path=mod.TEMPLATE.parent/mod.SELLER_PROFILES['renhaoyuan']['template']
+        with fitz.open(path) as doc:
+            page=doc[0]
+            text=page.get_text()
+            self.assertNotIn('France',text)
+            self.assertNotIn(SAMPLE['buyer']['name'],text)
+            self.assertNotIn('Business registration',text)
+            self.assertIsNone(re.search(r'\b\d{3}-\d{7}-\d{7}\b',text))
+            self.assertIsNone(re.search(r'\b\d{2}/\d{2}/\d{4}\b',text))
+            headings=[s for b in page.get_text('dict')['blocks'] for line in b.get('lines',[]) for s in line['spans']
+                      if s['text']==mod.SELLER_PROFILES['renhaoyuan']['company']]
+            self.assertEqual(len(headings),1)
+            self.assertLess(headings[0]['bbox'][1],110)
+            self.assertGreaterEqual(headings[0]['bbox'][0],10)
+            self.assertLess(headings[0]['bbox'][2],page.rect.width-10)
+            drawings=page.get_drawings()
+            for x in mod.CELLS:
+                self.assertTrue(any(abs(z['rect'].x0-x)<0.1 or abs(z['rect'].x1-x)<0.1 for z in drawings))
+
+    def test_seller_profile_from_copied_text(self):
+        raw='''403-1234567-7654321
+| [Article Exemple](https://www.amazon.fr/gp/product/B000000000) | 数量: 1 | 商品小计: €7.99 |
+购买日期: 2026年10月1日
+配送地址
+| Pickup EXEMPLE<br>Rue Exemple 10<br>Lyon, 69000<br>法国 |
+Profil vendeur Amazon.fr : Renhaoyuan'''
+        parsed=mod.extract_order_text(raw)
+        self.assertEqual(mod.normalize(parsed)['seller_template'],'renhaoyuan')
+
+    def test_renhaoyuan_multiple_items_keep_matching_seller(self):
+        data=deepcopy(SAMPLE)
+        data['seller_template']='renhaoyuan'
+        data['items']*=2
+        texts=self.render_text(data)
+        self.assertEqual(len(texts),2)
+        for text in texts:
+            self.assertIn('shenzhenshirenhaoyuanmaoyiyouxiangongsi',text)
+            self.assertNotIn('shenzhenshijiuyuekejiyouxiangongsi',text)
+
+    def test_missing_renhaoyuan_template_does_not_fall_back(self):
+        data=deepcopy(SAMPLE)
+        data['seller_template']='renhaoyuan'
+        normalized=mod.normalize(data)
+        original=mod.TEMPLATE
+        with tempfile.TemporaryDirectory() as td:
+            folder=Path(td)
+            legacy=folder/'blank-reference-template.pdf'
+            legacy.write_bytes(original.read_bytes())
+            try:
+                mod.TEMPLATE=legacy
+                with self.assertRaisesRegex(FileNotFoundError,'blank-renhaoyuan-template.pdf'):
+                    mod.invoice_pdf(normalized,folder/'invoice.pdf')
+                self.assertFalse((folder/'invoice.pdf').exists())
+            finally:
+                mod.TEMPLATE=original
+
 if __name__=='__main__':
     unittest.main(verbosity=2)

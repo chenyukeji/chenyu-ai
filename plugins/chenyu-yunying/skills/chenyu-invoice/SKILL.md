@@ -1,6 +1,6 @@
 ---
 name: chenyu-invoice
-description: 晨玙 Amazon 法国站商业发票生成。用用户提供的原始 WPS PDF 清空旧订单数据后的固定母版填充新 Amazon 订单，1:1 保留原页边距、公司抬头、左右买卖方栏、灰色七列表头、列宽、粗体商品内容及页脚。Item No. 必须打印订单编号，Description 不得留空；Shipping way 固定 Paypal package；VAT 严格按含税价格 ÷ 1.2 × 0.2，标签不变；生成前验证买家和金额，生成后渲染核验。
+description: 晨玙 Amazon 法国站商业发票生成。按已确认卖家选择 JiuYue 或 Renhaoyuan 空白 PDF 母版，保留原版式；顶部打印完整公司名称，Renhaoyuan 地址用拼音。Item No. 打印订单编号，Description 不得留空；Shipping way 固定 Paypal package；VAT 按含税价格 ÷ 1.2 × 0.2；生成前验证买家和金额，生成后渲染核验。
 ---
 
 # 晨玙发票生成 `chenyu-invoice`
@@ -13,12 +13,19 @@ description: 晨玙 Amazon 法国站商业发票生成。用用户提供的原�
 
 订单可以是 Seller Central 的复制文本、截图、PDF 或人工核对后的 JSON；截图/PDF 由当前助手按所见读取，复杂订单整理成 JSON。订单号、收件人姓名、地址、商品标题、数量、单价和金额必须来自本单，不能沿用参考发票的旧买家、旧产品。填写规则见 [订单字段](references/order-fields.md)。
 
-**卖家固定身份**来自用户提供的原始发票模板：`shenzhenshijiuyuekejiyouxiangongsi`，电话 `+8617371452467`，联系人 `JiuYue_KeJi`。该模板用于原卖家；另一卖家或另一国家/币种不能套用，应要求对应新母版。不要把买家私密资料或原始带买家信息的发票提交进 GitHub。
+**卖家身份必须与对应母版一致**。已保存两个不含订单买家的母版，详见 [卖家母版选择](references/seller-templates.md) 与 `assets/seller-templates.json`：
+
+| 母版标识 | 顶部完整公司名称 | Sales / 卖家显示名 |
+| --- | --- | --- |
+| `jiuyue`（原母版） | `shenzhenshijiuyuekejiyouxiangongsi` | `JiuYue_KeJi` |
+| `renhaoyuan` | `shenzhenshirenhaoyuanmaoyiyouxiangongsi` | `Renhaoyuan` |
+
+用户明确是 Renhaoyuan、订单含 `Profil vendeur Amazon.fr : Renhaoyuan`，或卖家公司匹配时，直接用 Renhaoyuan 母版，不重复询问已经保存的卖家资料。顶部不能只写店铺名。Renhaoyuan 母版的地址用拼音，电话 `+8613242020247`，邮箱 `renhaoyuanmaoyi@outlook.com`；不打印 Business registration / 注册号。卖家未说明且无法从本单识别时先确认卖家，不能因脚本兼容默认原母版就替用户猜测。新卖家、新站点或币种仍需对应已确认母版。不要把买家私密资料或带买家信息的发票提交进 GitHub。
 
 ## 生成步骤
 
-1. 只读提取订单：订单号、`buyer.name`（收件人，如虚构样例 Camille EXEMPLE）、买家类型/企业显示名（仅作来源元数据，如虚构样例 Entreprise Exemple）、街道、楼栋、城市、邮编、商品标题、数量和金额。**`Importer/Buyer/Receiver:` 后仅填 `buyer.name`；`Contact:`、`Company Name:` 两个标签保留且不填值；`Address:` 仅打印街道/楼栋，不重复收件人姓名**。未确认的信息不得补造。
-2. 验证 `items[].unit_price × quantity = line_total`；所有金额保留两位小数、法式逗号小数。币种必须是 EUR；Buyer Country 使用实际国家，法国沿用原版 France，其他国家只替换国家值。
+1. 只读提取订单：订单号、`buyer.name`（收件人，如虚构样例 Camille EXEMPLE）、买家类型/企业显示名（仅作来源元数据）、街道、楼栋、城市、邮编、商品标题、数量和金额。**`Importer/Buyer/Receiver:` 后仅填 `buyer.name`；`Contact:`、`Company Name:` 标签保留且不填值；`Address:` 仅打印街道/楼栋，不重复收件人姓名**。地址首行只有取件柜/机构名称时，不编造个人姓名；用户明确要求将该首行当作姓名则按本单指示填入 `buyer.name`，并从地址栏移除重复首行。这不是其他订单的通用姓名规则。
+2. 验证 `items[].unit_price × quantity = line_total`；所有金额保留两位小数、法式逗号小数。币种必须是 EUR；Buyer Country 使用本单实际国家，清空或替换母版原值，不假设法国。
 3. `Item No.` **使用订单编号**分三行居中，不使用 SKU。`Item Name` 写完整已确认商品标题，衬线粗体居中自动换行；`Description` 写标题中可确认的短品名/规格（优先显式 JSON 的 `description`），不能空着。
 4. **发票 `Date:` 必须取 Amazon 订单 `购买日期`**（本地日期，忽略当天生成日期和截止配送日期）；转换为 `DD/MM/YYYY`，没有可核对的购买日期就停止并要求补充。**Shipping way 固定原母版的 `Paypal package`**；Amazon 加急/FBA 来源保留在数据中，不覆盖发票固定文字。
 5. **VAT 固定用含税价公式** `VAT = Price / 1.2 * 0.2`，保留两位小数，保留原标签 `VAT(20%*Price):`。`€373.66 → €62.28`；`€7.99 → €1.33`。用户提供 VAT 若与此业务口径不符须停止。该值不等于已经税务核实。
@@ -41,6 +48,12 @@ python scripts/generate_invoice.py \
   --input /path/to/order.json \
   --output /path/to/output-directory/
 
+# Renhaoyuan：也可在 JSON 使用 seller_template，或提供匹配 seller.company/store_name
+python scripts/generate_invoice.py \
+  --input /path/to/order.json \
+  --template renhaoyuan \
+  --output /path/to/output-directory/
+
 # 原始 Amazon Seller Central 中文复制文本（仅支持单商品）
 python scripts/generate_invoice.py \
   --text /path/to/amazon-order.txt \
@@ -51,7 +64,7 @@ python scripts/generate_invoice.py \
 python scripts/test_invoice.py
 ```
 
-执行时从 `assets/blank-reference-template.pdf` 读取已经清除旧客户信息的原母版；没有此文件则报错，**不得退回自动绘制新发票**。默认保存到 `outputs/chenyu-yunying/commercial-invoice/<YYYY-MM-DD_订单编号>/`，不需要数据库：输入订单，直接输出 `<订单编号>.pdf`。`--output` 只接受目标目录，最终文件名为 `<订单编号>.pdf`。
+按卖家从 `assets/blank-reference-template.pdf` 或 `assets/blank-renhaoyuan-template.pdf` 读取空白母版；缺少匹配母版则报错，**不得退回原卖家母版或自动重画**。`--template`、JSON `seller_template` 和卖家身份冲突时停止。默认保存到 `outputs/chenyu-yunying/commercial-invoice/<YYYY-MM-DD_订单编号>/`；`--output` 只接受目录，最终文件名为 `<订单编号>.pdf`。
 
 ## 风险边界
 

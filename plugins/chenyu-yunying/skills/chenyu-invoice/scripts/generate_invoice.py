@@ -120,6 +120,9 @@ def extract_order_text(content):
         out['shipping_discount'] = str(money(promotion.group(1),'促销'))
     if grand:
         out['order_total'] = str(money(grand.group(1),'商品总计'))
+    seller_profile = re.search(r'Profil vendeur Amazon\.fr\s*[:：]\s*([^\r\n|]+)', s, re.I)
+    if seller_profile:
+        out['seller_template'] = clean(seller_profile.group(1))
     if not fee:out['warnings'].append('Shipping fee unknown')
     if not grand:out['warnings'].append('Order grand total unknown')
     out['warnings'].extend(['VAT calculated using the template 20%-inclusive formula; confirm tax treatment',
@@ -127,7 +130,7 @@ def extract_order_text(content):
     return out
 
 
-def normalize(data, seller=None, invoice_date=None):
+def normalize(data, seller=None, invoice_date=None, template=None):
     if not isinstance(data, dict):
         raise ValueError('Input must be a JSON object')
     d = dict(data)
@@ -136,6 +139,11 @@ def normalize(data, seller=None, invoice_date=None):
     if not isinstance(d.get('buyer') or {}, dict) or not isinstance(d.get('seller') or {}, dict):
         raise ValueError('buyer and seller must be JSON objects')
     d['seller'] = dict(seller or {}) | dict(d.get('seller') or {})
+    d['seller_template'] = resolve_seller_template(d, template)
+    validate_seller_against_template(d['seller'], d['seller_template'])
+    profile = SELLER_PROFILES[d['seller_template']]
+    d['seller'] = {key: profile[key] for key in ['company', 'tel', 'sales_name', 'email', 'store_name']
+                   if key in profile} | d['seller']
     # The printed Date is ALWAYS the Amazon order purchase date, not the
     # PDF creation date or the Amazon dispatch/delivery deadline.
     purchase_date = clean(d.get('purchase_date'))
@@ -237,6 +245,7 @@ import pymupdf as fitz
 
 TEMPLATE = Path(__file__).resolve().parent.parent / 'assets' / 'blank-reference-template.pdf'
 SOURCE_SELLER_COMPANY = 'shenzhenshijiuyuekejiyouxiangongsi'
+SELLER_PROFILES = json.loads((TEMPLATE.parent / 'seller-templates.json').read_text(encoding='utf-8'))
 FONT_SERIF = 'tiro'   # PDF built-in Times-Roman, closest to source TimesNewRoman
 FONT_BOLD = 'tibo'    # PDF built-in Times-Bold
 FONT_SANS = 'helv'    # PDF built-in Helvetica, close to source Arial
@@ -336,31 +345,62 @@ def draw_address(page, buyer):
         draw_left(page, line, 106.92, y, font=font, size=size)
 
 
-def validate_seller_against_template(seller):
+def resolve_seller_template(data, requested=None):
+    """Select only approved profiles; conflicting selectors never cross seller identities."""
+    def find(value):
+        for key, profile in SELLER_PROFILES.items():
+            aliases = [key, profile['company'], *profile.get('aliases', [])]
+            if clean(value).casefold() in [clean(alias).casefold() for alias in aliases]:
+                return key
+        return None
+
+    choices = []
+    for value in [requested, data.get('seller_template')]:
+        if clean(value):
+            key = find(value)
+            if key is None:
+                raise ValueError(f'Unknown seller template: {value}; use an approved seller template')
+            choices.append(key)
+    seller = data.get('seller') or {}
+    for field in ['company', 'store_name', 'sales_name']:
+        value = clean(seller.get(field))
+        if value:
+            key = find(value)
+            if key is not None:
+                choices.append(key)
+            elif field == 'store_name':
+                raise ValueError(f'Unknown seller store: {value}; use an approved seller template')
+    if len(set(choices)) > 1:
+        raise ValueError('Conflicting seller template selections; confirm the order seller')
+    return choices[0] if choices else 'jiuyue'
+
+
+def validate_seller_against_template(seller, template_id='jiuyue'):
+    profile = SELLER_PROFILES[template_id]
     company=clean(seller.get('company',''))
-    if company and company.casefold()!=SOURCE_SELLER_COMPANY.casefold():
+    if company and company.casefold()!=profile['company'].casefold():
         raise ValueError('Seller company differs from exact reference template; use another approved seller template')
-    # Source PDF carries verified static phone and sales name. Reject conflicting overrides.
     if seller.get('address_lines'):
-        expected=['ADD: pinghujiedaoshangmugucun116hao305',
-                  'shenzhenshi, longgangqu, Guangdong 518111','CN']
+        expected=profile['address_lines']
         supplied=[clean(x) for x in seller['address_lines']]
-        if supplied != expected:
+        if supplied != expected and supplied != profile.get('source_address_lines'):
             raise ValueError('seller.address_lines differs from the original seller letterhead')
-    for k,reference in [('tel','+8617371452467'),('sales_name','JiuYue_KeJi')]:
+    for k in ['tel', 'sales_name', 'email', 'store_name']:
         value=clean(seller.get(k,''))
-        if value and value!=reference:
+        if value and value.casefold()!=clean(profile.get(k)).casefold():
             raise ValueError(f'seller.{k} differs from the source template, which has fixed business letterhead')
 
 
 def invoice_pdf(d,output):
-    template=Path(TEMPLATE)
+    template_id = resolve_seller_template(d)
+    profile = SELLER_PROFILES[template_id]
+    template = Path(TEMPLATE) if template_id == 'jiuyue' else TEMPLATE.parent / profile['template']
     if not template.is_file():
         raise FileNotFoundError(f'Missing bundled original-layout template: {template}')
     if d['currency']!='EUR':
         raise ValueError('This exact-match template has printed € headings; only EUR orders may use it')
     seller=d.get('seller') or {}
-    validate_seller_against_template(seller)
+    validate_seller_against_template(seller, template_id)
     buyer=d.get('buyer') or {}
     doc=fitz.open(template)
     # One item per copy of the original PDF page retains the exact fixed row size.
@@ -378,16 +418,15 @@ def invoice_pdf(d,output):
         draw_left(page,name,157.0,256.2,font=FONT_BOLD,size=12,max_width=224)
         draw_address(page,buyer)
         draw_left(page,buyer.get('city',''),106.9,347.2,font=FONT_BOLD,size=12,max_width=265)
-        # The approved blank mother PDF visibly includes the source sample's France.
-        # Keep that lettering completely unmodified for French orders; for Belgian
-        # (and other) addresses replace only that word, not the column geometry.
+        # The original mother PDF preprints France; Renhaoyuan leaves this value blank.
+        # Replace only the value when needed, keeping the country label and geometry.
         country=clean(buyer.get('country',''))
         country_labels={'法国':'France','比利时':'Belgium','德国':'Germany',
                         '意大利':'Italy','西班牙':'Spain','英国':'United Kingdom'}
         country=country_labels.get(country,country)
         if not country:
             raise ValueError('buyer.country is required; cannot assume France')
-        if country.casefold() != 'france':
+        if country.casefold() != profile.get('printed_country', '').casefold():
             page.add_redact_annot(fitz.Rect(106.4,359.0,178.0,377.0),fill=(1,1,1))
             page.apply_redactions(images=0,graphics=0,text=0)
             draw_left(page,country,106.92,372.65,font=FONT_BOLD,size=12,max_width=210)
@@ -453,6 +492,7 @@ def main(argv=None):
     g.add_argument('--input',type=Path,help='Order JSON file')
     g.add_argument('--text',type=Path,help='Copied order text/Markdown (single item)')
     p.add_argument('--seller',type=Path,help='Private seller profile JSON (not checked into Git)')
+    p.add_argument('--template', help='Approved seller template: jiuyue or renhaoyuan (aliases accepted)')
     p.add_argument('--invoice-date',help='Optional confirmation of purchase date YYYY-MM-DD; must match purchase_date')
     p.add_argument('--output',type=Path,help='Output directory; filename is always <order_id>.pdf')
     args=p.parse_args(argv)
@@ -460,7 +500,7 @@ def main(argv=None):
         payload=(json.loads(args.input.read_text(encoding='utf-8')) if args.input else
                  extract_order_text(args.text.read_text(encoding='utf-8')))
         seller=json.loads(args.seller.read_text(encoding='utf-8')) if args.seller else None
-        d=normalize(payload,seller=seller,invoice_date=args.invoice_date)
+        d=normalize(payload,seller=seller,invoice_date=args.invoice_date,template=args.template)
         output_path = resolve_output_file(d['order_id'], args.output)
         output_path.parent.mkdir(parents=True,exist_ok=True)
         invoice_pdf(d,output_path)

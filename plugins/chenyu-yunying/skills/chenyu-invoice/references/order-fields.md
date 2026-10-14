@@ -13,7 +13,8 @@
 | `buyer.city`, `buyer.postal_code`, `buyer.country` | 目标城市、邮编、国家。法国时沿用原模板 France；比利时等其他国家仅替换国家值，不改原版布局 |
 | `buyer.remote_area` | 仅确认偏远区时填布尔值 `true/false`，否则留空，不沿用旧单 No |
 | `buyer.tel` / `tracking_number` | 可选，未经确认留空 |
-| `seller` / 独立 `--seller` JSON | 原母版已固定卖家抬头、地址、电话和销售联系人；核对后使用，可选填 seller.vat_number；遇到不一致必须换母版 |
+| `seller_template` / `--template` | `jiuyue` 或 `renhaoyuan`；与卖家身份和其他选择须一致，未知母版不可套用 |
+| `seller` / 独立 `--seller` JSON | company/store_name/sales_name 可识别已保存的卖家；抬头、地址和联系方式来自匹配母版，可选填已核实 seller.vat_number；登记号不能当税号 |
 | `items[]` | 每项 `title`、`quantity`、`unit_price`、`line_total` 必填；`description` 推荐填写，若无则从标题中提取确实出现的产品词，不可空着整列 |
 | `items[].sku`, `items[].asin` | 只作来源校验；**不要把 SKU 当原模板 Item No.** |
 | `shipping_fee` | 订单原始运费，已确认才填；缺失则发票留白，不假设 Amazon 配送运费为零 |

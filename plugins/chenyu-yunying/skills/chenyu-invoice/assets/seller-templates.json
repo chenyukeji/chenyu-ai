@@ -1,0 +1,39 @@
+{
+  "jiuyue": {
+    "aliases": ["JiuYue_KeJi", "shenzhenshijiuyuekejiyouxiangongsi"],
+    "template": "blank-reference-template.pdf",
+    "printed_country": "France",
+    "company": "shenzhenshijiuyuekejiyouxiangongsi",
+    "tel": "+8617371452467",
+    "sales_name": "JiuYue_KeJi",
+    "address_lines": [
+      "ADD: pinghujiedaoshangmugucun116hao305",
+      "shenzhenshi, longgangqu, Guangdong 518111",
+      "CN"
+    ]
+  },
+  "renhaoyuan": {
+    "aliases": ["Renhaoyuan", "shenzhenshirenhaoyuanmaoyiyouxiangongsi"],
+    "template": "blank-renhaoyuan-template.pdf",
+    "printed_country": "",
+    "company": "shenzhenshirenhaoyuanmaoyiyouxiangongsi",
+    "store_name": "Renhaoyuan",
+    "tel": "+8613242020247",
+    "sales_name": "Renhaoyuan",
+    "email": "renhaoyuanmaoyi@outlook.com",
+    "source_address_lines": [
+      "龙岗区平湖街道禾花社区华南大道一号",
+      "华南国际印刷纸品包装物流区二期2号楼2B109",
+      "深圳市",
+      "广东",
+      "518111",
+      "CN"
+    ],
+    "address_lines": [
+      "longgangqu pinghujiedao hehuashequ huanandadao yihao",
+      "huananguoji yinshua zhipin baozhuang wuliuqu erqi 2haolou 2B109",
+      "shenzhenshi, Guangdong 518111",
+      "CN"
+    ]
+  }
+}
