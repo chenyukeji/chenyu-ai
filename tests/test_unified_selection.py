@@ -584,5 +584,10 @@ def test_missing_history_requests_real_collection_and_reuses_saved_points(monkey
     (tmp_path / 'product-history-US-B012345678.json').write_text(json.dumps(cached))
     response = flow.run_selection({'run_dir': str(tmp_path)})
     assert response['product_history'] == [cached]
+    assert response['product_evidence_requests'][0]['reason'] == 'history_coverage_incomplete'
+    from test_product_evidence import analysis
+    cached['history'] = analysis()['lifecycle_analysis']['history']
+    (tmp_path / 'product-history-US-B012345678.json').write_text(json.dumps(cached))
+    response = flow.run_selection({'run_dir': str(tmp_path)})
     assert not response['product_evidence_requests']
     assert response['analysis_gaps']  # Collection never pretends to be semantic analysis.

@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 
 import playwright_collector as browser
 from sellersprite_session import launch_context, ensure_login
+from product_evidence import history_is_sufficient
 
 LOOKUP_URL = 'https://www.sellersprite.com/v3/competitor-lookup'
 
@@ -32,14 +33,18 @@ def parse_monthly_table(table, *, marketplace, asin, source_ref, as_of_date=None
         if month >= cutoff:
             continue
         value = str(values[i]).strip().replace(',', '') if i < len(values) else ''
+        upper = re.fullmatch(r'[<＜]\s*(\d+(?:\.\d+)?)([KM]?)', value, re.I)
         numeric = re.fullmatch(r'(\d+(?:\.\d+)?)([KM]?)(\+?)', value, re.I)
+        if upper:
+            numeric = re.fullmatch(r'(\d+(?:\.\d+)?)([KM]?)(\+?)', upper[1] + upper[2], re.I)
         if not numeric:
             missing.append(month)
             continue
         points.append({'marketplace': marketplace, 'asin': asin, 'month': month,
                        'estimated_sales': float(numeric[1]) * {'': 1, 'K': 1000, 'M': 1000000}[numeric[2].upper()],
                        'sales_scope': sales_scope, 'sales_display': str(values[i]).strip(),
-                       'value_kind': 'lower_bound' if numeric[3] else 'estimate',
+                       'value_kind': 'upper_bound' if upper else 'lower_bound' if numeric[3] else 'estimate',
+                       **({'bound_exclusive': True} if upper else {}),
                        'period_complete': True, 'source_ref': source_ref})
     return sorted(points, key=lambda p: p['month']), missing
 
@@ -94,7 +99,9 @@ def read_series(page, row, market, asin, series_asin, sales_scope, options, sour
         points, gaps = parse_monthly_table(raw, marketplace=market, asin=series_asin,
             source_ref=source, as_of_date=options.get('as_of_date'), sales_scope=sales_scope)
         return {'history': points, 'missing_months': gaps, 'raw_table': raw,
-                'collection_status': 'complete' if points and not gaps else 'partial', 'sales_scope': sales_scope}
+                'collection_status': 'complete' if history_is_sufficient(points) and not gaps else 'partial',
+                'sales_scope': sales_scope,
+                'coverage_verified': history_is_sufficient(points) and not gaps}
     finally:
         close = dialog.locator('.close-wrap .close, .el-dialog__headerbtn')
         if not close.count():
@@ -134,7 +141,7 @@ def read_history(page, market, asin, options):
             'history': preferred.get('history', []), 'sales_scope': preferred.get('sales_scope'),
             'series': series, 'source_ref': source,
             'collected_as_of': options.get('as_of_date') or date.today().isoformat(),
-            'coverage_note': '仅已完成月份；父体与子体分开；加号为销量下限；不足12个月只支持已观测区间分析'}
+            'coverage_note': '仅已完成月份；父子体分开；保留销量上下界；不足12个连续月须补查时间范围、父体与同族子体，不作为完整生命周期交付'}
 
 
 def collect_product_evidence(payload):
@@ -174,7 +181,7 @@ def collect_product_evidence(payload):
             context.close()
     result = {'ok': True, 'status': 'COMPLETE' if all(p['collection_status'] == 'complete' for p in outcomes) else 'PARTIAL',
               'products': outcomes,
-              'next_required_action': '读取实际月度点，按覆盖区间提交 lifecycle_analysis；采集成功不等于已完成生命周期分析。'}
+              'next_required_action': '先核对连续12个月覆盖；短历史继续检查全部时间范围、父体及同族子体，保留各自口径与实际访问阻塞；不得把有限观察作为生命周期交付。'}
     if payload.get('run_dir'):
         folder = Path(payload['run_dir']).expanduser().resolve()
         folder.mkdir(parents=True, exist_ok=True)

@@ -57,3 +57,22 @@ def test_revenue_only_table_cannot_be_mislabeled_as_sales():
 def test_invalid_request_fails_before_launching_browser(payload):
     with pytest.raises(ValueError):
         collect_product_evidence(payload)
+
+
+def test_less_than_sales_preserve_month_as_upper_bound():
+    points, missing = parse(table(['<\u00a05', '＜5', 'N/A', '40']))
+    assert missing == ['2026-03']
+    assert len(points) == 2
+    assert all(p['value_kind'] == 'upper_bound' and p['bound_exclusive'] for p in points)
+    assert all(p['estimated_sales'] == 5 for p in points)
+
+
+def test_short_or_gapped_history_is_not_complete():
+    from product_evidence import history_is_sufficient
+    points, _ = parse(table(['13', '202', 'N/A', '40']))
+    assert not history_is_sufficient(points)
+    full = [{**points[0], 'month': f'2025-{m:02}'} for m in range(1, 13)]
+    assert history_is_sufficient(full)
+    assert not history_is_sufficient(full[:6] + full[7:])
+    full[-1]['sales_scope'] = 'child'
+    assert not history_is_sufficient(full)

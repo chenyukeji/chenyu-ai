@@ -13,7 +13,7 @@ import re
 from category_sources import normalize_url
 from selection_analysis import analyze_keywords, merge_products, summarize_products, balanced_shortlist, group_product_families, product_identity
 import selection_collectors as collectors
-from product_evidence import ANALYSIS_REQUIREMENTS, analysis_columns
+from product_evidence import history_is_sufficient, ANALYSIS_REQUIREMENTS, analysis_columns
 from strategy_h import target_months
 
 SOURCES = ('amazon_new_releases', 'sellersprite_new', 'sellersprite_surge',
@@ -447,10 +447,15 @@ def run_selection(payload):
         history = json.loads(history_path.read_text()) if history_path.exists() else {}
         if (history.get('marketplace'), history.get('asin')) == key and history.get('history'):
             output['product_history'].append(history)
-        elif not (review.get('lifecycle_analysis') or {}).get('history'):
+        life_history = (review.get('lifecycle_analysis') or {}).get('history') or []
+        if not history_is_sufficient(life_history) and not (
+                (history.get("marketplace"), history.get("asin")) == key
+                and history_is_sufficient(history.get("history") or [])):
             output['product_evidence_requests'].append({
                 'skill_action': 'collect_product_evidence', 'marketplace': key[0],
-                'asins': [key[1]], 'run_dir': str(folder), 'as_of_date': plan['as_of_date']})
+                'asins': [key[1]], 'run_dir': str(folder), 'as_of_date': plan['as_of_date'],
+                'reason': 'history_coverage_incomplete', 'required_complete_months': 12,
+                'next_steps': ['检查全部时间范围', '核对父体及同族子体，保留独立口径', '实际访问受阻时保留证据，不交付有限观察结论']})
     if shortfall:
         output['next_required_action'] = (
             f'目标{target}个已核实父体，当前{output["counts"]["accepted"]}个，还缺{shortfall}个。'

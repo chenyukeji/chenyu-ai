@@ -13,6 +13,16 @@ ANALYSIS_REQUIREMENTS = {
 }
 
 
+def history_is_sufficient(history):
+    """Require a full continuous year within one identified sales series."""
+    if not history:
+        return False
+    months = [month_index(p.get('month')) for p in history]
+    series = {(p.get('marketplace'), p.get('asin'), p.get('sales_scope')) for p in history}
+    return (None not in months and len(months) >= 12 and len(set(months)) == len(months)
+            and max(months) - min(months) + 1 == len(months) and len(series) == 1)
+
+
 def _identity(record, item):
     identities = set(item.get('family_asins') or []) | {item['asin'], item.get('verified_parent_asin')}
     if record.get('marketplace') != item['marketplace'] or record.get('asin') not in identities:
@@ -62,8 +72,8 @@ def analysis_columns(item, review, as_of_date=None):
             if month in months:
                 raise ValueError('同月历史销量不得重复或父子体相加')
             months.add(month)
-            if point.get('value_kind', 'estimate') not in ('estimate', 'lower_bound'):
-                raise ValueError('历史销量必须标明估算值或销量下限')
+            if point.get('value_kind', 'estimate') not in ('estimate', 'lower_bound', 'upper_bound'):
+                raise ValueError('历史销量必须标明估算值、销量下限或上限')
             series.add((point['asin'], point['sales_scope']))
             sources.add(str(point['source_ref']))
         if len(series) > 1:
@@ -76,10 +86,10 @@ def analysis_columns(item, review, as_of_date=None):
             life_text = lifecycle['summary']
         else:
             life_text = ''
-            if life_state == 'insufficient' and history and lifecycle.get('summary'):
-                life_text = f"有限观察：{lifecycle['summary']}"
             missing.append(f"生命周期：{lifecycle['reason']}")
         if months:
+            if any(p.get('value_kind') == 'upper_bound' for p in history):
+                notes.append('销量含网页显示的上限（小于号）；数值是边界而非精确销量，不用于精确增长率。')
             labels = sorted(str(p['month']) for p in history)
             notes.append(f'历史月销依据：{labels[0]}至{labels[-1]}，{len(months)}个完整月；' + '、'.join(sorted(sources)))
             if any(p.get('value_kind') == 'lower_bound' for p in history):

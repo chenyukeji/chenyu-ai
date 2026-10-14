@@ -75,11 +75,11 @@ def test_invalid_history_cannot_claim_full_window(problem):
     with pytest.raises(ValueError): analysis_columns(item(), data, '2026-10-13')
 
 
-def test_short_history_can_report_limited_observation():
+def test_short_history_stays_pending_without_lifecycle_conclusion():
     data = analysis(); life = data['lifecycle_analysis']
     life.update(status='insufficient', reason='仅有两个月记录', summary='这两个月销量上升', history=life['history'][:2])
     result = analysis_columns(item(), data, '2026-10-13')
-    assert '有限观察' in result['生命周期'] and len(result['analysis_missing']) == 1
+    assert result['生命周期'] == '' and len(result['analysis_missing']) == 1
 
 
 @pytest.mark.parametrize('problem', ['duplicate', 'unknown_id', 'repeated_id', 'no_text', 'wrong_market', 'no_scope'])
