@@ -1,4 +1,4 @@
 interface:
   display_name: "晨玙 A+ 要求"
-  short_description: "参考竞品 A+ 与本品事实，生成模块规划、逐图要求和嵌图交接表"
-  default_prompt: "使用 $chenyu-aplusyaoqiu，根据产品资料和参考链接生成 A+ 模块规划与逐图作图要求。"
+  short_description: "自主设计共用 A+：无品牌三张、有品牌四张，生成逐图要求与交接表"
+  default_prompt: "使用 $chenyu-aplusyaoqiu，根据产品资料自主设计 A+ 作图要求，同产品变体共用一套；无品牌三张，有品牌额外增加品牌图共四张，参考链接可选。"
