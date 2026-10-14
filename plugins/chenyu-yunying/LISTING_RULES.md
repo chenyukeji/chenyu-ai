@@ -143,6 +143,8 @@
 
 逐字复制大段文案只作为质量复核提示，不因关键词、尺寸或核心事实重复而判定失败。
 
+五点的具体尺寸随竞品对应字段取材，不设置统一禁写或必写要求；用户当次明确禁写时按指定范围执行，之后的澄清优先。五点去重按信息含义进行，同义改写不能将一个卖点拆成多条。具体见 [五点取材与去重](skills/chenyu-listing/references/bullet-evidence.md)。
+
 ## 8. Search Terms
 
 Search Terms 最后生成，只填写 Item Name、Item Highlights、五点、详情和其他前台属性尚未覆盖的增量词。
