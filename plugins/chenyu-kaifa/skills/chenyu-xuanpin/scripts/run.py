@@ -222,13 +222,7 @@ def _missing_sellersprite_fields(row: dict) -> list[str]:
 
 
 def _apply_category_context(records: list[dict], task: dict) -> list[dict]:
-    category = task.get("category_resolution") or {}
-    category_name = category.get("category_normalized")
-    if not category_name:
-        return records
-    for row in records:
-        if not (row.get("category_name") or row.get("category_node")):
-            row["category_name"] = category_name
+    # Search scope is not evidence of each product's actual Amazon category.
     return records
 
 
@@ -603,7 +597,7 @@ def _enrich_j_shortlist_details(screening: dict, payload: dict, run_dir: Path, m
         unavailable = sum(item["status"] == "unavailable" for item in outcomes)
         if unavailable:
             warning = (
-                f"{unavailable} 个 J 候选未取得商品详情要点；AI 仅能根据已核实标题和指标分析，并须标注推断。"
+                f"{unavailable} 个 J 候选未取得商品详情要点；AI 仅根据已核实标题和指标分析，不确定内容省略。"
             )
             if warning not in manifest["warnings"]:
                 manifest["warnings"].append(warning)

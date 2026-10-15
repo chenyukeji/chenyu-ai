@@ -12,7 +12,7 @@ import run
 
 
 class StrategyJAITests(unittest.TestCase):
-    def test_ai_analysis_required_and_category_is_marked_when_inferred(self):
+    def test_ai_analysis_required_and_unverified_category_stays_blank(self):
         with tempfile.TemporaryDirectory() as folder:
             args = {
                 "request": "近60天 FBM 选品",
@@ -35,7 +35,7 @@ class StrategyJAITests(unittest.TestCase):
             self.assertEqual(pending["analysis_requests"][0]["asin"], "B0HCBQ5SDF")
             analysis = (
                 "上架仅7天已有预估月销2300件且评论12条，显示近期需求值得继续调查。"
-                "标题指向万圣节装饰场景，节日需求可能推动购买，但仅凭标题无法确认季节销量趋势。"
+                "标题标注万圣节南瓜装饰套装，当前售价19.99美元，页面显示5个变体。"
                 "先核对历史销量与同类竞品，再判断是否适合开品。"
             )
             complete = run.run_discovery_flow({
@@ -57,7 +57,10 @@ class StrategyJAITests(unittest.TestCase):
             self.assertIn("AI分析", texts)
             self.assertNotIn("近期火爆原因", texts)
             self.assertNotIn("理由", texts)
-            self.assertIn("AI推断：节日装饰用品", texts)
+            self.assertNotIn("AI推断：节日装饰用品", texts)
+            ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+            self.assertFalse("".join(root.find(".//s:c[@r='F2']", ns).itertext()))
+            self.assertFalse("".join(root.find(".//s:c[@r='H2']", ns).itertext()))
             self.assertIn(analysis, texts)
             self.assertNotIn("产品优点&特征", texts)
             self.assertNotIn("缺点", texts)

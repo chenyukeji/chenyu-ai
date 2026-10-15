@@ -4,6 +4,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from statistics import median
 
+from product_evidence import analysis_columns
+
 
 SEASONAL_TERMS = (
     (("halloween", "万圣节"), "万圣节", {8, 9, 10}),
@@ -102,11 +104,9 @@ def _cause_evidence(row: dict, all_records: list[dict], as_of: date) -> tuple[li
         label = "当前在主题销售窗口" if as_of.month in months else "当前不在典型窗口"
         evidence.append({"factor": "季节性", "status": "hypothesis",
                          "detail": f"标题含{name}主题，{label}；需用历史销量趋势验证"})
-        saleable = f"{min(months)}–{max(months)}月（{name}主题）"
     else:
         evidence.append({"factor": "季节性", "status": "unverified",
                          "detail": "未取得可验证的季节性销量趋势"})
-        saleable = "全年可售"
     traffic = row.get("offsite_traffic_evidence")
     traffic_source = row.get("offsite_traffic_source")
     if traffic and traffic_source:
@@ -130,7 +130,11 @@ def _cause_evidence(row: dict, all_records: list[dict], as_of: date) -> tuple[li
     else:
         evidence.append({"factor": "超多变体", "status": "unverified",
                          "detail": f"变体数{int(variants)}" if variants is not None else "变体数缺失"})
-    return evidence, saleable
+    lifecycle = analysis_columns(
+        {**row, "verified_parent_asin": row.get("parent_asin")},
+        {"lifecycle_analysis": row.get("lifecycle_analysis")}, as_of.isoformat(),
+    )
+    return evidence, lifecycle["生命周期"]
 
 
 def score_recent_fbm(qualified: list[dict], all_records: list[dict], *,
@@ -195,15 +199,16 @@ def table_rows_recent_fbm(screening: dict) -> list[dict]:
         asin = row["asin"]
         domain = "amazon.de" if site == "DE" else "amazon.com"
         source_category = str(row.get("category_name") or "").strip()
-        if not scored.get("ai_analysis") or not (source_category or scored.get("ai_category_name")):
-            raise ValueError(f"J AI analysis or category missing: {scored['candidate_id']}")
+        if not scored.get("ai_analysis"):
+            raise ValueError(f"J AI analysis missing: {scored['candidate_id']}")
+        verified_category = scored.get("ai_category_name") if scored.get("ai_category_source_ref") else None
         output.append({
             "站点": site,
             "上架日期": row.get("source_available_date") or row.get("listing_date"),
             "Review数量": row.get("review_count"),
             "售价（当地币种）": row.get("price"),
             "大品类排名": row.get("bsr"),
-            "所在品类": source_category or f"AI推断：{scored['ai_category_name']}",
+            "所在品类": source_category or verified_category,
             "预估月销量": row.get("estimated_sales"),
             "生命周期": scored["saleable_window"],
             "ASIN": asin,
@@ -244,7 +249,7 @@ def ai_analysis_requests(screening: dict) -> list[dict]:
             "peer_count": scored["peer_count"],
             "factor_evidence": [
                 item for item in scored["factor_evidence"]
-                if item["status"] != "unverified"
+                if item["status"] == "observed"
             ],
             "score": scored["score"],
             "conclusion": scored["conclusion"],
@@ -270,10 +275,11 @@ def apply_ai_analyses(screening: dict, analyses: list[dict]) -> list[dict]:
             raise ValueError(f"J AI analysis must be 25–180 characters without 待验证: {candidate_id}")
         scored = by_id[candidate_id]
         category = str(item.get("category_name") or "").strip()
-        if not str(scored["primary_listing"].get("category_name") or "").strip() and not category:
-            raise ValueError(f"J AI analysis needs an inferred category: {candidate_id}")
-        if len(category) > 80:
-            raise ValueError(f"J inferred category is too long: {candidate_id}")
+        category_source = str(item.get("category_source_ref") or "").strip()
+        if len(category) > 500:
+            raise ValueError(f"J category path is too long: {candidate_id}")
         scored["ai_analysis"] = analysis
-        scored["ai_category_name"] = category or None
+        # Legacy inferred categories remain readable but cannot become source facts.
+        scored["ai_category_name"] = category if category_source else None
+        scored["ai_category_source_ref"] = category_source if category else None
     return [row["candidate_id"] for row in shortlist if not row.get("ai_analysis")]

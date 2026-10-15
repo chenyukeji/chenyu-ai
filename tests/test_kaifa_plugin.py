@@ -224,7 +224,7 @@ def test_scoring_is_descending_and_explains_reasons():
     assert result["results"][0]["reason_version"] == "decision_reason_v2"
     assert all(
         label in result["results"][0]["decision_reason"]
-        for label in ("市场信号：", "竞争门槛：", "新品与价格：", "销售周期：", "主要风险：", "数据与评分：", "下一步：")
+        for label in ("市场信号：", "竞争门槛：", "新品与价格：", "数据与评分：", "下一步：")
     )
     assert result["results"][1]["screening_status"] == "REVIEW_LATER"
 
@@ -256,20 +256,63 @@ def test_table_rows_match_requested_columns():
     assert rows[0]["结论"]
     assert rows[0]["理由"]
     assert rows[0]["亚马逊产品链接"].endswith("B0HIGH0001")
-    assert "缺" not in rows[0]["缺点"]
-    assert "全年可售" in rows[0]["生命周期"]
+    assert rows[0]["缺点"] == ""
+    assert rows[0]["生命周期"] == ""
     assert not re.search(r"[A-Za-z]", rows[0]["产品优点&特征"])
     assert "开品建议" not in rows[0]
 
 
-def test_lifecycle_means_saleable_months_and_disadvantages_are_product_specific():
+@pytest.mark.parametrize("title", [
+    "Halloween Latex Balloon Party Kit", "Birthday Table Cover", "Costume Mask",
+    "Reusable Sticker", "Cake Topper", "Small Toy Fidget", "Bracelet", "Winter Arm Warmers",
+])
+def test_titles_and_unsupported_legacy_text_do_not_fill_disadvantages_or_lifecycle(title):
     records = fixture_records()
-    records[0]["product_name"] = "Halloween Latex Balloon Party Kit"
+    records[0].update(product_name=title, saleable_window="全年可售", seasonality="冬季",
+                      product_disadvantages=["耐用性可能不足"], review_pain_points=["材质需核实"])
     scored = pipeline.score_candidates(pipeline.merge_candidates(records), as_of_date="2026-09-20")
-    row = pipeline.table_rows(scored)[0]
-    assert row["生命周期"] == "8–10月（万圣节季）"
-    assert "破损" in row["缺点"] or "漏气" in row["缺点"]
-    assert "新品期" not in row["生命周期"]
+    result = pipeline.table_rows(scored)[0]
+    assert result["缺点"] == result["生命周期"] == ""
+    assert "主要风险：" not in result["理由"] and "销售周期：" not in result["理由"]
+    assert records[0]["review_pain_points"] == ["材质需核实"]  # Raw inputs stay available for audit.
+
+
+def test_confirmed_review_and_history_survive_merge_score_and_export(tmp_path):
+    records = fixture_records()
+    identity = {"marketplace": "DE", "asin": "B0HIGH0001", "source_ref": "https://example.com/evidence"}
+    records[0]["review_analysis"] = {
+        "status": "analyzed", "sampling_scope": "当前变体可读的1条评论",
+        "samples": [{**identity, "review_id": "R1", "date": "2026-08-01", "rating": 2,
+                     "text": "One balloon leaked immediately."}],
+        "findings": [{"summary": "有买家反馈单个气球漏气", "review_ids": ["R1"]}],
+    }
+    records[0]["lifecycle_analysis"] = {
+        "status": "analyzed", "summary": "2025年全年有销量，10月最高",
+        "history": [{**identity, "month": f"2025-{month:02}", "estimated_sales": 200 if month == 10 else 50,
+                     "sales_scope": "parent", "period_complete": True} for month in range(1, 13)],
+    }
+    rows = pipeline.table_rows(pipeline.score_candidates(pipeline.merge_candidates(records), as_of_date="2026-09-20"))
+    assert rows[0]["缺点"] == "有买家反馈单个气球漏气（所读样本 1/1 条）"
+    assert rows[0]["生命周期"] == "2025年全年有销量，10月最高"
+    assert "有买家反馈单个气球漏气" in rows[0]["理由"]
+    output = tmp_path / "evidence.xlsx"
+    workbook.export_discovery_workbook(output, rows)
+    with zipfile.ZipFile(output) as package:
+        sheet = ET.fromstring(package.read("xl/worksheets/sheet1.xml"))
+    ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    assert sheet.find(".//s:c[@r='I2']/s:is/s:t", ns).text == rows[0]["缺点"]
+    assert not "".join(sheet.find(".//s:c[@r='I3']", ns).itertext())
+
+
+def test_unknown_features_and_category_do_not_become_party_products():
+    record = {**fixture_records()[0], "product_name": "Winter Arm Warmers", "category_name": None}
+    scoped = run._apply_category_context([record], {"category_resolution": {"category_normalized": "玩具 > 派对用品"}})
+    rows = pipeline.table_rows(pipeline.score_candidates(pipeline.merge_candidates(scoped), as_of_date="2026-09-20"))
+    assert rows[0]["所在品类"] is None
+    assert rows[0]["产品优点&特征"] == ""
+    record["category_name"] = "Clothing, Shoes & Jewelry > Women > Arm Warmers"
+    rows = pipeline.table_rows(pipeline.score_candidates(pipeline.merge_candidates([record]), as_of_date="2026-09-20"))
+    assert rows[0]["所在品类"] == record["category_name"]
 
 
 def test_workbook_has_reference_columns_and_sorted_scores(tmp_path):
@@ -398,7 +441,7 @@ def test_sellersprite_enrichment_backfills_missing_product_metrics(monkeypatch, 
     row = json.loads((run_dir / "10-table-rows.json").read_text(encoding="utf-8"))["rows"][0]
     assert row["上架日期"] == "2026-09-10"
     assert row["大品类排名"] == 1234
-    assert row["所在品类"] == "玩具 > 派对用品"
+    assert row["所在品类"] is None
     assert row["预估月销量"] == 260
     raw = json.loads((run_dir / "05-sellersprite-us-raw.json").read_text(encoding="utf-8"))
     assert raw["counts"]["enriched"] == 1

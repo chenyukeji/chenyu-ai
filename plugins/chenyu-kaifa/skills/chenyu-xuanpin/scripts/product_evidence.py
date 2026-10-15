@@ -9,7 +9,7 @@ from selection_analysis import month_index, number
 
 ANALYSIS_REQUIREMENTS = {
     'lifecycle_analysis': '读取卖家精灵该商品历史月销量，优先24个月、至少12个完整连续月；写可售窗口与旺淡季，不用榜单命中月份或关键词热度替代。结构见 references/product-evidence.md。',
-    'review_analysis': '读取真实买家评论，记录原文、日期、星级、来源和变体；按独立评论归纳产品缺点及样本频次。无权限/无数据时缺点列留空，实际阻塞记录到任务证据，不能标为已分析。',
+    'review_analysis': '读取真实买家评论，记录原文、日期、星级、来源和变体；按独立评论归纳产品缺点及样本频次。没有确切问题证据或归因不确定时缺点留空，不用结构特点、资料缺项或通用风险补位。无权限/无数据的实际阻塞记录到任务证据，不能标为已分析。',
 }
 
 

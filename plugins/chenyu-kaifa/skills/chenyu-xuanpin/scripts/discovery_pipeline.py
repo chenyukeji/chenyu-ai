@@ -6,6 +6,8 @@ import math
 import re
 from datetime import date, datetime
 
+from product_evidence import analysis_columns
+
 
 class DiscoveryError(ValueError):
     pass
@@ -39,6 +41,8 @@ LISTING_FIELDS = (
     "product_advantages",
     "product_disadvantages",
     "review_pain_points",
+    "review_analysis",
+    "lifecycle_analysis",
     "saleable_window",
     "peak_months",
     "seasonality",
@@ -247,7 +251,7 @@ def _product_summary_zh(candidate: dict) -> str:
         (("giveaway", "mitgebsel", "party favor", "回礼"), "儿童派对回礼套装"),
         (("decoration", "deko", "party supplies", "派对用品"), "派对装饰套装"),
     )
-    product_label = "派对用品"
+    product_label = ""
     for keywords, label in type_rules:
         if any(keyword in text for keyword in keywords):
             product_label = label
@@ -258,17 +262,8 @@ def _product_summary_zh(candidate: dict) -> str:
 
 
 def _category_display_zh(value) -> str | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-    if _contains_chinese(text):
-        return text
-    lowered = text.casefold()
-    if "party" in lowered or "partybedarf" in lowered or "partyzubehör" in lowered:
-        return "玩具 > 派对用品"
-    if "toy" in lowered or "spielzeug" in lowered:
-        return "玩具"
-    return "派对用品"
+    # Preserve the observed category path, including an unfamiliar source language.
+    return str(value or "").strip() or None
 
 
 def _conclusion(score: int, missing_data: list[str], rank=None, sales=None, reviews=None) -> str:
@@ -302,76 +297,9 @@ def _conclusion(score: int, missing_data: list[str], rank=None, sales=None, revi
     return labels[min(base_index, cap_index)]
 
 
-def _saleable_window(candidate: dict, listing: dict) -> str:
-    explicit = listing.get("saleable_window") or listing.get("peak_months") or listing.get("seasonality")
-    if explicit:
-        return str(explicit).strip()
-    text = " ".join(
-        str(value or "")
-        for value in (candidate.get("product_name"), listing.get("category_name"), listing.get("category_node"))
-    ).casefold()
-    seasonal_windows = (
-        (("halloween", "万圣节", "scream", "ghost"), "8–10月（万圣节季）"),
-        (("christmas", "xmas", "圣诞", "advent"), "10–12月（圣诞季）"),
-        (("easter", "复活节"), "2–4月（复活节季）"),
-        (("valentine", "情人节"), "1–2月（情人节季）"),
-        (("graduation", "毕业"), "4–7月（毕业季）"),
-        (("back to school", "einschulung", "开学", "schultüte"), "7–9月（开学季）"),
-        (("oktoberfest", "啤酒节"), "8–10月（啤酒节季）"),
-        (("summer", "beach", "pool", "夏季", "沙滩"), "5–8月（夏季）"),
-    )
-    for keywords, window in seasonal_windows:
-        if any(keyword in text for keyword in keywords):
-            return window
-    if any(keyword in text for keyword in ("birthday", "geburtstag", "party", "婚礼", "wedding", "派对")):
-        return "全年可售（生日、婚礼及聚会季需求更高）"
-    return "全年可售（需结合历史月销趋势复核旺淡季）"
-
-
 def _product_advantages(candidate: dict, listing: dict) -> list[str]:
-    explicit = [value for value in _as_phrases(listing.get("product_advantages")) if _contains_chinese(value)]
-    text = str(candidate.get("product_name") or "").casefold()
-    inferred = []
-    if any(keyword in text for keyword in ("reusable", "wiederverwend", "可重复")):
-        inferred.append("可重复使用")
-    if any(keyword in text for keyword in ("set", "kit", "pack", "pcs", "stück", "套装", "组合")):
-        inferred.append("套装或多件装，派对场景完整")
-    if any(keyword in text for keyword in ("led", "light", "leucht", "发光")):
-        inferred.append("带灯光或互动效果")
-    if any(keyword in text for keyword in ("theme", "themed", "motto", "主题")):
-        inferred.append("主题属性明确，适合场景化陈列")
-    if any(keyword in text for keyword in ("disposable", "einweg", "一次性")):
-        inferred.append("使用门槛低，适合聚会即时需求")
-    return _dedupe(explicit + inferred) or ["使用场景明确，适合作为派对用品候选"]
-
-
-def _product_disadvantages(candidate: dict, listing: dict) -> list[str]:
-    explicit = [
-        value
-        for value in _as_phrases(listing.get("product_disadvantages")) + _as_phrases(listing.get("review_pain_points"))
-        if _contains_chinese(value)
-    ]
-    text = str(candidate.get("product_name") or "").casefold()
-    inferred = []
-    if any(keyword in text for keyword in ("balloon", "luftballon", "气球")):
-        inferred.extend(("存在破损、漏气和色差风险", "组装布置较耗时"))
-    if any(keyword in text for keyword in ("tablecloth", "table cover", "tischdecke", "桌布")):
-        inferred.extend(("尺寸适配要求高", "薄料可能出现易撕裂或透底问题"))
-    if any(keyword in text for keyword in ("mask", "maske", "costume", "面具")):
-        inferred.extend(("佩戴尺寸和舒适度存在个体差异", "长时间佩戴可能闷热或有材料气味"))
-    if any(keyword in text for keyword in ("sticker", "贴纸")):
-        inferred.extend(("粘性和可重复使用效果容易影响评价", "小尺寸图案的印刷清晰度需验证"))
-    if any(keyword in text for keyword in ("cake topper", "tortendeko", "蛋糕插牌")):
-        inferred.extend(("尺寸可能与蛋糕不匹配", "食品接触材质和边缘安全需核查"))
-    if any(keyword in text for keyword in ("latex", "乳胶")):
-        inferred.append("乳胶气味和过敏敏感问题需关注")
-    if any(keyword in text for keyword in ("fidget", "giveaway", "mitgebsel", "small toy", "小玩具")):
-        inferred.extend(("小零件存在年龄适用和安全提示要求", "多件装的一致性和耐用性容易产生差评"))
-    if any(keyword in text for keyword in ("bracelet", "armbänder", "手环")):
-        inferred.append("尺寸、印刷耐久和皮肤接触舒适度需验证")
-    if any(keyword in text for keyword in ("decoration", "deko", "party supplies", "派对用品")) and not inferred:
-        inferred.extend(("同类产品差异化有限", "配件完整性和实物质感需通过样品验证"))
-    return _dedupe(explicit + inferred) or ["同质化风险较高；材质、尺寸和耐用性需通过评论与样品验证"]
+    return _dedupe(value for value in _as_phrases(listing.get("product_advantages"))
+                   if _contains_chinese(value))
 
 
 def _demand_signal(rank, sales, history_signal=None) -> str:
@@ -482,13 +410,13 @@ def _standard_decision_reason(
         _demand_signal(rank, sales, history_signal),
         _competition_signal(reviews, bsr),
         _freshness_and_price_signal(days, price, currency),
-        f"销售周期：{saleable_window}",
-        "主要风险：" + "、".join(product_disadvantages[:2]),
+        f"销售周期：{saleable_window}" if saleable_window else None,
+        "主要风险：" + "、".join(product_disadvantages[:2]) if product_disadvantages else None,
         f"数据与评分：{completeness}/5，综合{score}分，结论{conclusion.replace('🟢 ', '').replace('🟡 ', '').replace('🔴 ', '')}"
         + (f"，缺失{'、'.join(missing_data)}" if missing_data else "，关键字段完整"),
         _next_step(conclusion, missing_data),
     ]
-    return "。".join(sections) + "。"
+    return "。".join(section for section in sections if section) + "。"
 
 
 def score_candidates(candidates: list[dict], shortlist_limit=20, as_of_date=None) -> dict:
@@ -541,9 +469,11 @@ def score_candidates(candidates: list[dict], shortlist_limit=20, as_of_date=None
             missing_data.append("售价")
 
         product_advantages = _product_advantages(candidate, listing)
-        product_disadvantages = _product_disadvantages(candidate, listing)
-
-        saleable_window = _saleable_window(candidate, listing)
+        evidence = analysis_columns(
+            {**listing, "verified_parent_asin": listing.get("parent_asin")}, listing, as_of_date
+        )
+        product_disadvantages = [evidence["缺点"]] if evidence["缺点"] else []
+        saleable_window = evidence["生命周期"]
         conclusion = _conclusion(score, missing_data, rank, sales, reviews)
         decision_reason = _standard_decision_reason(
             rank=rank,
@@ -572,6 +502,8 @@ def score_candidates(candidates: list[dict], shortlist_limit=20, as_of_date=None
                 "strengths": positives,
                 "product_advantages": product_advantages,
                 "product_disadvantages": product_disadvantages,
+                "analysis_missing": evidence["analysis_missing"],
+                "analysis_notes": evidence["analysis_notes"],
                 "market_risks": market_risks,
                 "missing_data": missing_data,
                 "development_suggestion": conclusion.replace("🟢 ", "").replace("🟡 ", "").replace("🔴 ", ""),
@@ -631,7 +563,7 @@ def table_rows(screening: dict) -> list[dict]:
                 "大品类排名": listing.get("bsr"),
                 "所在品类": _category_display_zh(listing.get("category_name") or listing.get("category_node")),
                 "预估月销量": listing.get("estimated_sales"),
-                "产品优点&特征": "；".join([_product_summary_zh(candidate), *scored["product_advantages"]]),
+                "产品优点&特征": "；".join(value for value in [_product_summary_zh(candidate), *scored["product_advantages"]] if value),
                 "缺点": "；".join(scored["product_disadvantages"]),
                 "生命周期": scored["saleable_window"],
                 "ASIN": asin,

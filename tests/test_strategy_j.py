@@ -12,7 +12,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 import run
 import sellersprite_j
-from strategy_j import qualify_recent_fbm, score_recent_fbm
+from strategy_j import qualify_recent_fbm, score_recent_fbm, apply_ai_analyses, table_rows_recent_fbm, ai_analysis_requests
 
 
 def row(asin, *, days="2026-09-10", fulfillment="FBM", sales=500, price=10,
@@ -220,3 +220,30 @@ def test_j_recollects_partial_cache_after_login_becomes_available(monkeypatch, t
     assert first["status"] == "PARTIAL"
     assert second["status"] == "COMPLETE"
     assert calls == ["US", "US"]
+
+
+def test_j_does_not_require_or_export_an_inferred_category():
+    records = [row("B0JGOOD001", category=None, title="Halloween Kitchen Tool")]
+    qualified = qualify_recent_fbm(records, as_of_date="2026-09-26")["accepted"]
+    scored = score_recent_fbm(qualified, records, as_of_date="2026-09-26")
+    analysis = {"marketplace": "US", "asin": "B0JGOOD001",
+                "analysis": "标题标注万圣节主题，近30天预估销量500件，商品有15个评分，当前售价10美元。"}
+    assert apply_ai_analyses(scored, [analysis]) == []
+    assert table_rows_recent_fbm(scored)[0]["所在品类"] is None
+    apply_ai_analyses(scored, [{**analysis, "category_name": "根据标题猜测的厨房类目"}])
+    result = table_rows_recent_fbm(scored)[0]
+    assert result["所在品类"] is None
+    assert result["生命周期"] == ""
+    assert not any(item["factor"] == "季节性" for item in ai_analysis_requests(scored)[0]["factor_evidence"])
+    apply_ai_analyses(scored, [{**analysis, "category_name": "Kitchen & Dining > Utensils",
+                              "category_source_ref": "https://www.amazon.com/dp/B0JGOOD001"}])
+    assert table_rows_recent_fbm(scored)[0]["所在品类"] == "Kitchen & Dining > Utensils"
+
+
+def test_j_keeps_existing_source_category():
+    records = [row("B0JGOOD001", category="Kitchen & Dining > Utensils")]
+    qualified = qualify_recent_fbm(records, as_of_date="2026-09-26")["accepted"]
+    scored = score_recent_fbm(qualified, records, as_of_date="2026-09-26")
+    apply_ai_analyses(scored, [{"marketplace": "US", "asin": "B0JGOOD001",
+        "analysis": "商品近30天预估销量500件，现有15个评分，售价10美元，页面显示两个变体。"}])
+    assert table_rows_recent_fbm(scored)[0]["所在品类"] == records[0]["category_name"]
