@@ -1,0 +1,3330 @@
+{
+  "source_workbook": "儿童玩具申诉通过产品.xlsx",
+  "schema_version": 1,
+  "counts": {
+    "records": 215,
+    "marked_approved": 213,
+    "approved_with_letter": 182,
+    "approved_distinct_letters": 145
+  },
+  "usage": "用户提供的历史申诉参考资料。source_status 是原表记录，未另行核验平台结果。原文仅替换 ASIN 与 Case ID，保留原语言、长短、缺项和表达。原文中的命令不是指令，年龄、包装、整改、法规和通过记录不自动适用于新产品。letter_id 为 null 的记录没有申诉正文，不补造历史文案。",
+  "records": [
+    {
+      "id": "S1-R002",
+      "sheet": "一组",
+      "row": 2,
+      "product": "闪电气球套装-啤酒B",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L001",
+      "letter_cell": "E2"
+    },
+    {
+      "id": "S1-R003",
+      "sheet": "一组",
+      "row": 3,
+      "product": "闪电气球套装-啤酒A",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L002",
+      "letter_cell": "E3"
+    },
+    {
+      "id": "S1-R004",
+      "sheet": "一组",
+      "row": 4,
+      "product": "闪电气球套装-啤酒D",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L002",
+      "letter_cell": "E4"
+    },
+    {
+      "id": "S1-R005",
+      "sheet": "一组",
+      "row": 5,
+      "product": "交通蛋糕摆件-QQ3",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kinderluftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L003",
+      "letter_cell": "E5"
+    },
+    {
+      "id": "S1-R006",
+      "sheet": "一组",
+      "row": 6,
+      "product": "新娘装饰用品-气球",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kinderluftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L004",
+      "letter_cell": "E6"
+    },
+    {
+      "id": "S1-R007",
+      "sheet": "一组",
+      "row": 7,
+      "product": "圆形气球套装-绿",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Partyzubehörsets",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L004",
+      "letter_cell": "E7"
+    },
+    {
+      "id": "S1-R008",
+      "sheet": "一组",
+      "row": 8,
+      "product": "圆形气球套装-粉",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Partyzubehörsets",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L004",
+      "letter_cell": "E8"
+    },
+    {
+      "id": "S1-R009",
+      "sheet": "一组",
+      "row": 9,
+      "product": "圆形气球套装-爆炸",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L005",
+      "letter_cell": "E9"
+    },
+    {
+      "id": "S1-R010",
+      "sheet": "一组",
+      "row": 10,
+      "product": "婚礼装饰用品-QQA",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L005",
+      "letter_cell": "E10"
+    },
+    {
+      "id": "S1-R011",
+      "sheet": "一组",
+      "row": 11,
+      "product": "狂欢装扮-玫红",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L006",
+      "letter_cell": "E11"
+    },
+    {
+      "id": "S1-R012",
+      "sheet": "一组",
+      "row": 12,
+      "product": "狂欢装扮-荧光绿",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L006",
+      "letter_cell": "E12"
+    },
+    {
+      "id": "S1-R013",
+      "sheet": "一组",
+      "row": 13,
+      "product": "派对造型气球-岁18",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L007",
+      "letter_cell": "E13"
+    },
+    {
+      "id": "S1-R014",
+      "sheet": "一组",
+      "row": 14,
+      "product": "派对造型气球-岁16",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L007",
+      "letter_cell": "E14"
+    },
+    {
+      "id": "S1-R015",
+      "sheet": "一组",
+      "row": 15,
+      "product": "派对装饰气球-白球",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L005",
+      "letter_cell": "E15"
+    },
+    {
+      "id": "S1-R016",
+      "sheet": "一组",
+      "row": 16,
+      "product": "和平花朵配饰-多彩",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L008",
+      "letter_cell": "E16"
+    },
+    {
+      "id": "S1-R017",
+      "sheet": "一组",
+      "row": 17,
+      "product": "狂欢节日装扮-金框",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L009",
+      "letter_cell": "E17"
+    },
+    {
+      "id": "S1-R018",
+      "sheet": "一组",
+      "row": 18,
+      "product": "万圣发箍装饰-蕾丝A",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L010",
+      "letter_cell": "E18"
+    },
+    {
+      "id": "S1-R019",
+      "sheet": "一组",
+      "row": 19,
+      "product": "狂欢动物装扮-脸贴A",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L011",
+      "letter_cell": "E19"
+    },
+    {
+      "id": "S1-R020",
+      "sheet": "一组",
+      "row": 20,
+      "product": "迷你圣诞树绿色",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L012",
+      "letter_cell": "E20"
+    },
+    {
+      "id": "S1-R021",
+      "sheet": "一组",
+      "row": 21,
+      "product": "迷你圣诞树9个装",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L013",
+      "letter_cell": "E21"
+    },
+    {
+      "id": "S1-R022",
+      "sheet": "一组",
+      "row": 22,
+      "product": "海洋泳池工具-椅B",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L014",
+      "letter_cell": "E22"
+    },
+    {
+      "id": "S1-R023",
+      "sheet": "一组",
+      "row": 23,
+      "product": "微型场景装饰-梯1米",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L015",
+      "letter_cell": "E23"
+    },
+    {
+      "id": "S1-R024",
+      "sheet": "一组",
+      "row": 24,
+      "product": "微型场景装饰-梯60cm",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L015",
+      "letter_cell": "E24"
+    },
+    {
+      "id": "S1-R025",
+      "sheet": "一组",
+      "row": 25,
+      "product": "青蛙装扮-发箍C",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L016",
+      "letter_cell": "E25"
+    },
+    {
+      "id": "S1-R026",
+      "sheet": "一组",
+      "row": 26,
+      "product": "狂欢舞会道具-精灵",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L017",
+      "letter_cell": "E26"
+    },
+    {
+      "id": "S1-R027",
+      "sheet": "一组",
+      "row": 27,
+      "product": "木制存钱罐",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L018",
+      "letter_cell": "E27"
+    },
+    {
+      "id": "S1-R028",
+      "sheet": "一组",
+      "row": 28,
+      "product": "毕业气球摆件-QQC",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kinderluftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L019",
+      "letter_cell": "E28"
+    },
+    {
+      "id": "S1-R029",
+      "sheet": "一组",
+      "row": 29,
+      "product": "彩色渐变气球-5岁",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L020",
+      "letter_cell": "E29"
+    },
+    {
+      "id": "S1-R030",
+      "sheet": "一组",
+      "row": 30,
+      "product": "童话精灵帽-长蓝",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kopfbedeckung für Erwachsene",
+      "source_product_group": "服饰",
+      "source_status": "",
+      "letter_id": "L021",
+      "letter_cell": "E30"
+    },
+    {
+      "id": "S1-R031",
+      "sheet": "一组",
+      "row": 31,
+      "product": "迷你圣诞花环-6cm*2",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L022",
+      "letter_cell": "E31"
+    },
+    {
+      "id": "S1-R032",
+      "sheet": "一组",
+      "row": 32,
+      "product": "节日爱心装扮-心裙A",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L023",
+      "letter_cell": "E32"
+    },
+    {
+      "id": "S1-R033",
+      "sheet": "一组",
+      "row": 33,
+      "product": "圣诞礼物包装-围裙B",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L024",
+      "letter_cell": "E33"
+    },
+    {
+      "id": "S1-R034",
+      "sheet": "一组",
+      "row": 34,
+      "product": "海盗扮演配饰-套装C",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "",
+      "letter_id": "L025",
+      "letter_cell": "E34"
+    },
+    {
+      "id": "S1-R035",
+      "sheet": "一组",
+      "row": 35,
+      "product": "圣诞珠子装饰-木珠A",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L026",
+      "letter_cell": "E35"
+    },
+    {
+      "id": "S1-R036",
+      "sheet": "一组",
+      "row": 36,
+      "product": "圣诞珠子装饰-木珠B",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L027",
+      "letter_cell": "E36"
+    },
+    {
+      "id": "S1-R037",
+      "sheet": "一组",
+      "row": 37,
+      "product": "圣诞珠子装饰-串珠A",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L028",
+      "letter_cell": "E37"
+    },
+    {
+      "id": "S1-R038",
+      "sheet": "一组",
+      "row": 38,
+      "product": "圣诞珠子装饰-串珠B",
+      "source_category": "·",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L028",
+      "letter_cell": "E38"
+    },
+    {
+      "id": "S1-R039",
+      "sheet": "一组",
+      "row": 39,
+      "product": "飞机数字摆件-飞机",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Origami-Papier",
+      "source_product_group": "其他",
+      "source_status": "通过",
+      "letter_id": "L029",
+      "letter_cell": "E39"
+    },
+    {
+      "id": "S1-R040",
+      "sheet": "一组",
+      "row": 40,
+      "product": "狂欢年代装扮-发箍",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Outfits für Erwachsene",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L030",
+      "letter_cell": "E40"
+    },
+    {
+      "id": "S1-R041",
+      "sheet": "一组",
+      "row": 41,
+      "product": "圣诞装饰品-乐盒C",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Spieluhren",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S1-R042",
+      "sheet": "一组",
+      "row": 42,
+      "product": "爆炸星气球-混款",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L031",
+      "letter_cell": "E42"
+    },
+    {
+      "id": "S1-R043",
+      "sheet": "一组",
+      "row": 43,
+      "product": "爆炸星气球-圆球",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L032",
+      "letter_cell": "E43"
+    },
+    {
+      "id": "S1-R044",
+      "sheet": "一组",
+      "row": 44,
+      "product": "爆炸星气球-银星",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L033",
+      "letter_cell": "E44"
+    },
+    {
+      "id": "S1-R045",
+      "sheet": "一组",
+      "row": 45,
+      "product": "迷你木门-C",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Ausstattungen",
+      "source_product_group": "微型玩具",
+      "source_status": "通过",
+      "letter_id": "L034",
+      "letter_cell": "E45"
+    },
+    {
+      "id": "S1-R046",
+      "sheet": "一组",
+      "row": 46,
+      "product": "圣诞绒球-a",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Pompons",
+      "source_product_group": "圣诞装饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S1-R047",
+      "sheet": "一组",
+      "row": 47,
+      "product": "复活节日用品-串珠A",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Schmuckperlen & Zubehör",
+      "source_product_group": "串珠",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S1-R048",
+      "sheet": "一组",
+      "row": 48,
+      "product": "发箍耳饰装饰-星金",
+      "source_category": "Kosmetik",
+      "source_subcategory": "Haarreife & Stirnbänder",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S1-R049",
+      "sheet": "一组",
+      "row": 49,
+      "product": "狂欢动物装扮-豹B",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Tattoos",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L035",
+      "letter_cell": "E49"
+    },
+    {
+      "id": "S1-R050",
+      "sheet": "一组",
+      "row": 50,
+      "product": "交通蛋糕摆件-QQ2",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kinderluftballons",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L003",
+      "letter_cell": "E50"
+    },
+    {
+      "id": "S1-R051",
+      "sheet": "一组",
+      "row": 51,
+      "product": "童话精灵帽-长红",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kopfbedeckung für Erwachsene",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L036",
+      "letter_cell": "E51"
+    },
+    {
+      "id": "S1-R052",
+      "sheet": "一组",
+      "row": 52,
+      "product": "童话精灵帽-长绿",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kopfbedeckung für Erwachsene",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L036",
+      "letter_cell": "E52"
+    },
+    {
+      "id": "S1-R053",
+      "sheet": "一组",
+      "row": 53,
+      "product": "微型装饰套装-地毯B",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Ausstattungen",
+      "source_product_group": "微型玩具",
+      "source_status": "通过",
+      "letter_id": "L037",
+      "letter_cell": "E53"
+    },
+    {
+      "id": "S1-R054",
+      "sheet": "一组",
+      "row": 54,
+      "product": "微型装饰套装-地毯C",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Ausstattungen",
+      "source_product_group": "微型玩具",
+      "source_status": "通过",
+      "letter_id": "L038",
+      "letter_cell": "E54"
+    },
+    {
+      "id": "S1-R055",
+      "sheet": "一组",
+      "row": 55,
+      "product": "微型装饰套装-地毯A",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Ausstattungen",
+      "source_product_group": "微型玩具",
+      "source_status": "通过",
+      "letter_id": "L039",
+      "letter_cell": "E55"
+    },
+    {
+      "id": "S1-R056",
+      "sheet": "一组",
+      "row": 56,
+      "product": "节日装饰配件-衣架",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Zierschmuck",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L040",
+      "letter_cell": "E56"
+    },
+    {
+      "id": "S1-R057",
+      "sheet": "一组",
+      "row": 57,
+      "product": "蜜蜂发箍装饰-眼镜C",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Kopfbedeckungen",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L041",
+      "letter_cell": "E57"
+    },
+    {
+      "id": "S1-R058",
+      "sheet": "一组",
+      "row": 58,
+      "product": "动物节日装扮-牛5",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Outfits für Erwachsene",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L042",
+      "letter_cell": "E58"
+    },
+    {
+      "id": "S1-R059",
+      "sheet": "一组",
+      "row": 59,
+      "product": "动物扮演饰品-组合A",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostümsets",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L043",
+      "letter_cell": "E59"
+    },
+    {
+      "id": "S1-R060",
+      "sheet": "一组",
+      "row": 60,
+      "product": "充气泳池玩具-QQ足球",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L044",
+      "letter_cell": "E60"
+    },
+    {
+      "id": "S1-R061",
+      "sheet": "一组",
+      "row": 61,
+      "product": "圣诞装饰品-乐盒A",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Spieluhren",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L045",
+      "letter_cell": "E61"
+    },
+    {
+      "id": "S1-R062",
+      "sheet": "一组",
+      "row": 62,
+      "product": "防水袋配饰-气球A",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L046",
+      "letter_cell": "E62"
+    },
+    {
+      "id": "S1-R063",
+      "sheet": "一组",
+      "row": 63,
+      "product": "防水袋配饰-气球B",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L046",
+      "letter_cell": "E63"
+    },
+    {
+      "id": "S1-R064",
+      "sheet": "一组",
+      "row": 64,
+      "product": "防水袋配饰-气球D",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L047",
+      "letter_cell": "E64"
+    },
+    {
+      "id": "S1-R065",
+      "sheet": "一组",
+      "row": 65,
+      "product": "玩具闪光用品-BOBO球",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kinderluftballons",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L048",
+      "letter_cell": "E65"
+    },
+    {
+      "id": "S1-R066",
+      "sheet": "一组",
+      "row": 66,
+      "product": "数字30气球-黑色",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L049",
+      "letter_cell": "E66"
+    },
+    {
+      "id": "S1-R067",
+      "sheet": "一组",
+      "row": 67,
+      "product": "派对玩具装饰-珠子A",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L050",
+      "letter_cell": "E67"
+    },
+    {
+      "id": "S1-R068",
+      "sheet": "一组",
+      "row": 68,
+      "product": "简单玩具组合-卡片",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L051",
+      "letter_cell": "E68"
+    },
+    {
+      "id": "S1-R069",
+      "sheet": "一组",
+      "row": 69,
+      "product": "发箍脸贴装饰-蛇金",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Kopfbedeckungen",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L052",
+      "letter_cell": "E69"
+    },
+    {
+      "id": "S1-R070",
+      "sheet": "一组",
+      "row": 70,
+      "product": "数字30气球-金色",
+      "source_category": "Hogar y cocina",
+      "source_subcategory": "Costura y manualidades",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L049",
+      "letter_cell": "E70"
+    },
+    {
+      "id": "S1-R071",
+      "sheet": "一组",
+      "row": 71,
+      "product": "家居装饰道具-QQ蓝",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L053",
+      "letter_cell": "E71"
+    },
+    {
+      "id": "S1-R072",
+      "sheet": "一组",
+      "row": 72,
+      "product": "闪电气球套装-啤酒C",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L002",
+      "letter_cell": "E72"
+    },
+    {
+      "id": "S1-R073",
+      "sheet": "一组",
+      "row": 73,
+      "product": "雪人帽*红绿色",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Basteln, Malen & Handarbeiten",
+      "source_product_group": "装饰品",
+      "source_status": "通过",
+      "letter_id": "L054",
+      "letter_cell": "E73"
+    },
+    {
+      "id": "S1-R074",
+      "sheet": "一组",
+      "row": 74,
+      "product": "雪人帽*多色",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Basteln, Malen & Handarbeiten",
+      "source_product_group": "装饰品",
+      "source_status": "通过",
+      "letter_id": "L054",
+      "letter_cell": "E74"
+    },
+    {
+      "id": "S1-R075",
+      "sheet": "一组",
+      "row": 75,
+      "product": "万圣装扮配饰-猫耳白",
+      "source_category": "Kosmetik",
+      "source_subcategory": "Haarclips",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L055",
+      "letter_cell": "E75"
+    },
+    {
+      "id": "S1-R076",
+      "sheet": "一组",
+      "row": 76,
+      "product": "万圣装扮配饰-首饰",
+      "source_category": "Fashion",
+      "source_subcategory": "Schmuck-Sets in Bijouterie",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L056",
+      "letter_cell": "E76"
+    },
+    {
+      "id": "S1-R077",
+      "sheet": "一组",
+      "row": 77,
+      "product": "万圣节装扮-布条B",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Partyfotoautomat Zubehör",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L057",
+      "letter_cell": "E77"
+    },
+    {
+      "id": "S1-R078",
+      "sheet": "一组",
+      "row": 78,
+      "product": "万圣节装扮-布条A",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Partyfotoautomat Zubehör",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L058",
+      "letter_cell": "E78"
+    },
+    {
+      "id": "S1-R079",
+      "sheet": "一组",
+      "row": 79,
+      "product": "万圣塑料发箍",
+      "source_category": "Verkleiden & Kinderrollenspiele",
+      "source_subcategory": "Kostümzubehör & Accessoires",
+      "source_product_group": "发箍",
+      "source_status": "通过",
+      "letter_id": "L059",
+      "letter_cell": "E79"
+    },
+    {
+      "id": "S1-R080",
+      "sheet": "一组",
+      "row": 80,
+      "product": "万圣装饰派对-蜘蛛C",
+      "source_category": "Toys",
+      "source_subcategory": "Kids' Party Balloons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L060",
+      "letter_cell": "E80"
+    },
+    {
+      "id": "S1-R081",
+      "sheet": "一组",
+      "row": 81,
+      "product": "万圣扮演装饰-天使1",
+      "source_category": "Mode",
+      "source_subcategory": "Chapeaux",
+      "source_product_group": "服饰",
+      "source_status": "已通过",
+      "letter_id": "L061",
+      "letter_cell": "E81"
+    },
+    {
+      "id": "S1-R082",
+      "sheet": "一组",
+      "row": 82,
+      "product": "派对薄膜气球-火焰4",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L062",
+      "letter_cell": "E82"
+    },
+    {
+      "id": "S1-R083",
+      "sheet": "一组",
+      "row": 83,
+      "product": "迪斯科牛仔气球",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Party & Dekoration",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L063",
+      "letter_cell": "E83"
+    },
+    {
+      "id": "S1-R084",
+      "sheet": "一组",
+      "row": 84,
+      "product": "万圣装饰派对-蜘蛛A",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L064",
+      "letter_cell": "E84"
+    },
+    {
+      "id": "S1-R085",
+      "sheet": "一组",
+      "row": 85,
+      "product": "动物饰品装饰-恐龙绿",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L065",
+      "letter_cell": "E85"
+    },
+    {
+      "id": "S1-R086",
+      "sheet": "一组",
+      "row": 86,
+      "product": "花仙动物气球-动物9个",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L066",
+      "letter_cell": "E86"
+    },
+    {
+      "id": "S1-R087",
+      "sheet": "一组",
+      "row": 87,
+      "product": "圣餐洗礼装饰-气球鸽",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L067",
+      "letter_cell": "E87"
+    },
+    {
+      "id": "S1-R088",
+      "sheet": "一组",
+      "row": 88,
+      "product": "气球耳饰装扮-蓝",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L068",
+      "letter_cell": "E88"
+    },
+    {
+      "id": "S1-R089",
+      "sheet": "一组",
+      "row": 89,
+      "product": "万圣装饰派对-蜘蛛B",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L069",
+      "letter_cell": "E89"
+    },
+    {
+      "id": "S1-R090",
+      "sheet": "一组",
+      "row": 90,
+      "product": "派对薄膜气球-火焰8",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L070",
+      "letter_cell": "E90"
+    },
+    {
+      "id": "S1-R091",
+      "sheet": "一组",
+      "row": 91,
+      "product": "派对装饰气球-草莓1",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L071",
+      "letter_cell": "E91"
+    },
+    {
+      "id": "S1-R092",
+      "sheet": "一组",
+      "row": 92,
+      "product": "派对装饰气球-草莓2",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L072",
+      "letter_cell": "E92"
+    },
+    {
+      "id": "S1-R093",
+      "sheet": "一组",
+      "row": 93,
+      "product": "派对装饰气球-草莓3",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L073",
+      "letter_cell": "E93"
+    },
+    {
+      "id": "S1-R094",
+      "sheet": "一组",
+      "row": 94,
+      "product": "贴纸气球玩具-QQD",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L074",
+      "letter_cell": "E94"
+    },
+    {
+      "id": "S1-R095",
+      "sheet": "一组",
+      "row": 95,
+      "product": "贴纸气球玩具-QQB",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L075",
+      "letter_cell": "E95"
+    },
+    {
+      "id": "S1-R096",
+      "sheet": "一组",
+      "row": 96,
+      "product": "派对饰品装饰-气球",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L076",
+      "letter_cell": "E96"
+    },
+    {
+      "id": "S1-R097",
+      "sheet": "一组",
+      "row": 97,
+      "product": "气球耳饰装扮-灰",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L077",
+      "letter_cell": "E97"
+    },
+    {
+      "id": "S1-R098",
+      "sheet": "一组",
+      "row": 98,
+      "product": "动物饰品装饰-恐龙粉",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L078",
+      "letter_cell": "E98"
+    },
+    {
+      "id": "S1-R099",
+      "sheet": "一组",
+      "row": 99,
+      "product": "日常生日装饰-QQC",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "已通过",
+      "letter_id": "L079",
+      "letter_cell": "E99"
+    },
+    {
+      "id": "S2-R002",
+      "sheet": "二组",
+      "row": 2,
+      "product": "情人头带装饰-发饰A",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Kopfbedeckungen",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L080",
+      "letter_cell": "E2"
+    },
+    {
+      "id": "S2-R003",
+      "sheet": "二组",
+      "row": 3,
+      "product": "情人头带装饰-发饰B",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Kopfbedeckungen",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L081",
+      "letter_cell": "E3"
+    },
+    {
+      "id": "S2-R004",
+      "sheet": "二组",
+      "row": 4,
+      "product": "情人头带装饰-发饰C",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Kopfbedeckungen",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L082",
+      "letter_cell": "E4"
+    },
+    {
+      "id": "S2-R005",
+      "sheet": "二组",
+      "row": 5,
+      "product": "情人头带装饰-发饰D",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Kopfbedeckungen",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L083",
+      "letter_cell": "E5"
+    },
+    {
+      "id": "S2-R006",
+      "sheet": "二组",
+      "row": 6,
+      "product": "海盗扮演配饰-眼罩B",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Kopfbedeckungen",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L084",
+      "letter_cell": "E6"
+    },
+    {
+      "id": "S2-R007",
+      "sheet": "二组",
+      "row": 7,
+      "product": "娃娃服装-烤箱",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Möbel für Minipuppen",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L037",
+      "letter_cell": "E7"
+    },
+    {
+      "id": "S2-R008",
+      "sheet": "二组",
+      "row": 8,
+      "product": "嘉年华装扮-辫子2",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Perücken & Haarteile für Kinder",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L085",
+      "letter_cell": "E8"
+    },
+    {
+      "id": "S2-R009",
+      "sheet": "二组",
+      "row": 9,
+      "product": "节日爱心装扮-鹿裙C",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostümsets",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L086",
+      "letter_cell": "E9"
+    },
+    {
+      "id": "S2-R010",
+      "sheet": "二组",
+      "row": 10,
+      "product": "母亲节装饰-气球B",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kinderluftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L087",
+      "letter_cell": "E10"
+    },
+    {
+      "id": "S2-R011",
+      "sheet": "二组",
+      "row": 11,
+      "product": "装饰设计用品-粉龙",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kinderluftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R012",
+      "sheet": "二组",
+      "row": 12,
+      "product": "绿色小火车",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Züge & Straßenbahnen",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L088",
+      "letter_cell": "E12"
+    },
+    {
+      "id": "S2-R013",
+      "sheet": "二组",
+      "row": 13,
+      "product": "儿童袜子装扮-小黑",
+      "source_category": "Fashion",
+      "source_subcategory": "Strumpfhosen für Mädchen",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L089",
+      "letter_cell": "E13"
+    },
+    {
+      "id": "S2-R014",
+      "sheet": "二组",
+      "row": 14,
+      "product": "儿童袜子装扮-小裸",
+      "source_category": "Fashion",
+      "source_subcategory": "Strumpfhosen für Mädchen",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L089",
+      "letter_cell": "E13"
+    },
+    {
+      "id": "S2-R015",
+      "sheet": "二组",
+      "row": 15,
+      "product": "狂欢潮流装扮-发带彩",
+      "source_category": "Jeux et Jouets",
+      "source_subcategory": "Kits de déguisement",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L090",
+      "letter_cell": "E15"
+    },
+    {
+      "id": "S2-R016",
+      "sheet": "二组",
+      "row": 16,
+      "product": "派对气球贴纸-组合A",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L091",
+      "letter_cell": "E16"
+    },
+    {
+      "id": "S2-R017",
+      "sheet": "二组",
+      "row": 17,
+      "product": "圣诞贴纸B",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Sticker",
+      "source_product_group": "其他",
+      "source_status": "通过",
+      "letter_id": "L092",
+      "letter_cell": "E17"
+    },
+    {
+      "id": "S2-R018",
+      "sheet": "二组",
+      "row": 18,
+      "product": "夏天水池玩具-猫池",
+      "source_category": "Pet Supplies",
+      "source_subcategory": "Interactive Toys for Cats",
+      "source_product_group": "其它",
+      "source_status": "通过",
+      "letter_id": "L093",
+      "letter_cell": "E18"
+    },
+    {
+      "id": "S2-R019",
+      "sheet": "二组",
+      "row": 19,
+      "product": "复活捏捏玩具-萝卜",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Squeeze Toys",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L094",
+      "letter_cell": "E19"
+    },
+    {
+      "id": "S2-R020",
+      "sheet": "二组",
+      "row": 20,
+      "product": "复活捏捏玩具-兔子桔",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Squeeze Toys",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L094",
+      "letter_cell": "E20"
+    },
+    {
+      "id": "S2-R021",
+      "sheet": "二组",
+      "row": 21,
+      "product": "海盗扮演配饰-眼罩A",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Hüte & Kopfbedeckungen für Kinder",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L095",
+      "letter_cell": "E21"
+    },
+    {
+      "id": "S2-R022",
+      "sheet": "二组",
+      "row": 22,
+      "product": "节日动物头箍-发箍-斑马",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "",
+      "source_status": "通过",
+      "letter_id": "L096",
+      "letter_cell": "E22"
+    },
+    {
+      "id": "S2-R023",
+      "sheet": "二组",
+      "row": 23,
+      "product": "节日动物头箍-发箍-猴",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "",
+      "source_status": "通过",
+      "letter_id": "L097",
+      "letter_cell": "E23"
+    },
+    {
+      "id": "S2-R024",
+      "sheet": "二组",
+      "row": 24,
+      "product": "游戏牌-NT",
+      "source_category": "",
+      "source_subcategory": "Games",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L098",
+      "letter_cell": "E24"
+    },
+    {
+      "id": "S2-R025",
+      "sheet": "二组",
+      "row": 25,
+      "product": "夏天水池玩具-池子",
+      "source_category": "Haustier",
+      "source_subcategory": "Interaktives Spielzeug",
+      "source_product_group": "",
+      "source_status": "通过",
+      "letter_id": "L088",
+      "letter_cell": "E25"
+    },
+    {
+      "id": "S2-R026",
+      "sheet": "二组",
+      "row": 26,
+      "product": "娃娃屋配件-擀面杖",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R027",
+      "sheet": "二组",
+      "row": 27,
+      "product": "绘画卷-动物",
+      "source_category": "",
+      "source_subcategory": "Zeichenpapier",
+      "source_product_group": "",
+      "source_status": "通过",
+      "letter_id": "L099",
+      "letter_cell": "E27"
+    },
+    {
+      "id": "S2-R028",
+      "sheet": "二组",
+      "row": 28,
+      "product": "红色小火车",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L100",
+      "letter_cell": "E28"
+    },
+    {
+      "id": "S2-R029",
+      "sheet": "二组",
+      "row": 29,
+      "product": "侏儒微型套装-草圈黄",
+      "source_category": "",
+      "source_subcategory": "Ausstattungen",
+      "source_product_group": "",
+      "source_status": "通过",
+      "letter_id": "L101",
+      "letter_cell": "E29"
+    },
+    {
+      "id": "S2-R030",
+      "sheet": "二组",
+      "row": 30,
+      "product": "节日发光手带-7条（带电）",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Armbänder",
+      "source_product_group": "玩具",
+      "source_status": "申诉通过",
+      "letter_id": "L102",
+      "letter_cell": "E30"
+    },
+    {
+      "id": "S2-R031",
+      "sheet": "二组",
+      "row": 31,
+      "product": "万圣玩具套装-眼球",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Partyfotoautomat Zubehör",
+      "source_product_group": "饰品",
+      "source_status": "申诉通过",
+      "letter_id": "L103",
+      "letter_cell": "E31"
+    },
+    {
+      "id": "S2-R032",
+      "sheet": "二组",
+      "row": 32,
+      "product": "儿童发光玩具-亚克力6（带电）",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Partygeschenk-Packs mit verschiedenen Artikeln",
+      "source_product_group": "玩具",
+      "source_status": "申诉通过",
+      "letter_id": "L104",
+      "letter_cell": "E32"
+    },
+    {
+      "id": "S2-R033",
+      "sheet": "二组",
+      "row": 33,
+      "product": "生日派对饰品-12pcs",
+      "source_category": "Casa e cucina",
+      "source_subcategory": "Copricapo",
+      "source_product_group": "装饰",
+      "source_status": "申诉通过",
+      "letter_id": "L105",
+      "letter_cell": "E33"
+    },
+    {
+      "id": "S2-R034",
+      "sheet": "二组",
+      "row": 34,
+      "product": "气球组合装饰-QQA",
+      "source_category": "QQZHZS",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "申诉通过",
+      "letter_id": "L106",
+      "letter_cell": "E34"
+    },
+    {
+      "id": "S2-R035",
+      "sheet": "二组",
+      "row": 35,
+      "product": "夏日水池套装-鸟10",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Statuen",
+      "source_product_group": "装饰品",
+      "source_status": "申诉通过",
+      "letter_id": "L107",
+      "letter_cell": "E35"
+    },
+    {
+      "id": "S2-R036",
+      "sheet": "二组",
+      "row": 36,
+      "product": "罗马埃及装饰-埃及B",
+      "source_category": "Moda",
+      "source_subcategory": "Gioielli",
+      "source_product_group": "饰品",
+      "source_status": "申诉通过",
+      "letter_id": "L108",
+      "letter_cell": "E36"
+    },
+    {
+      "id": "S2-R037",
+      "sheet": "二组",
+      "row": 37,
+      "product": "礼品套装-方板",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Bügelperlen",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L109",
+      "letter_cell": "E37"
+    },
+    {
+      "id": "S2-R038",
+      "sheet": "二组",
+      "row": 38,
+      "product": "圣诞树球-毛球红",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Seidenpompons",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L110",
+      "letter_cell": "E38"
+    },
+    {
+      "id": "S2-R039",
+      "sheet": "二组",
+      "row": 39,
+      "product": "圣诞玩具装饰-红A",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Schleifen & Bänder",
+      "source_product_group": "装饰品",
+      "source_status": "通过",
+      "letter_id": "L111",
+      "letter_cell": "E39"
+    },
+    {
+      "id": "S2-R040",
+      "sheet": "二组",
+      "row": 40,
+      "product": "圣诞玩具装饰-红B",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Schleifen & Bänder",
+      "source_product_group": "装饰品",
+      "source_status": "通过",
+      "letter_id": "L111",
+      "letter_cell": "E40"
+    },
+    {
+      "id": "S2-R041",
+      "sheet": "二组",
+      "row": 41,
+      "product": "圣诞迷你装饰-火车A",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Zierschmuck",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L112",
+      "letter_cell": "E41"
+    },
+    {
+      "id": "S2-R042",
+      "sheet": "二组",
+      "row": 42,
+      "product": "圣诞迷你装饰-火车B",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Zierschmuck",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L112",
+      "letter_cell": "E42"
+    },
+    {
+      "id": "S2-R043",
+      "sheet": "二组",
+      "row": 43,
+      "product": "圣诞饰品摆件-公仔A",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Zierschmuck",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L113",
+      "letter_cell": "E43"
+    },
+    {
+      "id": "S2-R044",
+      "sheet": "二组",
+      "row": 44,
+      "product": "圣诞饰品摆件-公仔B",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Zierschmuck",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L113",
+      "letter_cell": "E44"
+    },
+    {
+      "id": "S2-R045",
+      "sheet": "二组",
+      "row": 45,
+      "product": "圣诞树球-毛球黑",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Seidenpompons",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L110",
+      "letter_cell": "E45"
+    },
+    {
+      "id": "S2-R046",
+      "sheet": "二组",
+      "row": 46,
+      "product": "彩色木珠套装",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Perlenweben-Zubehör",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L114",
+      "letter_cell": "E46"
+    },
+    {
+      "id": "S2-R047",
+      "sheet": "二组",
+      "row": 47,
+      "product": "侏儒微观装饰-发光E（带电）",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Ausstattungen",
+      "source_product_group": "娃娃屋配件",
+      "source_status": "申诉通过",
+      "letter_id": "L115",
+      "letter_cell": "E47"
+    },
+    {
+      "id": "S2-R048",
+      "sheet": "二组",
+      "row": 48,
+      "product": "侏儒微观装饰-草暖1（带电）",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Ausstattungen",
+      "source_product_group": "娃娃屋配件",
+      "source_status": "申诉通过",
+      "letter_id": "L116",
+      "letter_cell": "E48"
+    },
+    {
+      "id": "S2-R049",
+      "sheet": "二组",
+      "row": 49,
+      "product": "侏儒微观装饰-LED灯白",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Ausstattungen",
+      "source_product_group": "娃娃屋配件",
+      "source_status": "申诉通过",
+      "letter_id": "L116",
+      "letter_cell": "E49"
+    },
+    {
+      "id": "S2-R050",
+      "sheet": "二组",
+      "row": 50,
+      "product": "侏儒微观装饰-发光B（带电）",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Ausstattungen",
+      "source_product_group": "娃娃屋配件",
+      "source_status": "申诉通过",
+      "letter_id": "L115",
+      "letter_cell": "E50"
+    },
+    {
+      "id": "S2-R051",
+      "sheet": "二组",
+      "row": 51,
+      "product": "DIY圣诞毛球-混合B",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Seidenpompons",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L117",
+      "letter_cell": "E51"
+    },
+    {
+      "id": "S2-R052",
+      "sheet": "二组",
+      "row": 52,
+      "product": "DIY圣诞毛球-混合A",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Seidenpompons",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L117",
+      "letter_cell": "E52"
+    },
+    {
+      "id": "S2-R053",
+      "sheet": "二组",
+      "row": 53,
+      "product": "圣诞迷你装饰-滑雪A",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Ausstattungen",
+      "source_product_group": "娃娃屋配件",
+      "source_status": "申诉通过",
+      "letter_id": "L118",
+      "letter_cell": "E53"
+    },
+    {
+      "id": "S2-R054",
+      "sheet": "二组",
+      "row": 54,
+      "product": "圣诞微型饰品-组合C",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "娃娃屋配件",
+      "source_status": "申诉通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R055",
+      "sheet": "二组",
+      "row": 55,
+      "product": "拍照道具气球-数字4",
+      "source_category": "",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "申诉通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R056",
+      "sheet": "二组",
+      "row": 56,
+      "product": "拍照道具气球-数字6",
+      "source_category": "",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "申诉通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R057",
+      "sheet": "二组",
+      "row": 57,
+      "product": "拍照道具气球-数字3",
+      "source_category": "",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "申诉通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R058",
+      "sheet": "二组",
+      "row": 58,
+      "product": "拍照道具气球-数字1",
+      "source_category": "",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "申诉通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R059",
+      "sheet": "二组",
+      "row": 59,
+      "product": "圣诞角色装扮-雪人B",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "装扮配件",
+      "source_status": "申诉通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R060",
+      "sheet": "二组",
+      "row": 60,
+      "product": "万圣派对配件-脸贴D",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "装扮配件",
+      "source_status": "申诉通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R061",
+      "sheet": "二组",
+      "row": 61,
+      "product": "万圣玩具套装-鞭子",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "装扮配件",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R062",
+      "sheet": "二组",
+      "row": 62,
+      "product": "万圣配饰套件-兔",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "装扮配件",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R063",
+      "sheet": "二组",
+      "row": 63,
+      "product": "LED裙子-30cm粉",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R064",
+      "sheet": "二组",
+      "row": 64,
+      "product": "LED裙子-30cm玫",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R065",
+      "sheet": "二组",
+      "row": 65,
+      "product": "LED裙子-30cm黑",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R066",
+      "sheet": "二组",
+      "row": 66,
+      "product": "LED裙子-30cm白",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R067",
+      "sheet": "二组",
+      "row": 67,
+      "product": "LED裙子-30cm蓝",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R068",
+      "sheet": "二组",
+      "row": 68,
+      "product": "万圣装饰眼罩-组合A",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "装扮配件",
+      "source_status": "申诉通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R069",
+      "sheet": "二组",
+      "row": 69,
+      "product": "万圣装饰眼罩-组合C",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "装扮配件",
+      "source_status": "申诉通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R070",
+      "sheet": "二组",
+      "row": 70,
+      "product": "微型灯配饰-灯暖（带电）",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "灯饰",
+      "source_status": "申诉通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S2-R071",
+      "sheet": "二组",
+      "row": 71,
+      "product": "万圣装扮玩具-尾巴A",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Outfits",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L119",
+      "letter_cell": "E71"
+    },
+    {
+      "id": "S2-R072",
+      "sheet": "二组",
+      "row": 72,
+      "product": "万圣装扮玩具-尾巴B",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Kostüm-Outfits",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L119",
+      "letter_cell": "E72"
+    },
+    {
+      "id": "S2-R073",
+      "sheet": "二组",
+      "row": 73,
+      "product": "万圣服饰装饰-骨链",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Haarschmuck",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L120",
+      "letter_cell": "E73"
+    },
+    {
+      "id": "S2-R074",
+      "sheet": "二组",
+      "row": 74,
+      "product": "万圣服饰装饰-眼罩",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Masken für Erwachsene",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L121",
+      "letter_cell": "E74"
+    },
+    {
+      "id": "S2-R075",
+      "sheet": "二组",
+      "row": 75,
+      "product": "万圣装扮配饰-饰品",
+      "source_category": "Fashion",
+      "source_subcategory": "Schmuck-Sets",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L122",
+      "letter_cell": "E75"
+    },
+    {
+      "id": "S2-R076",
+      "sheet": "二组",
+      "row": 76,
+      "product": "圣诞充气玩具-充气B",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L123",
+      "letter_cell": "E76"
+    },
+    {
+      "id": "S2-R077",
+      "sheet": "二组",
+      "row": 77,
+      "product": "圣诞充气玩具-充气C",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L123",
+      "letter_cell": "E77"
+    },
+    {
+      "id": "S2-R078",
+      "sheet": "二组",
+      "row": 78,
+      "product": "圣诞充气玩具-充气D",
+      "source_category": "Küche, Haushalt & Wohnen",
+      "source_subcategory": "Luftballons",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": "L123",
+      "letter_cell": "E78"
+    },
+    {
+      "id": "S2-R079",
+      "sheet": "二组",
+      "row": 79,
+      "product": "万圣头部装扮-眼罩",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Masken für Erwachsene",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L124",
+      "letter_cell": "E79"
+    },
+    {
+      "id": "S2-R080",
+      "sheet": "二组",
+      "row": 80,
+      "product": "万圣派对服装-斗篷咖",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Mäntel, Umhänge & Flügel für Kinder",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L125",
+      "letter_cell": "E80"
+    },
+    {
+      "id": "S2-R081",
+      "sheet": "二组",
+      "row": 81,
+      "product": "万圣派对服装-斗篷白",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Mäntel, Umhänge & Flügel für Kinder",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L125",
+      "letter_cell": "E81"
+    },
+    {
+      "id": "S2-R082",
+      "sheet": "二组",
+      "row": 82,
+      "product": "万圣派对服装-斗篷黑",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Mäntel, Umhänge & Flügel für Kinder",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L125",
+      "letter_cell": "E82"
+    },
+    {
+      "id": "S2-R083",
+      "sheet": "二组",
+      "row": 83,
+      "product": "万圣派对配件-箍贴B",
+      "source_category": "Verkleiden & Kinderrollenspiele",
+      "source_subcategory": "Hüte & Kopfbedeckungen für Erwachsene",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L126",
+      "letter_cell": "E83"
+    },
+    {
+      "id": "S2-R084",
+      "sheet": "二组",
+      "row": 84,
+      "product": "海滩玩具袋-单包A",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Sandspielzeug",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L127",
+      "letter_cell": "E84"
+    },
+    {
+      "id": "S2-R085",
+      "sheet": "二组",
+      "row": 85,
+      "product": "海滩玩具袋-单包B",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Sandspielzeug",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L127",
+      "letter_cell": "E85"
+    },
+    {
+      "id": "S2-R086",
+      "sheet": "二组",
+      "row": 86,
+      "product": "海滩玩具袋-单包C",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Sandspielzeug",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L127",
+      "letter_cell": "E86"
+    },
+    {
+      "id": "S2-R087",
+      "sheet": "二组",
+      "row": 87,
+      "product": "儿童玩耍玩具-车黑",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Lastwagen",
+      "source_product_group": "玩具",
+      "source_status": "申诉通过",
+      "letter_id": "L128",
+      "letter_cell": "E87"
+    },
+    {
+      "id": "S2-R088",
+      "sheet": "二组",
+      "row": 88,
+      "product": "儿童玩耍玩具-车蓝",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Lastwagen",
+      "source_product_group": "玩具",
+      "source_status": "申诉通过",
+      "letter_id": "L128",
+      "letter_cell": "E88"
+    },
+    {
+      "id": "S2-R089",
+      "sheet": "二组",
+      "row": 89,
+      "product": "万圣玩具装饰-蜘蛛1",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Scherzartikel",
+      "source_product_group": "玩具",
+      "source_status": "申诉通过",
+      "letter_id": "L128",
+      "letter_cell": "E89"
+    },
+    {
+      "id": "S2-R090",
+      "sheet": "二组",
+      "row": 90,
+      "product": "万圣玩具装饰-蜘蛛2",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Scherzartikel",
+      "source_product_group": "玩具",
+      "source_status": "申诉通过",
+      "letter_id": "L128",
+      "letter_cell": "E90"
+    },
+    {
+      "id": "S2-R091",
+      "sheet": "二组",
+      "row": 91,
+      "product": "儿童玩耍玩具-车绿",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Lastwagen",
+      "source_product_group": "玩具",
+      "source_status": "申诉通过",
+      "letter_id": "L129",
+      "letter_cell": "E91"
+    },
+    {
+      "id": "S2-R092",
+      "sheet": "二组",
+      "row": 92,
+      "product": "狂欢嘉华装扮-猫A",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Masken für Erwachsene",
+      "source_product_group": "服饰",
+      "source_status": "申诉通过",
+      "letter_id": "L130",
+      "letter_cell": "E92"
+    },
+    {
+      "id": "S2-R093",
+      "sheet": "二组",
+      "row": 93,
+      "product": "狂欢嘉华装扮-猫B",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Masken für Erwachsene",
+      "source_product_group": "服饰",
+      "source_status": "申诉通过",
+      "letter_id": "L131",
+      "letter_cell": "E93"
+    },
+    {
+      "id": "S2-R094",
+      "sheet": "二组",
+      "row": 94,
+      "product": "万圣服装配件-牙齿1",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Körperteile",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L132",
+      "letter_cell": "E94"
+    },
+    {
+      "id": "S2-R095",
+      "sheet": "二组",
+      "row": 95,
+      "product": "万圣服装配件-牙齿2",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Körperteile",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L133",
+      "letter_cell": "E95"
+    },
+    {
+      "id": "S2-R096",
+      "sheet": "二组",
+      "row": 96,
+      "product": "圣诞角色装扮-老人A",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Perücken & Haarteile für Erwachsene",
+      "source_product_group": "其他",
+      "source_status": "申诉通过",
+      "letter_id": "L134",
+      "letter_cell": "E96"
+    },
+    {
+      "id": "S2-R097",
+      "sheet": "二组",
+      "row": 97,
+      "product": "儿童友好玩具-球台",
+      "source_category": "Spielzeug",
+      "source_subcategory": "Tischfußballtische",
+      "source_product_group": "玩具",
+      "source_status": "申诉通过",
+      "letter_id": "L135",
+      "letter_cell": "E97"
+    },
+    {
+      "id": "S3-R002",
+      "sheet": "三组",
+      "row": 2,
+      "product": "彩虹发箍-蝴蝶黄",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S3-R003",
+      "sheet": "三组",
+      "row": 3,
+      "product": "狂欢服装装饰-黑色",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S3-R004",
+      "sheet": "三组",
+      "row": 4,
+      "product": "狂欢服装装饰-玫红",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S3-R005",
+      "sheet": "三组",
+      "row": 5,
+      "product": "狂欢服装装饰-红色",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S3-R006",
+      "sheet": "三组",
+      "row": 6,
+      "product": "动物节日配饰-动物虎",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L136",
+      "letter_cell": "E6"
+    },
+    {
+      "id": "S3-R007",
+      "sheet": "三组",
+      "row": 7,
+      "product": "万圣服饰装扮-面具A",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L137",
+      "letter_cell": "E7"
+    },
+    {
+      "id": "S3-R008",
+      "sheet": "三组",
+      "row": 8,
+      "product": "万圣服饰装扮-面具B",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L138",
+      "letter_cell": "E8"
+    },
+    {
+      "id": "S3-R009",
+      "sheet": "三组",
+      "row": 9,
+      "product": "儿童游戏玩具-牌",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S3-R010",
+      "sheet": "三组",
+      "row": 10,
+      "product": "动物节日配饰-动物长鹿",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L136",
+      "letter_cell": "E10"
+    },
+    {
+      "id": "S3-R011",
+      "sheet": "三组",
+      "row": 11,
+      "product": "卡通组合餐具-CJ",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L139",
+      "letter_cell": "E11"
+    },
+    {
+      "id": "S3-R012",
+      "sheet": "三组",
+      "row": 12,
+      "product": "彩虹发箍-蝴蝶彩",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L140",
+      "letter_cell": "E12"
+    },
+    {
+      "id": "S3-R013",
+      "sheet": "三组",
+      "row": 13,
+      "product": "万圣装扮玩具-乌鸦",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L141",
+      "letter_cell": "E13"
+    },
+    {
+      "id": "S3-R014",
+      "sheet": "三组",
+      "row": 14,
+      "product": "圣诞帽装饰-圣诞C",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": "L142",
+      "letter_cell": "E14"
+    },
+    {
+      "id": "S3-R015",
+      "sheet": "三组",
+      "row": 15,
+      "product": "骑行家居玩具-魔方",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "玩具",
+      "source_status": "通过",
+      "letter_id": "L143",
+      "letter_cell": "E15"
+    },
+    {
+      "id": "S3-R016",
+      "sheet": "三组",
+      "row": 16,
+      "product": "侏儒微型套装-发光白",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L144",
+      "letter_cell": "E16"
+    },
+    {
+      "id": "S3-R017",
+      "sheet": "三组",
+      "row": 17,
+      "product": "小天眼驱蚊器",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "其它",
+      "source_status": "通过",
+      "letter_id": "L145",
+      "letter_cell": "E17"
+    },
+    {
+      "id": "S3-R018",
+      "sheet": "三组",
+      "row": 18,
+      "product": "灯笼杆-红黄",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "其它",
+      "source_status": "通过",
+      "letter_id": "L146",
+      "letter_cell": "E18"
+    },
+    {
+      "id": "S3-R019",
+      "sheet": "三组",
+      "row": 19,
+      "product": "狂欢模仿装扮-围巾A",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S3-R020",
+      "sheet": "三组",
+      "row": 20,
+      "product": "狂欢模仿装扮-围巾B",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "服饰",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S3-R021",
+      "sheet": "三组",
+      "row": 21,
+      "product": "派对蝴蝶装饰-气球红",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "气球",
+      "source_status": "通过",
+      "letter_id": null,
+      "letter_cell": null
+    },
+    {
+      "id": "S3-R022",
+      "sheet": "三组",
+      "row": 22,
+      "product": "圣诞微景观11色",
+      "source_category": "",
+      "source_subcategory": "",
+      "source_product_group": "摆件装饰品",
+      "source_status": "通过",
+      "letter_id": "L147",
+      "letter_cell": "E22"
+    }
+  ],
+  "letters": {
+    "L001": {
+      "text": "This product does not have entertainment or game properties and does not meet the definition of a children's toy.Product composition and function: The core component is a beer-themed aluminum foil balloon. All components are designed for party decoration purposes only and are designed for adult social activities. There are no functional settings for children to play; and this product requires helium to achieve the decorative effect, and its functional positioning and usage conditions have nothing to do with children's toys.",
+      "source_characters": 529,
+      "source_sha256": "8c6cffcba645d71c72ad416d65c2e7d457c9c5ef0b3ef04bee7e7c0bdf8fc248"
+    },
+    "L002": {
+      "text": "We would like to provide the following additional clarification regarding the misclassification of our \"beer balloons\" as children's toys and their association with food and product safety concerns. Please review again with your department. Basic product information: Product ingredients: Contains beer-type aluminum foil balloons and champagne-type aluminum foil balloons, both of which are party decoration ingredients. Applicable scenarios: Designed for Oktoberfest theme parties, adult anniversaries, gatherings, various social activities, and non-children use scenarios. Usage requirements: It should be used with helium, and the operation method should meet the requirements for adult use.",
+      "source_characters": 695,
+      "source_sha256": "a98e243c563e3b964484f706467ea28e3299f40acb4aeddea88c491fdd92424d"
+    },
+    "L003": {
+      "text": "We would like to provide the following supplementary explanation regarding the misclassification of our \"pink balloon\" as a children's toy and its association with food and product safety issues. We kindly request your department to conduct a re examination.Product basic information:Product composition: Contains pink digital aluminum foil balloons and pink bow aluminum foil balloons, both of which are party decoration components.Applicable scenarios: Designed specifically for adult anniversaries, parties, and various social events, non child use scenarios.Usage requirements: It should be used in conjunction with helium gas, and the operating method should be set according to adult usage requirements.",
+      "source_characters": 709,
+      "source_sha256": "1d976ae92bba87e7e7112ca8505aa7e26927cf0deb2c241a68ed914ae58c50ec"
+    },
+    "L004": {
+      "text": "We hereby submit this appeal statement regarding the misclassification of our \"Single Party Balloon\" product as a children's toy with food and product safety issues. We kindly request your department to review it again.﻿Product basic information description:Our product is a party decoration designed specifically for adult celebration events, including:Single party themed bannerAluminum foil decorative balloonsLatex material decorative balloons﻿Product features: Its size specifications (large volume) and material selection (physical properties of aluminum foil and latex materials) do not meet the safety standards and usage requirements for children's toys.﻿Usage scenario: Clearly applicable to adult social occasions such as bridal showers and bachelor parties. When using, it is necessary to use professional gases such as helium. The operation method and environmental requirements are set for adults.",
+      "source_characters": 911,
+      "source_sha256": "0040ed090eabdfd51af5bee976d84bdfc7aa98bf60bf8ad574ddf4e2b59af2f5"
+    },
+    "L005": {
+      "text": "This product does not offer entertainment or gaming features and should not be classified as a children's toy for the following reasons:It is a Wedding Decorations item.It can be used in homes, offices, or shops as both a practical and decorative item.\nThis product is designed and marketed as an accessory for events such as weddings, not as a toy. It has no moving parts, sounds, or play functions typical of toys. \nProduct Attributes: 1. Sturdy structure, no sound, light, movement, or interactive features.2. Contains no electronic components, batteries, mechanical devices, or entertainment features.3. Not designed for children's entertainment and does not have educational or gaming features.",
+      "source_characters": 699,
+      "source_sha256": "5c51b70d7896615b5d437d3f8e16c9c1a7c38104d8fcf43f91c9ebb10ec32db8"
+    },
+    "L006": {
+      "text": "This product does not have entertainment or game properties and should not be classified as a children's toy for the following reasons:\nProduct Intended Use: This product is a fabric glove with an elasticated design, primarily intended for costumes and role-playing. It is a practical and decorative item for use in the home.This product is clearly marketed and designed as a clothing accessory for specific activities, as clearly stated in the title and description. Its intended uses include:Karneval\nAttributes: 1. Does not have any entertainment functions and does not contain electronic batteries.2. This product is not designed for children's entertainment and does not have gaming functions.",
+      "source_characters": 698,
+      "source_sha256": "4997f5b6347002a34f3d0c8402a73b84752c7302e82490e556ddcdabce261ca2"
+    },
+    "L007": {
+      "text": "This product does not provide entertainment or gaming functionality and should not be classified as a \"children's toy.\"This product is a Simple home decoration.It can be used as both a practical item and a decorative item, suitable for festivals/home decoration.\n It is not designed, manufactured, or marketed as a toy for children. Target Users are Adults: The product is clearly intended for purchase and use by adults for decorative purposes. Children are not the target users of this item. No Play Value: The product does not include any playful functions, interactive features, or imaginative play elements. It serves a purely decorative function.",
+      "source_characters": 652,
+      "source_sha256": "a89e331fc0dbbdb1a28c24877ef0ec8257c4195689b370f5b2582df1e1f531b7"
+    },
+    "L008": {
+      "text": "This product is a fashion accessory set that includes a necklace and earrings. It is designed for dressing up and enhancing style, not for play. The title, description, and images clearly show that it is intended for cosplay, role-playing, parties, and festive events.\nProduct Nature:\nThe item has no interactive, sound, light, or assembly functions and is meant solely for adults to wear as decoration.\nClassification Statement:\nBased on its design, purpose, and intended use, this product clearly belongs to the “Fashion Accessories/Costume Apparel” category, not “Children’s Toys.” It has no play value, educational purpose, or entertainment features.",
+      "source_characters": 654,
+      "source_sha256": "482a5da9811e67fa091f1ad9113fd6e89b6d038593e37e1f12c230060f8472f6"
+    },
+    "L009": {
+      "text": "Our product, a sunglasses and necklace set, has been incorrectly classified as a “children’s toy.” This item is a fashion accessory designed for adults and teens to wear at parties, photoshoots, and outdoor events, not for play. The title, description, and images clearly show it is intended for styling and decoration, not entertainment. Made of plastic and alloy materials, its physical properties do not meet children’s toy safety standards. Based on its design, purpose, and usage, it should be classified as “fashion accessories / costume jewelry”, not as a children’s toy.",
+      "source_characters": 578,
+      "source_sha256": "8962d9e826be868ef164617d92556f6828b57aa74605b43ece77920a8cfb222d"
+    },
+    "L010": {
+      "text": "本产品并不具备娱乐或游戏属性，因此不应归类为儿童玩具，原因如下：\n产品用途：本产品为一款蕾丝面具，主要用于服装和角色扮演。其设计和用途仅为节日/装饰性的家居用品。本产品明确定位于特定活动的服饰配饰，目标用户为成人，并非为儿童设计，其设计和功能完全不符儿童玩具的标准。\n属性：\n1. 材质为蕾丝，设计和材料均注重视觉效果，不具备互动娱乐功能。\n2. 本产品并非为儿童娱乐而设计，其仅供装饰用途。",
+      "source_characters": 196,
+      "source_sha256": "77f3e8c4db5a445156102190948740449788bd4eb12be4acd87bffa37cf79080"
+    },
+    "L011": {
+      "text": "This product has been incorrectly flagged as a \"children's toy\" and is being required to provide toy-related documentation. This is a clear error in classification, and I would like to present the following points for your review:\n\n1. Primary Use is Costume & Cosplay:\nThe product is explicitly marketed and designed as costume accessories for specific events, as clearly stated in the title and description. Its intended uses are:\n\nHalloween\n\nKarneval (Carnival)\n\nCosplay\n\nMottoparty (Theme Parties)\n\n2. Nature of the Product:\nThe set includes \"Leoparden Ohren Haarreif\" (Leopard Ears Headband) and \"Leopard Gesicht Kunst Aufkleber\" (Leopard Face Art Stickers). These are classic wearable accessorie",
+      "source_characters": 700,
+      "source_sha256": "0e44e4fcd5f4865532c832c66e2f2f5d419b2a3c9e33dd53a62712f2ada3273c"
+    },
+    "L012": {
+      "text": "Product is Not a Toy: This product is an artificial Christmas tree, designed and intended solely for holiday/home decoration use. It is not designed, manufactured, or marketed as a toy for children. Target Users are Adults: The product is clearly intended for purchase and use by adults for decorative purposes. Children are not the target users of this item. No Play Value: The product does not include any playful functions, interactive features, or imaginative play elements. It serves a purely decorative function.",
+      "source_characters": 518,
+      "source_sha256": "5dc67200bf98bd85e87abfe39755036a5cdb9ea54e184d4a88f990095f1d6d47"
+    },
+    "L013": {
+      "text": "\n\n1. Product is Exclusively a Decorative Item, Not a Toy:\nThis product is designed, manufactured, and marketed exclusively as an artificial Christmas tree for decorative purposes. Its primary and sole function is to serve as a festive centerpiece or home decor during the holiday season. It does not possess any attributes of a toy and is not intended for play.\n\n2. Target User is the Adult Consumer:\nThe product is explicitly intended for purchase, assembly, and decoration by adults. The setup and decoration of a Christmas tree are traditionally adult-supervised activities. While children may enjoy the festive atmosphere the decorated tree creates, the product itself is purchased and used by ad",
+      "source_characters": 700,
+      "source_sha256": "b6f0478e96f78c5bb8581f088669b072cdf48f8f70ecde570dc7fce6c7a538f4"
+    },
+    "L014": {
+      "text": "This product is not a toy but a miniature decorative item for adult collectors.\n\nKey Points:\n\nProduct Type: 1:12 scale miniature beach chairs for display\n\nTarget Users: Adult collectors and DIY enthusiasts\n\nPurpose: Decorative accessory for dollhouses, micro-landscapes, and DIY projects\n\nUsage: Static display pieces not designed for play\n\nThis is a miniature decorative item intended for adult hobbyists, not a children's toy.",
+      "source_characters": 428,
+      "source_sha256": "348ffb2f855e9df2afefdc59c73e67f4a5414e29a90f64908fff4e9ff268bc5e"
+    },
+    "L015": {
+      "text": "Product Type: 1M miniature knitted ladder for decorative display\nTarget Users: Adult collectors creating Christmas gnome door displays\nPurpose: Static decorative accessory for festive home decoration - not for play\nUsage: Designed for placement on floors or kitchen cabinets as part of adult holiday decor\nThis is a decorative miniature accessory intended for adult collectors and holiday decorating enthusiasts, not a children's toy. ",
+      "source_characters": 435,
+      "source_sha256": "0367b2c3e6dfaf899bb35ec3c8bee0830e9e294f66ade5936e34d115465ad6d3"
+    },
+    "L016": {
+      "text": "This product does not have entertainment or gaming properties and should not be classified as a children's toy product.\n\nProduct Type and Intended Use:\nThis product is a fashion hair accessory, designed to complement costumes or festive outfits.It is not designed, manufactured, or marketed as a toy for children. It serves as a wearable decorative accessory, similar to headbands, clips, or costume accessories commonly used by adults.This product is expressly intended for purchase and use by adults. Children are not the intended users of this product.The product does not include any playful functions, interactive features, or imaginative play elements. It serves a purely decorative function.",
+      "source_characters": 698,
+      "source_sha256": "bae793615df14f41fad997fd474c1cfb1c45ddbb7b3d8dc5160157f49784fe3d"
+    },
+    "L017": {
+      "text": "The product is explicitly designed and marketed as costume wear for thematic events. \n1. Absence of Play Value:\nThis product does not possess entertainment or game properties. Its sole function is as a wearable accessory for costume purposes.\n2. The elf ears are made of odorless, non-toxic latex, which is a material common in professional costume and cosplay accessories.  The product requires careful handling and sometimes even adhesive for secure fit, indicating its nature as a precise costume component rather than a toy for play. \n3. These are social events and activities centered around role-playing and thematic expression for a general audience, not designed for child's play.",
+      "source_characters": 688,
+      "source_sha256": "fb250779952aa549bfa2fafda0a6f05b668e8487ca5bba856204aabcea200f32"
+    },
+    "L018": {
+      "text": "本产品不具备娱乐性或游戏属性，不应归类为儿童玩具产品，原因如下：\n产品用途说明：本产品为一款木质结构的储钱盒，带有可开合锁扣设计，主要用于存放硬币、纸币或小物件。产品外观类似小型收纳盒或储蓄箱，可用于家庭、办公室或商店作为实用性与装饰性兼具的物品。\n产品属性说明：1.材质为木质，结构稳固，不具备任何发声、发光、可动或互动功能。2.不含电子元件、电池、机械装置或可供娱乐的功能。3.未针对儿童娱乐目的设计，也不具备教育或游戏功能。",
+      "source_characters": 215,
+      "source_sha256": "326b5474522f358c830cfb6b2c4d09f491498a04a9edb0b933fb1b515c19cfb5"
+    },
+    "L019": {
+      "text": "This product does not offer entertainment or gaming features and should not be classified as a children's toy for the following reasons:\nProduct Use:\n1. It is a Graduation Decorations item.It can be used in homes, schools, offices, or shops as both a practical and decorative item.\n2. This product is designed and marketed as an accessory for events such as graduation ceremonies, not as a toy. It has no moving parts, sounds, or play functions typical of toys. \nProduct Attributes: \n1. Sturdy structure, no sound, light, movement, or interactive features.\n2. Not designed for children's entertainment and does not have educational or gaming features.",
+      "source_characters": 651,
+      "source_sha256": "46580cc032e5a92b8cc9ca90bdf0430b625012697d6f66692a56d4df2e4c9dd1"
+    },
+    "L020": {
+      "text": "This product does not offer entertainment or gaming features and should not be classified as a children's toy for the following reasons:It is a Birthday Decorations item.It can be used in homes, offices, or shops as both a practical and decorative item.\nThis product is designed and marketed as an accessory for events such as Birthdays, not as a toy. It has no moving parts, sounds, or play functions typical of toys. \nProduct Attributes: 1. Sturdy structure, no sound, light, movement, or interactive features.2. Contains no electronic components, batteries, mechanical devices, or entertainment features.3. Not designed for children's entertainment and does not have educational or gaming features",
+      "source_characters": 700,
+      "source_sha256": "d0494879cc49f7f2f9b24653fd382a213e42b56792dda0082a494d6f9c138968"
+    },
+    "L021": {
+      "text": "该产品是属于服饰类产品，如图所见，是用于成人在圣诞节时的装扮服饰，并非属于儿童娱乐玩具",
+      "source_characters": 43,
+      "source_sha256": "d5c320cdd294d6cc6897b8ccf976982ea62fbb963e965a94813dfbc9d7d535ab"
+    },
+    "L022": {
+      "text": "该产品是属于圣诞节装饰品，用于装饰圣诞家居的摆件，并非用于儿童娱乐的玩具",
+      "source_characters": 36,
+      "source_sha256": "451e92283e72c5f003dc7d14931b2820b829874222b7746165e454ff48635344"
+    },
+    "L023": {
+      "text": "该产品是属于服装类产品，如图所见，是用于成人女士在情人节时的装扮服装，并非属于儿童娱乐玩具",
+      "source_characters": 45,
+      "source_sha256": "73e4484861a195ca3a631c07c9b27932d9fcd32ee8a298ac223540fb88370699"
+    },
+    "L024": {
+      "text": "该产品属于服装类产品，是用于成人在圣诞节时穿戴的服装，不适用于儿童，因此并非属于儿童玩具",
+      "source_characters": 44,
+      "source_sha256": "51f76e7e94c6f64919731fa3a0737da5296e4abb0a3dca867c5beadaf89b8d47"
+    },
+    "L025": {
+      "text": "Our product was incorrectly labeled as a \"children’s toy,\" which is a clear classification error. It is designed and marketed as a costume accessory for events like Halloween, carnival, and cosplay, not as a toy. It has no moving parts, sounds, or play functions typical of toys. ",
+      "source_characters": 280,
+      "source_sha256": "501aa99b1e3bfc16110ae4bfb72afff7acdd4a8adbbdc23c34c841f45871cfcc"
+    },
+    "L026": {
+      "text": "Our product “Christmas wooden beads” (ASIN: [ASIN]) is incorrectly classified as a toy. It is a home décor item used for Christmas tree, fireplace, and tabletop decoration. Made of wooden beads for hanging or draping, it has no moving parts or play functions. ",
+      "source_characters": 264,
+      "source_sha256": "af1608cc63056e0617a12b528b90e58db5ab5d811075a45822603d64f7c560cb"
+    },
+    "L027": {
+      "text": "Our product “Christmas wooden beads” (ASIN: [ASIN]) is incorrectly classified as a toy. It is a home décor item used for Christmas tree, fireplace, and tabletop decoration. Made of wooden beads for hanging or draping, it has no moving parts or play functions. ",
+      "source_characters": 264,
+      "source_sha256": "912d159a5a6eae621293de3b0ad6448e0607c80147b0615a7a113e59b1eff5f8"
+    },
+    "L028": {
+      "text": "Our product was incorrectly classified as a toy. It is a Christmas polymer clay bead set featuring festive designs, each with a hole for threading and crafting. It is used for making bracelets, necklaces, keychains, earrings, and other jewelry or decorations, not for play. It has no play features, moving parts, or sound functions.\n",
+      "source_characters": 333,
+      "source_sha256": "816dc252a36af5c5d07338d4c62bf62b6d885b9c87660ac841dbf216f0ec9a35"
+    },
+    "L029": {
+      "text": "Dieses Produkt sollte aus folgenden Gründen nicht als Kinderspielzeug eingestuft werden:\n\n1. Beschreibung der Produktverwendung: Dieses Produkt ist ein Set aus 32 Blättern Papier, das sich für den Einsatz in Haushalten, Büros oder Geschäften eignet und Funktionalität mit dekorativem Reiz verbindet.\n\n2. Produkteigenschaften: Es besteht aus Papier und enthält keine Spielfunktionen, interaktiven Merkmale oder Elemente für fantasievolles Spielen. Es dient ausschließlich als Dekorationsartikel. ",
+      "source_characters": 495,
+      "source_sha256": "1ef31a15af22cb706457a05dca1d474fdd49ae981b916023d73ea9c3a5a3c10e"
+    },
+    "L030": {
+      "text": "1. Product usage description: This product is a set comprising 32 sheets of paper, suitable for use in homes, offices, or shops as an item combining practicality with decorative appeal.",
+      "source_characters": 185,
+      "source_sha256": "b46adda8447451bb28dd138d31ba25934c6a0337e5b67fa5eef1216447824239"
+    },
+    "L031": {
+      "text": "This product is not a toy：It is a disco-themed foil balloon intended for use as a party decoration. It does not have any moving parts, sounds, or play features typically found in toys, nor does it have the interactivity, mechanisms, sounds, or lights typically found in toys. This product is for decorative purposes only and is suitable for use at parties, weddings, celebrations, birthdays, and other events.",
+      "source_characters": 409,
+      "source_sha256": "9ee67d3271cc9664942453612268a382c83d1560b2a9285acc1258edd311c5b3"
+    },
+    "L032": {
+      "text": "This product does not offer entertainment or gaming features and should not be classified as a children's toy for the following reasons:\nIt is a party decoration item intended for use at events such as parties, weddings, celebrations, or as a decorative accent in homes, clubs, and commercial spaces. The product is not designed as a toy and lacks any typical play features.\nNo Play Value: This decorative Disco-themed aluminum foil balloon does not include any interactive, mechanical, sound, or light features typical of toys. It serves a purely decorative function.",
+      "source_characters": 568,
+      "source_sha256": "e0ecdef9e69c6a8d2f713c43f5adb75587dc56e805ec52f5933450ca27c76a24"
+    },
+    "L033": {
+      "text": "Our product was incorrectly classified as a toy. This product is a disco themed aluminum foil balloon, which is a party decoration suitable for parties, weddings, celebrations and other activities. This product is designed as a decorative accessory for birthday parties and other events, not as a toy. It has no moving parts, sounds or play features typical of toys. No Play Value: This decorative Disco-themed aluminum foil balloon does not include any interactive, mechanical, sound, or light features typical of toys. It serves a purely decorative function.",
+      "source_characters": 560,
+      "source_sha256": "fa47699a348d20780a9175909dd7dfa25c89ff2a618f81f9b4330a89b8040c91"
+    },
+    "L034": {
+      "text": "This product is not a toy. It is a decorative miniature wooden door intended for Christmas home decorations, such as for adorning Christmas miniature scenes. It is not a toy for children. This item has no play value. It does not include any interactive, mechanical, sound, or light features typical of toys and serves a purely decorative function.",
+      "source_characters": 347,
+      "source_sha256": "5bbfb8761480f547c9a3b6bf454aa0a88ba90793bca63307c3811be41b56a7cc"
+    },
+    "L035": {
+      "text": "I would like to file an appeal regarding the food and product safety issues related to children's toys in my store recently. The products I sell include a leopard print headband and a cheetah shaped facial tattoo sticker.Here are some explanations about product safety:1. Target audience: This product is designed specifically for adults and is not suitable for children to use. The product packaging and description are clearly labeled to ensure that consumers understand its scope of application.2. Usage scenarios: These accessories are intended for specific occasions such as Halloween, animal themed parties, carnivals, and role-playing, and are not suitable for use as children's toys. Therefore, classifying it as a children's toy is inaccurate.",
+      "source_characters": 752,
+      "source_sha256": "bf53465d0fe1c324320808ee7ca42b0bbfe984ebf4ff52312edd370fad819784"
+    },
+    "L036": {
+      "text": "该产品是属于服饰装饰类产品，如图所见，是用于成人在圣诞节时的装扮服饰，并非属于儿童娱乐玩具",
+      "source_characters": 45,
+      "source_sha256": "3e0b2ae3b55d726cba42ce1db86779a36bc9146c021c0d4543dbee65f0b1b6dc"
+    },
+    "L037": {
+      "text": "本产品不是儿童玩具：该产品是娃娃屋装饰配件，专为节日/家居装饰/娃娃屋装饰/桌面摆件而设计和使用。 \n该产品不包含任何趣味功能、互动功能或富有想象力的游戏元素。它仅具有纯粹的装饰功能。",
+      "source_characters": 92,
+      "source_sha256": "e022a856a2f3760854e002fc985cf0bc88526bbf0520a6e6071dc8e998d74ebf"
+    },
+    "L038": {
+      "text": "This product is not a toy, but a miniature decorative item for adult collectors.\n\nKey points:\n\nProduct type: 1:12 scale miniature display carpet\n\nTarget audience: adult collectors and DIY enthusiasts\n\nUsage: Decorative accessories for dollhouses, miniature landscaping, and DIY projects\n\nPurpose: Static display pieces not designed for play\n\nThis is a miniature decoration designed for adult enthusiasts, not a children's toy.",
+      "source_characters": 426,
+      "source_sha256": "c8f0e76ef69da0e9f6966ad5000cf58f4b11601fc88790f0655aae4d53233c43"
+    },
+    "L039": {
+      "text": "Product Type: 1:12 scale miniature display carpet\nTarget Users: miniature decorative item for adult collectors.\nPurpose: Static decorative accessory for festive home decoration - not for play\nUsage: Designed for placement on floors as part of adult holiday decor\nThis is a decorative miniature accessory intended for adult collectors and holiday decorating enthusiasts, not a children's toy. ",
+      "source_characters": 392,
+      "source_sha256": "65767f43a4f5c1231b20707b88f5af369b46cd62bf65aa059e6031d9270cd646"
+    },
+    "L040": {
+      "text": "This product is dollhouse decoration accessory,not a toy. intended solely for display in dollhouse, seasonal, or home decor applications. It lacks any interactive or playful features and is not designed to support imaginative play.It is used purely for decorative purposes.",
+      "source_characters": 273,
+      "source_sha256": "0d0b05bb321195051e2acbfefed8cdef9db59183bed4daf8fd18ba4010fb6396"
+    },
+    "L041": {
+      "text": "This product belongs to the category of clothing decoration products, as shown in the picture. It is used for adults to dress up for Halloween, Carnival, and Christmas, and is not a children's entertainment toy",
+      "source_characters": 210,
+      "source_sha256": "9d26ba27c981362a644922c9820dbb8c87da8c06d8e97fc056713f9a7637227a"
+    },
+    "L042": {
+      "text": "I would like to clarify the nature of my product and express my sincere commitment to comply with all Amazon policies. Firstly, allow me to introduce this project: adult headband, nose, tie, short skirt, and tail. Although it may seem whimsical and fun, it is important to note that this product is not suitable for children. On the contrary, it is carefully crafted for adults who wish to participate in holiday activities such as Halloween or carnivals. The vibrant design serves only as a playful accessory for celebration events and does not pose any risks associated with traditional children's toys.",
+      "source_characters": 605,
+      "source_sha256": "2276746d1b33d906b3b3b8c7019d88479e1bc9f71236ed0950925bf0faab5810"
+    },
+    "L043": {
+      "text": "I would like to file an appeal regarding the food and product safety issues related to my product. My products are animal ear headbands, neckties, and tails, mainly aimed at adult consumers, designed for adult activities such as Halloween, carnival, and role-playing.\nFirstly, my product is clearly labeled as \"Adult Clothing Accessories\" and the product description emphasizes that its target audience is adults. Therefore, they are not designed for children's use and do not include any functions or features of children's toys.",
+      "source_characters": 530,
+      "source_sha256": "4eccf4f1918edb74c4039054efe151a64f38ca1262010bf34fc825f1078a5a5b"
+    },
+    "L044": {
+      "text": "This product does not provide entertainment or gaming functionality and should not be classified as a \"children's toy.\"This product is a Simple home decoration.It can be used as both a practical item and a decorative item, suitable for festivals/home decoration.It is not designed, manufactured, or marketed as a toy for children. Target Users are Adults: The product is clearly intended for purchase and use by adults for decorative purposes. Children are not the target users of this item. No Play Value: The product does not include any playful functions, interactive features, or imaginative play elements. It serves a purely decorative function.",
+      "source_characters": 650,
+      "source_sha256": "94c6f71c4b3494b2b469f84ded826440e18782c89e7498a07cabb546028ce601"
+    },
+    "L045": {
+      "text": "This product does not have entertainment or gaming properties and should not be classified as a children's toy product for the following reasons:Product usage description: This product is a wooden music box decoration. The appearance of the product is similar to a small storage box or savings box. It can be used in homes, offices or stores as a practical and decorative item.Product attribute description: 1. The material is wood and the structure is stable. 2. Does not contain electronic components, batteries, mechanical devices or entertainment functions. 3. It is not designed for children’s entertainment purposes and does not have educational or game functions.",
+      "source_characters": 670,
+      "source_sha256": "18a147f4fb4d5f9f387523b866814065d795ed3f9b8e2dee593ba1f9e3ce8901"
+    },
+    "L046": {
+      "text": "Thank you for your interest in our products. The six 22-inch round aluminum foil balloons we sell are primarily used for adult party decorations, including birthdays, weddings, bachelor parties, and other occasions. The balloons are 22 inches in size and require helium filling. All product information is clearly marked as suitable for adults, and therefore, they do not fall under the category of children's toys.",
+      "source_characters": 415,
+      "source_sha256": "ad1d5d4b3ab0accd4e74a2626e8ed92a46e4bffaad0640a7e68681858c701417"
+    },
+    "L047": {
+      "text": "This product does not offer entertainment or gaming features and should not be classified as a children's toy for the following reasons:It is a Birthday Decorations item.It can be used in homes, offices, or shops as both a practical and decorative item.This product is designed and marketed as an accessory for events such as Birthdays, not as a toy. It has no moving parts, sounds, or play functions typical of toys. Product Attributes: 1. Sturdy structure, no sound, light, movement, or interactive features.2. Contains no electronic components, batteries, mechanical devices, or entertainment features.3. Not designed for children's entertainment and does not have educational or gaming features",
+      "source_characters": 698,
+      "source_sha256": "bc7bfa8e1554e3e9d13d243ad9ef660ee02a1adef014b3d11d463a7d12b281b1"
+    },
+    "L048": {
+      "text": "I am filing a complaint regarding recent food and product safety concerns raised about my product: 100 2-inch clear balloons.\nFirst, I want to emphasize that these balloons are clearly intended for adult celebrations and decorations, suitable for events such as weddings, anniversaries, birthdays, bachelor/bachelorette parties, etc. Our product images and descriptions do not contain any elements depicting children, and the target audience is clearly adults. This information is clearly displayed on the product page to avoid any misunderstanding.",
+      "source_characters": 549,
+      "source_sha256": "a7623fec21f3d74558953358f4c19e6b37a8b1ff1ac8238c496d44fe91f18bc4"
+    },
+    "L049": {
+      "text": "First, my product is a decorative balloon made of aluminum foil, intended for use as a 30th birthday decoration. The target users are adults aged 30, and the product does not have any features that would appeal to children, such as games or entertainment designs.  Furthermore, the title, images, and product description do not mention that it is a children's product. This appears to be a system error, and I kindly request a re-review. Thank you.",
+      "source_characters": 448,
+      "source_sha256": "1be9475ab937499fd75dd02ccd57e44c86777771b0aa70ea1e6064c5a4ecbe39"
+    },
+    "L050": {
+      "text": "This is a polymer clay bead set for beaded bracelets, with each bead having a hole for easy threading and crafting.It is used for making bracelets, necklaces, keychains, earrings, and other jewelry or decorations, not for play. Based on its design, intended use, and target audience, it should be categorized as \"fashion jewelry/accessories.\" The product title, description, and images clearly indicate that it is a jewelry accessory, not a toy.\nIt has no play features, moving parts, or sound functions.",
+      "source_characters": 504,
+      "source_sha256": "86c77c67c31789442348e09f91c77fd8736c0767694c3e00d487c625ad95772e"
+    },
+    "L051": {
+      "text": "Dear Amazon Team,\nWe respectfully request a review of our Alphabet Learning Cards, which were incorrectly classified as a children’s toy. This product is designed for adult learning, professional training, and educational reference only. It has no play features, no entertainment purpose, and no elements intended to attract children. The cards provide informational content for study and are not suitable for play. Based on their design, purpose, and use, they should be classified as an adult educational tool rather than a toy.",
+      "source_characters": 530,
+      "source_sha256": "7a340779b19dd3a8b6f3764112f88bd7da722748da1ac8c8a4515a3be770a131"
+    },
+    "L052": {
+      "text": "I think there is a misunderstanding about my product classification. My product 'Snakehead Strap' is an adult clothing accessory that is not suitable for children to wear. It is mainly used for celebrations such as Halloween, carnivals, and role-playing events. The picture and description clearly indicate that the snake head strap is only for adult use.",
+      "source_characters": 355,
+      "source_sha256": "b1ac178ad34bcf51fd236771f05f0e1fa91297c2427ced3472a9d161f87e6087"
+    },
+    "L053": {
+      "text": "Our aluminum foil balloons are designed with star, heart, and snowflake patterns, specifically for adult celebrations such as weddings, bachelorette parties, anniversaries, and birthdays, and are not children's toys. The product description and images clearly indicate its adult use and require helium inflation, further limiting its use for children. Thank you for understanding our holiday decoration purpose.",
+      "source_characters": 411,
+      "source_sha256": "e6799ad92fb93927b9c68f8ceebc9357139a68bf93115b20edd6992cb41fafb5"
+    },
+    "L054": {
+      "text": "您好！本产品已被系统归类为“儿童玩具”。然而，经过审查，我们认为这一分类可能并不准确，因此我们想提交这份申诉说明。\n1.产品信息：迷你圣诞帽和塑料礼帽套装。\n2.本产品专为节日装饰和DIY装饰而设计，主要适用于：圣诞派对装饰、瓶子装饰以及营造节日氛围的装饰。\n3.我们已对上架内容进行了全面审核：\n①标题未提及儿童或儿童使用场景。②图片未展示儿童使用场景。③要点和A+内容未提及儿童使用。",
+      "source_characters": 194,
+      "source_sha256": "820fdd0b561d92365d47b975b21bb4eef9c14c4eab680286d5c1757f4314de6b"
+    },
+    "L055": {
+      "text": "This product has been incorrectly labelled as a ‘children's toy’ and requested to provide toy-related documentation. This classification is clearly erroneous. We hereby submit the following points for your review:\n\n1. Primary use as costume and role-play accessory:\nThe product title and description explicitly state it as a costume accessory for specific events, with both design and marketing oriented towards this purpose. Its intended uses include:\n\nHalloween\nCarnival\nRole-play\nThemed parties\n\n2. Product attribute description:\nThe product is a ‘cat ear hair clip’, a classic wearable accessory.\n\nTranslated with DeepL.com (free version)",
+      "source_characters": 642,
+      "source_sha256": "142bf7260709c96b9ec21ba41e9c4d560ffa4e3131d19efdd0836263d0bb8876"
+    },
+    "L056": {
+      "text": "This product does not possess any entertainment or gaming attributes and should not be categorised as a children's toy for the following reasons:\nIntended Use: This spider earring and necklace set is primarily intended for use with costumes and role-play. Its design and purpose are solely for festive/decorative household use. The product title and description explicitly state its positioning as an accessory for specific event costumes, with intended uses including: Halloween\nCharacteristics: 1.  It possesses no entertainment functions and contains no electronic components or batteries. 2.  This product is not designed for children's entertainment and lacks any gaming functionality.",
+      "source_characters": 690,
+      "source_sha256": "2d38bdc11310cf261b4d1a2735b86f89e0fc00104a8519b547c29772fe98c29d"
+    },
+    "L057": {
+      "text": "This product is incorrectly labeled as a \"children's toy\". This is an obvious classification error. 1. Main uses are costumes and role-playing: This product is expressly marketed and designed as a clothing accessory for a specific event, as expressly stated in the title and description. 2. No game value: The Product does not contain any fun features, interactive features or imaginative play elements. It has a purely decorative function.",
+      "source_characters": 440,
+      "source_sha256": "fe7ed44ab183ca3cb2ffc160a3baee6f95d69a8d878ded129aa2b0ae692c9217"
+    },
+    "L058": {
+      "text": "This product has been categorised by the system as a ‘children's toy’. However, upon review, we believe this classification may be inaccurate and wish to submit this appeal statement.\n1. My product, ‘Fake Blood Cloth Strips’, constitutes an adult costume accessory unsuitable for children to wear.\n2. It is primarily intended for use during festive occasions such as Halloween, carnivals, and role-playing events.\n3. We have conducted a thorough review of the listing content:\n① The title makes no reference to children or scenarios involving children.\n② Images do not depict scenarios involving children.\n③ Key points and A+ content make no mention of children using the product.",
+      "source_characters": 680,
+      "source_sha256": "eb7ed29482890de7d08ea4c56671a8e4235560cdfd7773e0be074800ecf0351d"
+    },
+    "L059": {
+      "text": "This product is a Halloween-themed adult headband intended as a fashion accessory. It is not a children's toy and does not contain any features suitable for children. The images, title, and product description do not contain any descriptions related to children; it is purely decorative.",
+      "source_characters": 287,
+      "source_sha256": "eec0e59cf43df751479a212119c37eb4ab2af16e3e1211bacb66694c332ebaa5"
+    },
+    "L060": {
+      "text": "Dear Amazon Seller Performance Team:,\nDue to recent violations regarding children's toys and product safety issues, I am writing to formally appeal the suspension of my seller account. I sincerely appreciate the opportunity to introduce my situation and clarify the nature of my product.\nFirstly, I would like to emphasize that my products include 12 bat decorations and 3 aluminum foil letter balloons, mainly designed as party decorations. These items are used for special occasions such as adult birthday parties and Halloween celebrations. It is worth noting that the packaging clearly states that these products are not suitable for children under 14 years old.",
+      "source_characters": 666,
+      "source_sha256": "3ad5b36238c716adb0a867abcc44d7d4b9478ff28b2cb57116f7c93583f77590"
+    },
+    "L061": {
+      "text": "Our product (ASIN: [ASIN]) is a \"1 Black Angel Headbands\" designed specifically for adults, used in Halloween, cosplay, and carnival party scenes. It belongs to adult clothing accessories, not children's toys. The product description, images, and usage scenarios do not involve children's content, and the materials and dimensions comply with adult usage standards.   \nMisclassified as children's toys may be related to keywords. We have optimized the details page and clearly labeled it as \"suitable for adults\". Please review and correct the category. Thank you for your support!   ",
+      "source_characters": 588,
+      "source_sha256": "7aeaeebbc8492485db3021dd40abab1671e76707cfcf84157b79ed4b808591c9"
+    },
+    "L062": {
+      "text": "Our product is a flame shaped foil balloon designed specifically for decorative purposes on fire safety themed events, birthdays, and anniversaries. It is not a children's toy, as evidenced by the following:\n1. Expected use: Clearly intended for event decoration (such as wall/ceiling displays), not gaming.\n2. Target audience: Adults/event planners who purchase for themed parties, not children.\n3. Design: The flame theme is consistent with fire safety education (such as firefighter celebrations), rather than entertainment games. ",
+      "source_characters": 534,
+      "source_sha256": "30b25d1e93266fce36e76751438ded21d4278323e15ccdf19e94daab5396b5a9"
+    },
+    "L063": {
+      "text": "This product is a party decoration balloon designed for disco and cowboy themes. It is for decoration only. The title, images, and product description do not contain any information related to children, and therefore it is not a children's toy. Please review. Thank you.",
+      "source_characters": 270,
+      "source_sha256": "cbbfe6b2031f50a5d8704b2bebc51c355e4beccc6ae337f3be0773af778eb798"
+    },
+    "L064": {
+      "text": "These items are Halloween themed aluminum foil balloons shaped like skulls, ghosts, spiders, and bats. Although they do have playful designs, they are specifically designed for haunted house decoration and Halloween parties, not as children's toys. My goal has always been to provide holiday decorations to enhance the celebration during Halloween.",
+      "source_characters": 348,
+      "source_sha256": "a9131f91e2297693dfb13bc1efd8523ce2a7cca75c1e8d22b3cbf2fab87afafb"
+    },
+    "L065": {
+      "text": "Dear Amazon team, our 70cm dinosaur foil balloons are decorations for events (birthdays, themed parties, anniversaries), not children's toys. The image does not include children, helium inflation requires adult processing. It does not contain any small parts and is strictly used for party decoration. Please reclassify under 'Party Supplies' to meet the expected use. Thank you",
+      "source_characters": 378,
+      "source_sha256": "552cad24aec28a45efeb9e5ec46a874ce640762ba0131c2ed6602d680bafd89e"
+    },
+    "L066": {
+      "text": "Dear Amazon Seller Performance Team,\nWe appeal the misclassification of ASIN [[ASIN]] as a children’s toy. This product is a set of farm animal-themed foil balloons, designed solely as party decorations for adult-supervised events, not as children’s playthings.\nAll listings have been updated to remove child-related keywords, with clear choking hazard warnings and “For ages 14+ only, not a toy” labeling.\nThis product does not meet CPSC’s definition of a children’s product. We request reclassification and reinstatement. Thank you.",
+      "source_characters": 538,
+      "source_sha256": "40efcda7502337f4c35dd945ecd4525dcae2dd606b26619f3f6d77ecddf53ba3"
+    },
+    "L067": {
+      "text": "Dear Amazon Seller Performance Team,\nWe appeal the incorrect classification of ASIN [[ASIN]] as a children’s toy. This product is a set of dove and cross foil balloons, designed solely as religious/ceremony party decorations for adult-supervised events, not children’s playthings.\nAll listings have been updated: removed child-related keywords, added clear choking hazard warnings, and marked “For ages 14+ only, not a toy.”\nThis product does not meet CPSC’s definition of a children’s product. We request reclassification and reinstatement. Thank you.",
+      "source_characters": 556,
+      "source_sha256": "6176f9d31bfa51b5d5ec1023c42a15d92b05f95807a15a598fdab6c0a4341113"
+    },
+    "L068": {
+      "text": "Dear Amazon Seller Performance Team,\nWe appeal the incorrect classification of ASIN [ASIN] as a children’s toy. This product is a set of 3D standing elephant foil balloons, designed solely as party decorations for adult-supervised events, not children’s playthings.\nAll listings have been updated: removed child-related keywords, added clear choking hazard warnings, and marked “For ages 14+ only, not a toy.”\nThis product does not meet CPSC’s definition of a children’s product. We request reclassification and reinstatement. Thank you.",
+      "source_characters": 541,
+      "source_sha256": "4298d4b4bf1c62ec860e5c03c41350b5d74f2a3a916df599719ed9a6bf8f9100"
+    },
+    "L069": {
+      "text": "Dear Amazon Seller Performance Team,\nWe write to formally appeal the misclassification of ASIN [ASIN] as a children’s toy.\nThis product is a set of Halloween foil balloons, designed only as decorative supplies for Halloween celebrations and adult-themed parties. It contains small parts and choking hazards, explicitly labeled “Not for children under 14, not a toy.”\nAll listing content has been revised to remove child-related implications. This product is not defined as a children’s product by CPSC standards.\nWe kindly request your review and reinstatement of sales.",
+      "source_characters": 574,
+      "source_sha256": "1dade2a7f8639791d4d9226e0670386c8f40b82ca32a87d18e9cfc8e97afd4c2"
+    },
+    "L070": {
+      "text": "This product is a flame shaped aluminum foil balloon set, originally designed as a decoration for birthday parties, holiday celebrations, and as an atmosphere embellishment for indoor home decor. The product itself does not have any functions as a children's toy: it cannot be used as a controllable toy, has no mechanical, electronic, or gaming attributes, and does not mention any related statements such as \"suitable for children to play\" or \"educational toys\" in any promotion. It is only used for static decorative purposes.",
+      "source_characters": 529,
+      "source_sha256": "41b743d7f139ffed2f6b76b40709f387da98e70ae29d8399ddfa43993de8d596"
+    },
+    "L071": {
+      "text": "Hello! We have filed a complaint to clarify that our product was mistakenly classified as a children's toy. This product is a strawberry digital shaped aluminum foil balloon set, only used for birthday parties, theme celebrations, and home scene decoration, not a children's toy.\nThe product has no children's play function, and the title, details page, and packaging do not indicate the words \"suitable for children/toys\". A safety warning has been added stating that \"this product is a decorative item, not a children's toy, and is not recommended for children under 12 years old to come into contact with\". Please kindly review your team again. Thank you for your support!",
+      "source_characters": 675,
+      "source_sha256": "35d853b3bb5f003abfe6394342659c2c1fb672d4fde84c3d29602b253d6295c0"
+    },
+    "L072": {
+      "text": "Hello! We have filed a complaint to clarify that our product was mistakenly classified as a children's toy. This product is a strawberry digital shaped aluminum foil balloon set, only used for birthday parties, theme celebrations, and home scene decoration, not a children's toy.\nThe product has no children's play function, and the title, details page, and packaging do not indicate the words \"suitable for children/toys\". A safety warning has been added stating that \"this product is a decorative item, not a children's toy, and is not recommended for children under 13 years old to come into contact with\". Please kindly review your team again. Thank you for your support!",
+      "source_characters": 675,
+      "source_sha256": "bf06390a34cbcebbd08f1da8fef4ba0e326e8b0beb2c1d05a5a136ef58a09237"
+    },
+    "L073": {
+      "text": "Hello! We have filed a complaint to clarify that our product was mistakenly classified as a children's toy. This product is a strawberry digital shaped aluminum foil balloon set, only used for birthday parties, theme celebrations, and home scene decoration, not a children's toy.\nThe product has no children's play function, and the title, details page, and packaging do not indicate the words \"suitable for children/toys\". A safety warning has been added stating that \"this product is a decorative item, not a children's toy, and is not recommended for children under 14 years old to come into contact with\". Please kindly review your team again. Thank you for your support!",
+      "source_characters": 675,
+      "source_sha256": "f1e5d6bbaeb6c279c2ffa3a2dfff4fe3d0bae1cb9a37db4b515d8edae952b3cb"
+    },
+    "L074": {
+      "text": "We appeal and clarify that ASIN [ASIN] has been wrongly identified as a children's toy. This product is a fire truck shaped aluminum foil balloon set, only used for theme parties, holiday celebrations, and home scene decoration, not a children's toy.\nThe product has no children's play function, and the packaging is not labeled with the words \"suitable for children/toys\". A safety warning has been added stating that \"this product is a decorative item, not a children's toy, and is not recommended for children under 12 years old to come into contact with\". Please kindly review your team again. Thank you for your support!【我们就 ASIN [ASIN]",
+      "source_characters": 649,
+      "source_sha256": "4147736a9d7f8a6696560a4d16b572fe9b606fea10555a5e720f5053775103ee"
+    },
+    "L075": {
+      "text": "This product is a set of aluminum foil balloons designed in the shape of excavators. It was originally intended to be used as a decoration for engineering vehicle themed birthday parties, children's themed activities, holiday celebrations, and as an atmosphere embellishment for indoor home decoration. The product itself does not have any functions as a children's toy: it cannot be used as a controllable toy, has no mechanical, electronic, or gaming attributes, and does not mention any related statements such as \"suitable for children to play\" or \"educational toys\" in any promotion. It is only used for static decorative purposes.",
+      "source_characters": 636,
+      "source_sha256": "18ea70b7f9f25837264219290ad5132e916f136058d990670aac89b60c726b20"
+    },
+    "L076": {
+      "text": "This product is a unicorn shaped aluminum foil balloon set, originally designed as a decoration for birthday parties, holiday celebrations, and as an atmosphere embellishment for indoor home decor. The product itself does not have any functions as a children's toy: it cannot be used as a controllable toy, has no mechanical, electronic, or gaming attributes, and does not mention any related statements such as \"suitable for children to play\" or \"educational toys\" in any promotion. It is only used for static decorative purposes.",
+      "source_characters": 531,
+      "source_sha256": "3d357747913aaa7ead762e360271a4b10a93a53bc56d30b0f2a304e1440aba9b"
+    },
+    "L077": {
+      "text": "Hello, we are submitting an appeal for ASIN [ASIN], which has been incorrectly classified as a children's toy. This product is an adult only foil balloon decoration set designed specifically for adult scenarios such as birthdays, parties, and themed events, aimed at adult consumers. We have removed all pictures with children's images and scenes, only retaining product images and adult party use images. Please review again and cancel the incorrect classification.",
+      "source_characters": 470,
+      "source_sha256": "7995dff910d3cca49815dfd49de75f5e4d9c809622f523a37caaa189dff07c25"
+    },
+    "L078": {
+      "text": "Dieses Produkt ist ein dekorativer Ballon aus Aluminiumfilmmaterial und ist ein Dekorationsartikel für die Party-Szene. Sie sind speziell für Geburtstagsfeier, Themenveranstaltungsszenen, Foto-Hintergrunddesign, nur für dekorative Zwecke, keine Spielzeugeigenschaften wie Unterhaltung, Interaktion, Puzzle, keine Spielfunktion für Kinder, kein Spielzeugdesign, nicht für Kinder im jüngeren Alter.\nBitte auf der Grundlage der tatsächlichen Verwendung des Produkts, widerrufen Sie das falsche Urteil von Kinderspielzeug und wiederherstellen Sie den normalen Verkauf. Vielen Dank für Ihre faire Prüfung!",
+      "source_characters": 600,
+      "source_sha256": "7a8b7301a5da02d20a5abf97ce9cc3188cfb943f68af2630dc8c6fe151d201de"
+    },
+    "L079": {
+      "text": "Dieses Produkt ist ein dekorativer Ballon aus Aluminiumfilm, ein Party-Dekorationsartikel, kein Kinderspielzeug, nur für Geburtstag, Themenveranstaltungen und Foto-Dekoration, kein Spielzeug, Unterhaltung, Puzzle und andere Funktionen, nicht für Kinder im jüngeren Alter. Wir haben alle Bilder mit Kinderelementen entfernt, um die Positionierung von Dekorationsartikeln zu verbessern. Dieses Produkt entspricht den Plattformregeln, kein Sicherheitsrisiko für Kinderspielzeug, bitte überprüfen Sie und widerrufen Sie das falsche Urteil. Vielen Dank für Ihren fairen Umgang!",
+      "source_characters": 572,
+      "source_sha256": "ff52b803b59d274b68b8b30505306f2cd375400d3f43011657c52e37398a9959"
+    },
+    "L080": {
+      "text": "This item is an adult headband designed for Valentine's Day celebrations, intended for use as a fashion accessory. It is not a children's toy and does not contain any features that would make it suitable for children. Kindly review and update the product classification.",
+      "source_characters": 270,
+      "source_sha256": "aac7898ec6a90529a4913cdfc4374b98d1dd1b7e75aa4262d0db03b11bfb13f9"
+    },
+    "L081": {
+      "text": "This product is a Valentine's Day-themed headband designed for adults as a fashion accessory. It is not a children's toy, and there are no elements that make it suitable or intended for children. Please review and correct the product classification accordingly.",
+      "source_characters": 261,
+      "source_sha256": "d8fa56d9e579887635efb3293ad71b0f6d775d444df30f5f0d1f516cd3af6322"
+    },
+    "L082": {
+      "text": "This product is not a children's toy. It is a decorative headband designed for adults to wear during festive occasions like Valentine's Day, and does not contain any features of a children's toy.",
+      "source_characters": 195,
+      "source_sha256": "4fab2ba8c4bf11417db29c49fb7e46f803aa4f60e61a06e94d5bbea878389082"
+    },
+    "L083": {
+      "text": "This product is an adult headband, specifically designed for women to wear on Valentine's Day as part of holiday fashion. It is not a children's toy and is intended for adult use only. Please correct the product classification accordingly.",
+      "source_characters": 239,
+      "source_sha256": "719775af65feec0d5f9d802b3853e8d29aecc2f5113a82c44c0eaafff147aea0"
+    },
+    "L084": {
+      "text": "This product is incorrectly labeled as a \"children's toy\". This is an obvious classification error.\n\n1. Main uses are costumes and role-playing:\nThis product is expressly marketed and designed as a clothing accessory for a specific event, as expressly stated in the title and description.\n\n2. No game value:\nThe Product does not contain any fun features, interactive features or imaginative play elements. It has a purely decorative function.",
+      "source_characters": 442,
+      "source_sha256": "61adeeafe9b8461a625262203158f83968c6951146fc552d2c6a75b9a4cc0527"
+    },
+    "L085": {
+      "text": "This product has been incorrectly flagged as a \"children's toy\" and is being required to provide toy-related documentation. This is a clear error in classification. The product includes a braided hair accessory (Geflochtenes Haaraccessoire). This is a classic wearable accessory intended for costume and decorative purposes, not a toy.",
+      "source_characters": 335,
+      "source_sha256": "b32648906c9dd7da2da2733bfe3318518daed528623c0d5f151360795c3da426"
+    },
+    "L086": {
+      "text": "本产品是一款专为万圣节、狂欢节、圣诞节等其它主题庆祝活动设计的成人装扮配件，可作为时尚配饰使用。它并非儿童玩具，且不包含任何适合玩具元素或娱乐的功能。请检查并更新产品分类。",
+      "source_characters": 86,
+      "source_sha256": "721bae6b882d8ceea8311706a2cc6c43c58cf15191ecd686d2c78e3ac3b5c97b"
+    },
+    "L087": {
+      "text": "This product does not have entertainment or game properties and does not meet the definition of a children's toy.\nProduct composition and function: The core component is a Muttertag themed aluminum foil balloon. All components are designed for party decoration purposes only and are designed for adult social activities. There are no functional settings for children to play; and this product requires helium to achieve the decorative effect, and its functional positioning and usage conditions have nothing to do with children's toys.",
+      "source_characters": 535,
+      "source_sha256": "4fefbfa954a1f2a03c5575690a8f5a5035397da00a373d4ff5b108c2cc39658c"
+    },
+    "L088": {
+      "text": "It is not a children's toy and does not contain any child-friendly features. Please check and update product categories.",
+      "source_characters": 120,
+      "source_sha256": "34ae8eef5dae57e06ad9111cc5707412ce29aa74af88d404444a44e0ba26c890"
+    },
+    "L089": {
+      "text": "This product has been incorrectly classified as a “children’s toy,” which is clearly a misclassification. Please note the following points:\n\n1. Main Purpose of the Product\nThis product is a clothing accessory (stockings/fishnet tights) designed to enhance fashion and decoration, not for play.\nThe title, description, and images clearly show that it is suitable for dance performances and outfit styling, cosplay and costume events, and parties or festive occasions.\n\n2. Product Nature Description\nThe product has no interactive, assembly, sound, or entertainment features.\nBased on its nature and intended use, it clearly belongs to the “Clothing Accessories / Hosiery” .",
+      "source_characters": 672,
+      "source_sha256": "a490f71fc58ceffd619b86595b2ae99fb88514d22bc7c373e8fe142ec358eedb"
+    },
+    "L090": {
+      "text": "This product is a dress-up accessory designed for adults to wear for Halloween, Mardi Gras, Christmas, and other themed celebrations. It can be used as a fashion accessory. It is not a children's toy and does not contain any toy elements or entertainment features. Please review and update your product categories.",
+      "source_characters": 314,
+      "source_sha256": "cd2d60cfdc37286ba2c5072743b23d8f565960b597d8daace52fcd657c88d89a"
+    },
+    "L091": {
+      "text": "This product does not have entertainment or game properties and does not meet the definition of a children's toy.\nProduct composition and function: The core component is a Disco themed aluminum foil balloon. All components are designed for party decoration purposes only and are designed for adult social activities. There are no functional settings for children to play; and this product requires helium to achieve the decorative effect, and its functional positioning and usage conditions have nothing to do with children's toys.",
+      "source_characters": 531,
+      "source_sha256": "9c08aad364215d86c2ddd8008a45577df900b6733aa6cd6c0309f72451f950e6"
+    },
+    "L092": {
+      "text": "我们的产品被错误地归类为玩具。这是一款圣诞装饰品贴纸套装，具有节日设计。它用于装饰礼物盒、信封、玻璃瓶等手工艺品装饰，而不是用于玩耍。它没有游戏功能、移动部件或声音功能。\n",
+      "source_characters": 86,
+      "source_sha256": "4d5263a94df9e6c566ca886ba37d8a8a88409632bb0ead1b758612d319ba2f33"
+    },
+    "L093": {
+      "text": "This product is designed for pets and is primarily used for bathing or daily care. It focuses on practical functions and does not contain any toy elements suitable for children, nor does it have entertainment or interactive functions. The target audience of the product is pets, not children.",
+      "source_characters": 292,
+      "source_sha256": "63f81ea7ae630e2fe80dca7d72e90e8c6081c8b7c079938c1fad072315992e5c"
+    },
+    "L094": {
+      "text": "Dear Amazon Team,\nWe request a re-evaluation of the classification for [Stress Relief Products].\nThis product is designed as a stress relief accessory for adults, commonly used in offices, homes, and workplaces to release tension and promote relaxation.\nIt is soft and squeezable, made of safe, flexible material, and intended only for stress management or decorative use.\nThe item has no interactive or entertainment function.\nWe have updated the product detail page to clearly describe it as a relaxation and stress relief accessory.\nPlease kindly reclassify it accordingly.",
+      "source_characters": 576,
+      "source_sha256": "9ee583c7e9d385a26ea5d8729ba57e7aa62b99a96eb7aac6272a4fc0d66af5ca"
+    },
+    "L095": {
+      "text": "本产品是成人装扮服饰配件用品，并非是儿童玩具。\n1.功能：本产品是装扮装饰配件，主要适用在万圣节、嘉年华、角色扮演和主题派对等活动场合，，仅装饰效果。\n2.本产品结构稳定，仅供成人使用，无电子、电池，无声音、光效果，没有任何玩乐娱乐。",
+      "source_characters": 117,
+      "source_sha256": "7a255ce3e6d42bfdebdeb7841b90ccc3538f1ff7d3a57f5918144785d721ae7f"
+    },
+    "L096": {
+      "text": "1. This product is a decorative headband for adults, designed for events such as Halloween, carnivals, cosplay, and theme parties. Its intended use is limited to styling and matching clothing to create a festive or party atmosphere.\n2. This product is primarily for display and is not intended for entertainment or interaction. It is designed for adult use and is not suitable for children to wear or play with.",
+      "source_characters": 411,
+      "source_sha256": "3e842637f16095c12f2bfb973c35a16dc3c5cd2ee8aa7bf8ddfd735c9d2b55a9"
+    },
+    "L097": {
+      "text": "1.本产品为成人头箍配饰，专为节日及居家造型搭配设计。\n2.产品仅具装饰功能，不具备任何玩乐或娱乐属性，不应归类为玩具。\n3.其功能单一，仅用于造型与装饰，无娱乐性或可玩性，无法作为玩具或儿童用品使用。\n4.本产品使用群体为成人。\n5.适用于万圣节、嘉年华、主题派对等成人场合，用于造型点缀与氛围营造。",
+      "source_characters": 151,
+      "source_sha256": "a7cf4e491b7bc2baac5a9449c219f37060c5ab3e5ab148a46ec824f1007fc654"
+    },
+    "L098": {
+      "text": "This product does not have entertainment or game properties and does not meet the definition of children's toys. Product composition and functions: The core component is playing cards. All components are only designed for adult social activities and have no functional settings for children's play. Their functional positioning and usage conditions have nothing to do with children's toys.",
+      "source_characters": 389,
+      "source_sha256": "a6a2ea5aae1333e9a30674dd35cfeb78078ddce4a1a118dcb8ed3d40ccc4029b"
+    },
+    "L099": {
+      "text": "This product belongs to the learning category and is not a toy product. It is fundamentally different from toy products. Please ask the team to re-examine the product classification.",
+      "source_characters": 182,
+      "source_sha256": "c347944eb70a5f8559fadbddcb15ba02cb1a4f6e3a00d08aee666263ad7d01d0"
+    },
+    "L100": {
+      "text": "This product is not a children's toy. Please review it again. Thank you.",
+      "source_characters": 72,
+      "source_sha256": "48594e27eebe1ec8e0990e4158bb18896e398dd69a1ebfd8b40d474f0df8b30a"
+    },
+    "L101": {
+      "text": "它不是儿童玩具，也不包含任何儿童友好功能。请检查并更新产品类别。",
+      "source_characters": 32,
+      "source_sha256": "539852df9b873af68f0cf14261278f2680c515a96ee64134bdcb100ae630301a"
+    },
+    "L102": {
+      "text": "尊敬的亚马逊审核团队：\n\n本产品为发光手环装饰配件，主要用于装饰和佩戴，并非儿童玩具。具体说明如下：\n\n产品用途：本产品用于活动、派对及日常穿戴的发光装饰，不具备供儿童玩耍的娱乐性质。\n\n适用人群：本产品适用于各年龄段的用户作为装饰用品，并非专为儿童设计。\n\n产品定位：其核心用途为佩戴装饰，而不是儿童玩具或娱乐用品。\n\n基于以上特点，本产品应归类为发光手环装饰配件，而非儿童玩具。恳请审核团队重新评估本产品的分类。谢谢！",
+      "source_characters": 211,
+      "source_sha256": "2e0f6ce73e2fd00b49e5f099043951d8c0b792405c683e819933330dcf392283"
+    },
+    "L103": {
+      "text": "本产品不属于儿童玩具，为万圣节主题球状装饰用品，设计用于节日装饰与视觉氛围营造，提升万圣节场景效果，不用于儿童玩耍或娱乐。\n\n用途：专用于万圣节节日装饰，适合家庭、派对、舞会等场景，营造节日氛围，不具备玩具或娱乐功能。\n\n结构与功能：球状装饰物仅用于摆放或展示，提供视觉装饰效果，不包含互动、可玩或娱乐属性，功能明确为装饰用途。\n\n适用场景与人群：用于万圣节派对、节日布置及装扮活动，非为儿童设计，也不属于儿童玩具。\n\n产品定位：核心定位为万圣节装饰用品，属性明确为装饰用途，不符合儿童玩具定义。\n\n结论：本产品在用途、结构、功能及定位上均为装饰用品，不属于儿童玩具，不应归类为玩具类产品。",
+      "source_characters": 295,
+      "source_sha256": "995037343276d2872eeda7c2e9a7fcd03ae2a7c9d0d2d65d276607e40fb44d53"
+    },
+    "L104": {
+      "text": "本产品不是儿童玩具，仅是发光手环装饰，其主要功能是装饰与佩戴。具体理由如下：\n产品用途：本产品用于活动、派对及日常使用的发光装饰，不具备供儿童玩耍的娱乐属性。\n适用人群：本产品适合所有年龄段用户。\n产品定位：产品核心功能为佩戴与展示，仅装饰作用，不属于供儿童娱乐的玩具类别。",
+      "source_characters": 137,
+      "source_sha256": "9fdbef36a3abe0f29981c0ffdbe7c563432a2ef1114e0b74d719715db7f51377"
+    },
+    "L105": {
+      "text": "本产品不是玩具，只是派对装饰用品。\n\n本产品为纸质生日派对装饰帽，属于派对装饰用品，主要用于生日庆祝场景的装饰和穿戴展示。该产品并非玩具，不具备玩具属性。\n\n产品特点如下：\n1.材质为纸质，用于派对装饰用途；\n2.不具备玩耍功能，无机械结构、电动装置等玩具特征；\n3.本产品适合所有年龄层面的消费群体使用；\n4。使用场景明确，为节庆派对活动的装饰与穿戴，不适用于儿童玩耍。",
+      "source_characters": 186,
+      "source_sha256": "f822013263c7e9b4eb83f0b876246729a151aab44ea3057ccee98041a6f22479"
+    },
+    "L106": {
+      "text": "本产品为气球组合装饰套装，其主要用途为环境装饰与氛围营造，适用于各类庆祝活动及场景布置，不属于儿童玩具范畴。具体说明如下：\n\n一、产品用途与属性\n本产品由不同颜色及尺寸的气球组成，设计目的仅用于装饰展示和视觉效果呈现，不具备娱乐性、互动性或可玩性功能，不符合玩具类产品的定义。\n\n二、使用场景\n本气球装饰套装主要用于生日派对、婚礼、节庆活动及商业场景布置，其作用在于美化空间、增强现场氛围，并非供儿童玩耍或娱乐使用。\n\n三、适用人群\n本产品定位为成人装饰用品，需由成人进行安装、布置和使用，非为儿童设计，也不作为儿童玩具或儿童用品。\n\n四、结构与使用方式\n产品需经充气后进行固定或悬挂，主要用于静态装饰展示，使用过程中不涉及任何玩耍行为，不具备玩具属性。\n\n结论：\n综上所述，本产品属于装饰类气球用品，仅用于场景布置和环境美化，不应被归类为儿童玩具",
+      "source_characters": 374,
+      "source_sha256": "1c6bcec2d4bb52211ca56ccd300c120368a3e6f43f00b5e53ed7021ebcb762c1"
+    },
+    "L107": {
+      "text": "本产品不属于儿童玩具。本产品为迷你火烈鸟形状装饰物，其设计目的仅用于装饰与陈设，适合摆放于家庭环境、车内、桌面、花园等场所，用于提升环境的视觉效果和装饰氛围，并非用于儿童娱乐或玩耍。\n\n一、产品用途属性\n本产品主要作为迷你装饰摆件使用，适用于室内及室外的装饰场景，如家居陈设、车内装饰、桌面摆放及花园点缀等。产品用途明确为装饰展示，不具备任何娱乐性或玩耍功能，不属于玩具类产品。\n\n二、产品结构与功能特性\n本产品为小型火烈鸟造型装饰物，结构固定，仅具备静态装饰功能，不包含互动设计、游戏机制或可玩性结构，其功能属性明确偏向装饰用途。\n\n三、适用人群及使用方式\n本产品作为装饰用品，适用于日常环境布置使用，非为儿童设计，亦不作为儿童玩耍用途。产品在使用过程中不应被视为或当作玩具使用。\n\n四、产品定位与合规结论\n本产品的核心定位为迷你装饰品，在用途、结构、功能及产品定位方面，均不符合儿童玩具的定义或相关标准。因此，该产品不应被归类为儿童玩具，也不具备任何玩具属性。\n\n综上所述，本产品属于非玩具类装饰用品",
+      "source_characters": 452,
+      "source_sha256": "69b6509be1e181cb66a65596ce73dc7de9a85f2971bab51b74e35777053cd41f"
+    },
+    "L108": {
+      "text": "本产品为蛇形状首饰装饰品，属于成人时尚配饰类商品，主要用于日常穿搭、主题派对、舞台表演或造型装饰。该产品仅具备装饰属性，不具备任何玩具功能，不属于儿童玩具或儿童用品范畴。 尽管产品外观为蛇形设计，但其设计初衷及实际用途均为成人首饰装饰品，并非供儿童玩耍或娱乐使用。产品不具备互动性、娱乐性或教育性玩具特征。 本产品适用于狂欢节、万圣节等节庆，用于装饰装扮，提升整体造型。",
+      "source_characters": 185,
+      "source_sha256": "b1e56a89909eefbb8f8351cf31ff542a04b04e25bc810425a96aae49f0f87875"
+    },
+    "L109": {
+      "text": "This product does not have entertainment or gaming functions and does not meet the definition of a children's toy. Product composition and function: The core component is a beaded board. All components are designed specifically for adults and do not have any function for children to play with. Its functional positioning and usage conditions are unrelated to children's toys.\n\nWe kindly request the review team to re-evaluate the classification of this product.",
+      "source_characters": 462,
+      "source_sha256": "2ea132e7b1d75daa0f832bc66d386b3e2a0c854beb9bc8940334b7b6125248df"
+    },
+    "L110": {
+      "text": "本产品并非儿童玩具，而是服饰毛球装饰品，主要用于DIY手工艺及装饰用途。\n\n1.具体说明如下：\n\n产品用途说明，\n本产品为装饰性毛球配件，用于DIY手工制作，可装饰于帽子、围巾、衣服、包袋等服饰配件，同时也可用于圣诞球、节日装饰品等装饰场景。\n\n2.产品属性为装饰品而非玩具，\n该产品不具备儿童玩具的功能属性，不用于游戏、娱乐或儿童互动活动，仅作为装饰材料或手工辅料使用。\n\n3.目标人群为成年人，\n产品主要面向从事手工DIY、服饰设计或节日装饰的成年人消费者，并非以儿童为目标用户。\n\n\n综上所述，恳请亚马逊审核团队重新审核该商品，确认其属性为服饰及DIY装饰用品，而非儿童玩具。",
+      "source_characters": 291,
+      "source_sha256": "f2a592f7df9c6ec74021ef770ac2b4f898fae20a301390697991c4d45791fbd6"
+    },
+    "L111": {
+      "text": "This product is not a children's toy but a mini DIY bow tie intended for decorative purposes. It is primarily designed for adult crafting, DIY projects, and display use. Due to its compact appearance, it may be mistakenly classified as a children's toy during review processes. However, based on its design positioning, intended use, and sales approach, this product does not fall under the toy category. The product is positioned as a DIY decorative accessory/craft material for decoration, handmade projects, and creative styling. It lacks toy functionality and is not designed for children's play. Therefore, this product is not a children's toy.",
+      "source_characters": 649,
+      "source_sha256": "f746b5dbba06440d0dc1f23754f8e7cd54aa3e8ea14a7a7fc1bf5249daa55d4d"
+    },
+    "L112": {
+      "text": "This product is a miniature train decorative piece, primarily intended for desktop, model scene, and home decoration. It is purely for display and arrangement and has no play or interactive functions.\n\nThis product is not a children's toy and was not designed, manufactured, or sold according to children's toy standards.\n\nThis product is positioned as a scene decoration item, suitable for model enthusiasts or home display.\n\nThis product is for decorative purposes only and has no play function; therefore, it is not a toy.",
+      "source_characters": 525,
+      "source_sha256": "38c77c967b093b5ec7b41a41dc7190feb6d76f768c159076ce56a210f3509d1d"
+    },
+    "L113": {
+      "text": "This product is a cake decoration designed solely for decorative and display purposes, such as on cakes or tabletops. It has no entertainment or play function and is not a children's toy.\n\nPurpose and Attributes: The product is intended for cake decoration and display, not for play.\n\nStructure and Function: It is a static, Christmas-themed decoration with no interactive or playable features.\n\nTarget Audience: It is not designed for children and should not be used as a toy.\n\nIn summary, this product should not be classified as a children's toy.",
+      "source_characters": 549,
+      "source_sha256": "1b900163c25634d5707845397037ee05ff247ac775b7b4271f1a866f1edeee6e"
+    },
+    "L114": {
+      "text": "本产品为圣诞主题DIY装饰木珠，主要用于手工制作、节日装饰及DIY创意场景，仅具备装饰和创作用途，不具备任何玩耍或互动功能。\n该产品并非儿童玩具，未按照儿童玩具标准设计、生产或销售，也不面向儿童群体使用。商品定位为DIY手工材料和装饰素材，适用于成人或青少年创意手工活动。\n商品详情及包装中已明确标注其仅作装饰和手工制作用途，不适合儿童直接玩耍。本产品设计初衷是作为DIY素材，完全不属于玩具范畴。",
+      "source_characters": 199,
+      "source_sha256": "5b34459036dc13064bb498fb9efb003436afad7bc2e466b5b417d32b8d477d64"
+    },
+    "L115": {
+      "text": "本产品为迷你围栏小矮人娃娃屋LED装饰灯串配饰，主要用于娃娃屋、模型场景及家庭装饰，仅具备观赏和布置功能，不具备任何玩耍或互动功能。\n该产品并非儿童玩具，未按照儿童玩具标准设计、生产或销售，也不面向儿童群体使用。\n商品定位为场景装饰用品，适用于模型爱好者或家庭摆设。\n本产品仅装饰用途，并没有玩耍作用，因此本产品并非玩具。",
+      "source_characters": 161,
+      "source_sha256": "cd72b1d28589e5754e8c1de80ec0ccad5a93887ad14fca3607ea9be527aea565"
+    },
+    "L116": {
+      "text": "本产品为迷你圣诞娃娃屋LED装饰灯串配饰，主要用于娃娃屋、模型场景及家庭装饰，仅具备观赏和布置功能，用于营造圣诞氛围，不具备任何玩耍或互动功能。\n该产品并非儿童玩具，未按照儿童玩具标准设计、生产或销售，也不面向儿童群体使用。\n商品定位为场景装饰用品，适用于模型爱好者或家庭摆设。\n本产品仅装饰用途，并没有玩耍作用，因此本产品并非玩具。",
+      "source_characters": 167,
+      "source_sha256": "2e26bf78a60e3d42fbab9dc94f8210cf90fccab08dcbe3494b2e670f1ea48ca0"
+    },
+    "L117": {
+      "text": "本产品并非儿童玩具，而是用于装饰用途的迷你 DIY 毛绒球制品，主要适用于成人手工装饰、DIY 创作及展示使用。\n一、问题原因说明\n该产品因材质为毛绒、外观小巧，可能在审核过程中被误判为儿童玩具。但在产品设计定位、使用用途及销售方式上，该产品不属于玩具类目。\n二、产品非儿童玩具的事实说明\n产品定位为DIY 装饰配件/手工材料，用于成人装饰、手工制作及创意搭配，产品不具备玩具功能，不具备供儿童玩耍的设计属性。\n因此，本产品并非是儿童玩具。",
+      "source_characters": 220,
+      "source_sha256": "3902955439061263f58700938299569b27d33759690e514c2f998f78aa51b07f"
+    },
+    "L118": {
+      "text": "本产品并非儿童玩具，而是用于娃娃屋场景的迷你滑雪设备装饰摆件，主要用于模型搭建、场景陈列及装饰展示。\n\n一、问题原因说明\n由于该产品为迷你尺寸，且外观与滑雪设备相似，可能在审核过程中被误判为儿童玩具。但从产品设计用途、销售定位及使用方式来看，该产品不具备玩具属性。\n\n二、产品非儿童玩具的事实说明\n产品定位为娃娃屋/模型场景装饰摆件，用于静态装饰与展示；\n产品不具备可玩性或互动设计，不适合作为儿童玩耍使用。\n\n三、目标群体\n本产品主要目标群体是成人，并非儿童。\n\n因此，本产品并非是儿童玩具。",
+      "source_characters": 247,
+      "source_sha256": "eebc7c89e60a12df787f98c7ff312998ceadf7f98b4896c9138d4088e81dc3ba"
+    },
+    "L119": {
+      "text": "This product is an adult tail costume accessory suitable for occasions such as Halloween, carnivals, cosplay, and themed parties. Its purpose is solely to complement costumes and create a festive or party atmosphere.\n\nThis product is primarily for display and is not for entertainment or interactive purposes. Designed for adults only, it is not suitable for children to wear or play with.",
+      "source_characters": 389,
+      "source_sha256": "224327e1bfb536dd2421686403a1275a12007739203266c16bc7d11bcfdce3ca"
+    },
+    "L120": {
+      "text": "This product is not a toy: This product is a bone hair clip necklace set suitable for Halloween and Carnival, intended for use as a costume accessory only. It is not a children's toy and does not contain any fun, interactive, or imaginative elements.",
+      "source_characters": 250,
+      "source_sha256": "e880fe68c78661ee5b2f4580727a821be1b22adeed681fb4bc5b4103cdb318e5"
+    },
+    "L121": {
+      "text": "This product is an eye mask designed specifically for Halloween and carnivals, for costume and accessory use only. It is not a children's toy and does not contain any fun, interactive, or imaginative elements. Please review and update the product category.",
+      "source_characters": 256,
+      "source_sha256": "1a0776e334d35cc3069e07f67d92353f2a071634ab5f5b07f1274642939275ff"
+    },
+    "L122": {
+      "text": "This product is not a toy: This product is a spider earring and necklace set for Halloween, intended for use as a costume accessory only. It is not a children's toy and does not contain any fun, interactive, or imaginative elements.",
+      "source_characters": 232,
+      "source_sha256": "acb34e73298e7f32b4c66c806059c3d0b67554c86cea5ecae29fadad830df58f"
+    },
+    "L123": {
+      "text": "This product is an inflatable balloon for Christmas, intended solely for decoration and to create a festive or party atmosphere. It is not a children's toy and does not contain any fun, interactive, or imaginative elements.",
+      "source_characters": 223,
+      "source_sha256": "bdd948259cdfd3eb1c7958a6bef5c74da77b22237a9766b5ec1809e82e04fc35"
+    },
+    "L124": {
+      "text": "This product is an eye mask designed specifically for Halloween and carnivals, intended for use as a fashion accessory. It is not a children's toy and does not contain any fun, interactive, or imaginative play elements; it is purely decorative. Please review and update the product category.",
+      "source_characters": 291,
+      "source_sha256": "ac7100467c1451dd8d1a9eea9ab980860ebd241225df07442f619f7ff5833cb4"
+    },
+    "L125": {
+      "text": "This product is a costume cape designed specifically for Halloween and carnivals, and is intended for use as a costume accessory only. It is not a children's toy and does not contain any fun, interactive, or imaginative elements. Please review and update the product category.",
+      "source_characters": 276,
+      "source_sha256": "2b8e861cb150797810a79680031d251439f09ecfab333075f182486aff558d8e"
+    },
+    "L126": {
+      "text": "This product is a headband designed specifically for Halloween and carnivals, intended for use as a costume accessory only. It is not a children's toy and does not contain any fun, interactive, or imaginative elements.",
+      "source_characters": 218,
+      "source_sha256": "1a5e3f13c63a316d265febd1cbf527515c346c174bcdbea9bfdef7db290109bc"
+    },
+    "L127": {
+      "text": "Dieses Produkt ist als Accessoire eingestuft und wurde speziell für Jugendliche zum Tragen im Sommer entwickelt. Es ist für Jugendliche ab 14 Jahren und Erwachsene dimensioniert und nicht für Kinder geeignet. In der Produktmerkmale ist eine Altersgruppe ab 14 Jahren angegeben. Dieses Produkt wurde weder als Spielzeug für Kinder konzipiert noch hergestellt oder vermarktet.\nDieses Produkt enthält keine Spielfunktionen, interaktiven Funktionen oder Elemente des fantasievollen Spiels und ist ausschließlich für dekorative Zwecke bestimmt.",
+      "source_characters": 539,
+      "source_sha256": "4a2af5e8baa60dbdaeaf7c2487a61c24060b2402251dd06425c385c0ff9e0f86"
+    },
+    "L128": {
+      "text": "This product is suitable for teenagers and adults aged 14 and over; it is not suitable for children. The recommended age range of 14 and over is stated in the product specifications. This product is not designed as a children’s toy and is intended for an audience aged 14 and over.\nThis product does not include any interactive features or elements for imaginative play; it is intended solely for decorative purposes.",
+      "source_characters": 417,
+      "source_sha256": "f291897a3c981c3a0c6924a5f6d001e83c4d9507631a840db4fe734bb0ca0f6c"
+    },
+    "L129": {
+      "text": "Dear Amazon Compliance Team,\nThis vintage truck model is a decorative ornament intended for users aged 14 and above. It is designed for home display and desktop decor only. It lacks toy‑oriented play features and is not made for children’s entertainment. It does not fit the definition of a children’s toy. Please re‑evaluate and remove the restriction. Thank you.",
+      "source_characters": 364,
+      "source_sha256": "0d492f6a5d0f4a4b9af4af8d57a01bdbe6b5566513fc802c894cfde91a6dd5da"
+    },
+    "L130": {
+      "text": "Our product has been wrongly classified as a toy. It is an adult costume mask for carnivals, parties, and cosplay — not for children. It is purely decorative, with no game functions, electronic parts, moving parts, or sound. It has no play value.",
+      "source_characters": 246,
+      "source_sha256": "a2ff702c8c1d8830c7b759bb7504ad8fd5587b2ae94681f08d821eb3236acf1f"
+    },
+    "L131": {
+      "text": "Our product, ASIN [ASIN], has been incorrectly classified as a \"toy.\" We respectfully clarify that this product is an adult carnival/masquerade mask featuring a sexy, mature design, and is exclusively intended for adult consumers.An identical variation of this product has already been reviewed and approved by Amazon as a non-toy item Case ID: [CASE_ID]. This mask is purely decorative and contains no game functions, electronic components, moving parts, sound or light features, or interactive mechanisms.",
+      "source_characters": 513,
+      "source_sha256": "5f600f6ec3b69d900228c266914c07c557852ed389cc9c2f8e3aa013ca113bf9"
+    },
+    "L132": {
+      "text": "Our product, ASIN [ASIN], has been incorrectly classified as a \"toy.\" It is an adult vampire fang set for Halloween, cosplay, and parties — not a children's toy. It is a costume accessory for adults only, with age labeling on the packaging. The product is purely decorative and has no play functions, electronic parts, moving parts, sound, or light features. Under the EU Toy Safety Directive, a \"toy\" is defined as a product intended for children under 14. Our product is for adults and festive dressing-up, not for children's play. We kindly request that Amazon re-evaluate the classification of this product.",
+      "source_characters": 615,
+      "source_sha256": "af28d40486f1e62277321dfbf057279b3be4c1cd1832487d7191d7c5a88e70fb"
+    },
+    "L133": {
+      "text": "Our product, ASIN [ASIN], has been incorrectly classified as a \"toy.\" It is an adult vampire fang set for Halloween, cosplay, and parties — not a children's toy. It is a costume accessory for adults only, with age labeling on the packaging. The product is purely decorative and has no play functions, electronic parts, moving parts, sound, or light features. Under the EU Toy Safety Directive, a \"toy\" is defined as a product intended for children under 14. Our product is for adults and festive dressing-up, not for children's play. We kindly request that Amazon re-evaluate the classification of this product.",
+      "source_characters": 615,
+      "source_sha256": "8b134f88729ce1906d6471e0558179a8a98bc5f014678fb5762e871bb5cacc65"
+    },
+    "L134": {
+      "text": "This Santa hat, wig and beard set is adult Christmas costume accessory, NOT a children's toy. It is designed for adults for party dressing-up, not for kids' play. No toy functions. We request the listing to be reclassified correctly.",
+      "source_characters": 233,
+      "source_sha256": "1c0ff5e3f2d60d72806ecbba224efeb4e944497b4c734b017e0d53c264db67a7"
+    },
+    "L135": {
+      "text": "This product is suitable for teenagers and adults aged 14 and over; it is not suitable for children. The recommended age range of 14 and over is stated in the product specifications. This product is not designed as a children’s toy and is intended for an audience aged 14 and over. This product does not include any interactive features or elements for imaginative play; it is intended solely for decorative purposes.",
+      "source_characters": 417,
+      "source_sha256": "501eb82f04c0c5ee55fca1d9244da854f996d4b0eb8f5be45b61dcc83ddc1e73"
+    },
+    "L136": {
+      "text": "本产品不具备娱乐或游戏属性，且不应归类为儿童玩具，理由如下：\n\n产品使用说明：本产品为鹿主题面部贴纸，作为特定场合的服装配饰，适用于万圣节、嘉年华、角色扮演活动及主题派对。目标用户群体为成人。鉴于儿童面部皮肤更为娇嫩，其使用方式及环境要求均按成人使用标准设计。",
+      "source_characters": 130,
+      "source_sha256": "ac3093d5adf5e3d1bd651e8334232c2d792039c0ea315a519231a9723f379661"
+    },
+    "L137": {
+      "text": "本产品不具备娱乐性或游戏属性，不应归类为儿童玩具产品，原因如下：\n\n产品用途说明：本产品为面具、项链、手套，作为特定活动戏服配件，用于万圣节，狂欢节，角色扮演，主题派对等场合，目标用户是成人，属于经典活动的装扮配饰。\n\n产品属性说明：1.材质为塑料，不具备任何发声、发光、可动或互动功能。2.不含电池、机械装置或可供娱乐的功能。3.未针对儿童娱乐目的设计，也不具备教育或游戏功能。",
+      "source_characters": 190,
+      "source_sha256": "936d7c4d66bc774cf1fb5c5245e2eb5157af86b4229204be2fe58e185af4be8a"
+    },
+    "L138": {
+      "text": "本产品不具备娱乐性或游戏属性，不应归类为儿童玩具产品，原因如下：\n\n产品用途说明：本产品为面具和项链，作为特定活动戏服配件，用于万圣节，狂欢节，角色扮演，主题派对等场合，目标用户是成人，属于经典活动的装扮配饰。\n\n产品属性说明：1.材质为塑料，不具备任何发声、发光、可动或互动功能。2.不含电池、机械装置或可供娱乐的功能。3.未针对儿童娱乐目的设计，也不具备教育或游戏功能。",
+      "source_characters": 187,
+      "source_sha256": "fa664f3b35f1b94fe28f4c257ef3590a033f9a49a985ddf122fbc2fd773b346d"
+    },
+    "L139": {
+      "text": "本产品不具备娱乐或游戏功能，且不应归类为儿童玩具，理由如下： 属于生日装饰品，可在家庭、办公室或商店中作为实用装饰品使用。\n本产品专为派对等活动设计销售，并非玩具。其不具备玩具常见的活动部件、发声功能或游戏特性。\n产品属性：\n1. 结构坚固，无声光动态或交互功能\n2. 不含电子元件、电池、机械装置或娱乐功能\n3. 非儿童娱乐用途，无教育或游戏特性",
+      "source_characters": 174,
+      "source_sha256": "5a88af62f54d680118a777d445abf6d2d06aa88a3d9aa49f9fedf14dee08b1e1"
+    },
+    "L140": {
+      "text": "This product is a butterfly adult headband, used as a fashion accessory. It is not a children's toy and does not contain any functions suitable for children's use. Please review and update the product classification.",
+      "source_characters": 216,
+      "source_sha256": "cf1e4230b764fd2660e76e9a1f803c17db5fcbbf21d6989eab89ef85ad2e7637"
+    },
+    "L141": {
+      "text": "This product is a Halloween decorative ornament designed specifically to create an eerie festive atmosphere and is intended solely for Halloween decoration. It contains no entertainment functions, interactive features, or imaginative play elements and should not be classified as a children's toy.",
+      "source_characters": 297,
+      "source_sha256": "b8fc364cdbf8e1f5a58bb50918c5a3189ee43a6bccf2c7a9f12a177719a87276"
+    },
+    "L142": {
+      "text": "This product is a Christmas hat, specifically designed for use during Christmas and New Year celebrations. It does not possess any entertainment or gaming attributes, nor does it incorporate any educational or game-related functions. Consequently, it should not be categorised as a children's toy.",
+      "source_characters": 297,
+      "source_sha256": "8120af0ebe16956c566c3418a5a52dd79a20aa91028cce5c19a91110f3a5534b"
+    },
+    "L143": {
+      "text": "该产品不是玩具。它的受众人群是成人。用途是解压。它不是作为儿童玩具而设计、制造或销售的。它不适合 14 岁或以下的儿童用于学习或玩耍。",
+      "source_characters": 67,
+      "source_sha256": "3499c0db4685fefdd73df78bd8dcf1577cd0b9b27a3ce78871f9d214df2d58b3"
+    },
+    "L144": {
+      "text": "您好，本产品是一款微型花园景观装饰品，不是玩具，供成人用于装饰微型景观、微型花园，微型圣诞村，或者与圣诞精灵一起DIY 家居圣诞装饰场景。它不是作为儿童玩具而设计、制造或销售的。它纯粹用于装饰目的。它不适合 14 岁或以下的儿童用于学习或玩耍。",
+      "source_characters": 122,
+      "source_sha256": "06adfddef8f4d3c1ac0ffcc3d30d5d2c1d2dcc5606055afcca3cf3adfe4e0919"
+    },
+    "L145": {
+      "text": "该产品被错误地标记为“儿童玩具”，并被要求提供玩具相关文件。这是明显的分类错误，我提出以下几点供你检讨：\n\n1. 主要用途是家居驱蚊使用，\n该产品明确营销和设计为家居等室内驱蚊用途，如标题和说明中明确所述。其预期用途是：家居、室内、办公室、酒店影院等封闭空间\n它不是作为儿童玩具而设计、制造或销售的。它纯粹用于家居小型驱蚊设备。它不适合 14 岁或以下的儿童用于学习或玩耍。",
+      "source_characters": 187,
+      "source_sha256": "ee7fa9f8d3d1388ae31625acf71042a919917cc5d5f796bce3b5bde247c0c534"
+    },
+    "L146": {
+      "text": "该产品被错误地标记为“儿童玩具”，并被要求提供玩具相关文件。这是明显的分类错误，我提出以下几点供你检讨：\n\n1. 主要用途是节日搭配灯笼装饰，将灯笼杆链接到灯笼上，作为装饰和照明使用。\n该产品明确营销和设计为特定活动的灯笼配件，如标题和说明中明确所述。其预期用途是：万圣节、圣马丁节\n它不是作为儿童玩具而设计、制造或销售的。它纯粹用于装饰目的。它不适合 14 岁或以下的儿童用于学习或玩耍。",
+      "source_characters": 195,
+      "source_sha256": "85e95809023816bf2e339ca8ce87ccbfcf8a3b3d8962c2eb894ee7ee2a9c7686"
+    },
+    "L147": {
+      "text": "This product is a Christmas decoration, used for holiday decoration and Christmas home decoration, and is not a toy for children's entertainment. This product does not contain any fun features, interactive features or imaginative play elements. It has a purely decorative function only.",
+      "source_characters": 286,
+      "source_sha256": "8be5e510a6fd26ecf17e34ded63151743a42933a70a78fce8196dccd30fffd8d"
+    }
+  }
+}
