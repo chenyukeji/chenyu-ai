@@ -667,6 +667,8 @@ def _normalise_date(value: str | None):
     if not value:
         return None
     text = value.strip()
+    if text.casefold() in {"-", "--", "—", "–", "n/a", "na", "null", "暂无数据"}:
+        return None
     match = re.search(r"(20\d{2})[./年-](\d{1,2})[./月-](\d{1,2})", text)
     if match:
         return f"{int(match.group(1)):04d}-{int(match.group(2)):02d}-{int(match.group(3)):02d}"
@@ -761,8 +763,6 @@ def _parse_sellersprite_combined_fields(record: dict, headers: list[str], cells:
             record["price"] = _parse_decimal(lines[0])
         elif "评分数" in normalized or "ratingcount" in normalized:
             record["review_count"] = _parse_integer(lines[0])
-            if record["review_count"] is None and lines[0] in {"-", "—", "–"}:
-                record["review_count"] = 0
             if len(lines) > 1:
                 record["monthly_rating_increase"] = _parse_integer(lines[1])
         elif "评分留评率" in normalized or "ratingratingsrate" in normalized:
@@ -799,7 +799,16 @@ def _extract_best_table(page, table_selector: str | None = None) -> dict:
           const backgroundUrls = Array.from(row.querySelectorAll('[style*="background"]'))
             .map(el => (el.style.backgroundImage || el.style.background || '').match(/url\(["']?(.*?)["']?\)/)?.[1])
             .filter(Boolean);
-          return {cells, links, imageUrls: [...imageUrls, ...backgroundUrls]};
+          const detail = row.querySelector('td.el-table__expanded-cell');
+          const categoryLinks = detail ? Array.from(detail.querySelectorAll('.product-type a.type[href]'))
+            .filter(visible).map(a => ({name: a.innerText.trim(), url: a.href})).filter(a => a.name) : [];
+          return {cells, links, imageUrls: [...imageUrls, ...backgroundUrls],
+            expanded: !!detail,
+            expandedAsin: detail?.querySelector('.table-check input[type="checkbox"]')?.value || null,
+            categoryPath: categoryLinks.map(a => a.name), categoryLinks,
+            productInfo: detail ? Array.from(detail.querySelectorAll('.product-info .info-item'))
+              .filter(visible).map(el => el.innerText.trim()).filter(Boolean) : [],
+            smallBsr: detail?.querySelector('.product-rank')?.innerText.trim() || null};
         }).filter(row => row.cells.some(Boolean));
         if (!headers.length && rows.length) headers = rows[0].cells.map((_, i) => `column_${i + 1}`);
         return {tableIndex, headers, rows, score: headers.length * 10 + rows.length};
@@ -850,15 +859,24 @@ def extract_sellersprite_table(page, payload: dict) -> list[dict]:
     output = []
     for index, raw in enumerate(table.get("rows") or [], start=1):
         cells = raw.get("cells") or []
-        if len(headers) == len(SELLERSPRITE_COMPETITOR_HEADERS) and len(cells) < 8:
+        if raw.get("expanded") or (len(headers) == len(SELLERSPRITE_COMPETITOR_HEADERS) and len(cells) < 8):
             if output and cells:
                 detail_text = cells[0]
-                detail_asin = _extract_asin(detail_text)
+                detail_asin = str(raw.get("expandedAsin") or _extract_asin(detail_text) or "").upper()
                 if detail_asin and output[-1].get("asin") == detail_asin:
-                    output[-1]["detail_text"] = detail_text
+                    previous = output[-1]
+                    previous["detail_text"] = detail_text
+                    path = [str(part).strip() for part in raw.get("categoryPath") or [] if str(part).strip()]
+                    if path:
+                        previous["category_name"] = " > ".join(path)
+                        previous["category_path"] = path
+                        previous["category_links"] = raw.get("categoryLinks") or []
+                        previous["category_source_ref"] = previous["source_ref"]
+                    previous["product_info"] = raw.get("productInfo") or []
+                    previous["small_bsr"] = raw.get("smallBsr")
                     seller_match = re.search(r"BuyBox\s*卖家\s*[:：]\s*([^\r\n(]+)", detail_text, re.I)
                     if seller_match:
-                        output[-1]["seller_name"] = seller_match.group(1).strip()
+                        previous["seller_name"] = seller_match.group(1).strip()
             continue
         record = {"raw_cells": {headers[i]: cells[i] for i in range(min(len(headers), len(cells)))}}
         for i, field in enumerate(canonical):
