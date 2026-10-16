@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "excluded_records": [
+    "S1-R005",
+    "S1-R050",
+    "S1-R040",
+    "S1-R019",
+    "S1-R021",
+    "S1-R030",
+    "S1-R034"
+  ],
+  "families": [
+    {
+      "id": "miniature",
+      "label": "微缩模型与场景陈列",
+      "keywords": [
+        "微型",
+        "迷你",
+        "模型",
+        "娃娃屋",
+        "货架",
+        "地毯",
+        "微景观",
+        "jiajupeijian",
+        "huojia",
+        "miniature",
+        "dollhouse",
+        "diorama",
+        "shelving",
+        "miniature",
+        "furniture",
+        "Puppenhaus",
+        "miniatura"
+      ],
+      "records": [
+        "S1-R022",
+        "S1-R054",
+        "S2-R053",
+        "S2-R041"
+      ]
+    },
+    {
+      "id": "wearable",
+      "label": "服饰与装扮配件",
+      "keywords": [
+        "服装",
+        "服饰",
+        "穿戴",
+        "装扮",
+        "裙",
+        "袜",
+        "发箍",
+        "眼镜",
+        "鼻子",
+        "指甲",
+        "面具",
+        "警服",
+        "costume",
+        "clothing",
+        "garment",
+        "headband",
+        "cape",
+        "stockings",
+        "witch",
+        "necklace",
+        "apparel",
+        "vêtements",
+        "déguisement",
+        "Kleidung",
+        "Kostüm"
+      ],
+      "records": [
+        "S2-R013",
+        "S1-R016",
+        "S2-R080",
+        "S3-R007"
+      ]
+    },
+    {
+      "id": "balloon",
+      "label": "气球与派对布置",
+      "keywords": [
+        "气球",
+        "balloon",
+        "Luftballon",
+        "ballon",
+        "globos",
+        "palloncini"
+      ],
+      "records": [
+        "S1-R084",
+        "S1-R066",
+        "S2-R034"
+      ]
+    },
+    {
+      "id": "ornament",
+      "label": "静态摆件与装饰",
+      "keywords": [
+        "摆件",
+        "陈列",
+        "宝石",
+        "宝箱",
+        "蜘蛛",
+        "火烈鸟",
+        "装饰",
+        "ornament",
+        "decoration",
+        "display",
+        "treasure",
+        "gem",
+        "spider",
+        "flamingo",
+        "décor",
+        "Dekoration"
+      ],
+      "records": [
+        "S2-R035",
+        "S2-R043",
+        "S2-R091"
+      ]
+    },
+    {
+      "id": "craft",
+      "label": "手工原料与制作",
+      "keywords": [
+        "手工",
+        "珠子",
+        "串珠",
+        "贴纸",
+        "毛球",
+        "craft",
+        "bead",
+        "sticker",
+        "pompom",
+        "DIY",
+        "Basteln",
+        "perle"
+      ],
+      "records": [
+        "S2-R046",
+        "S1-R037",
+        "S2-R017"
+      ]
+    },
+    {
+      "id": "light",
+      "label": "发光穿戴与场景照明",
+      "keywords": [
+        "发光",
+        "照明",
+        "灯串",
+        "手环",
+        "灯笼",
+        "light",
+        "lighting",
+        "LED",
+        "lantern",
+        "luminous"
+      ],
+      "records": [
+        "S2-R047",
+        "S3-R018",
+        "S2-R030"
+      ]
+    },
+    {
+      "id": "practical",
+      "label": "实用设备与用品",
+      "keywords": [
+        "存钱罐",
+        "驱蚊",
+        "宠物",
+        "水池",
+        "piggy",
+        "bank",
+        "mosquito",
+        "pet",
+        "pool",
+        "storage"
+      ],
+      "records": [
+        "S1-R027",
+        "S3-R017",
+        "S2-R018"
+      ]
+    },
+    {
+      "id": "game",
+      "label": "游戏学习与解压用品",
+      "keywords": [
+        "棋",
+        "纸牌",
+        "魔方",
+        "解压",
+        "学习",
+        "game",
+        "chess",
+        "cards",
+        "puzzle",
+        "stress",
+        "learning"
+      ],
+      "records": [
+        "S2-R019",
+        "S1-R068",
+        "S2-R097"
+      ]
+    }
+  ]
+}
