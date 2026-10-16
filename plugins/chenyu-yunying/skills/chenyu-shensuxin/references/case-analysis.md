@@ -1,6 +1,6 @@
 # 标记通过的TIC分类申诉：案例解析与选用
 
-本文件用于按产品类型挑选论证方式、对照本品资料、处理再次申诉，或在用户要求时解释改写依据。历史原文见 [workbook-cases.json](workbook-cases.json)，产品与原文对应关系见 [case-index.md](case-index.md)。这里的评价是对写作方法的分析，不是Amazon给出的获批原因。
+本文件用于按产品类型挑选论证方式、对照本品资料、填写统一格式、处理再次申诉，或在用户要求时解释改写依据。历史原文见 [workbook-cases.json](workbook-cases.json)，产品与原文对应关系见 [case-index.md](case-index.md)。这里的评价是对写作方法的分析，不是Amazon给出的获批原因。
 
 ## 资料范围与核对结果
 
@@ -72,7 +72,7 @@
 
 二组30/32行L102/L104保留“发光手环”的真实功能，解释光效用于佩戴展示；二组47–50行L115/L116保留LED属性，解释为娃娃屋／模型场景照明。它们提示：论证重点是功能服务于什么目的，不能为了申诉一律写“无光、无电、无互动”。
 
-### 四、年龄提示与页面信息：用已有证据支持定位一致性
+### 四、商品信息与产品定位：用已有资料支持定位一致性
 
 **原表观察**
 
@@ -86,29 +86,30 @@
 
 本品描述写14+就引用描述；包装也写了才同时引用包装。现有完整相关页面与图片均无儿童信息时，可以说明其定位一致性；单张白底图不足以证明整页和包装的内容。用户已明确提供这些事实时可以使用，不必要求每项都重新上传证明。
 
+本项不仅是年龄：标题的服饰定位、描述的手工用途、图片的布置场景、包装的使用说明，以及用户明确提供的设计销售定位都可使用；不因没有14+标签就删除本项。写明实际资料来源，不把已知用途改写成“包装已经标注”。只有没有新增信息、与前项重复时才合并或省略。
+
 年龄、成人购买或安装、没有儿童图片是辅助事实，不应代替实际用途解释。若本品材料写儿童使用或展示儿童，不隐去该信息，也不套用成人专用范文。对明确的儿童服装，可围绕衣着功能申诉；实际用途存在核心矛盾时再请求最少必要澄清。
 
-## 对当前眼镜、项链、布质配件的具体启发
+## 统一格式及分段填写
 
-| 对照案例 | 可以学习 | 当前材料不能直接借用 |
-|---|---|---|
-| 一组16行L008 | 把组成联系到穿搭，并按用途、属性、分类请求展开。 | 原文写项链和耳饰，本品是眼镜和项链；成人专用、页面说明、无互动等并非本品已知事实。 |
-| 一组17行L009 | 同为眼镜和项链，将造型用途、使用场景和服饰类别连起来，类别请求明确。 | 成人／青少年、特定活动、塑料合金材质、页面内容不能自动移植；“不符合玩具安全标准”的说法不采用。 |
-| 二组36行L108 | 蛇形是首饰造型元素；可类比解释和平标志和粉色镜片怎样形成复古造型，而不把图案本身当作玩具证据。 | 蛇形、成人、舞台、具体节庆都属于该案例，不是当前产品已确认的用途。 |
-| 二组96行L134 | 帽子、假发、胡须作为整体完成装扮；说明套装组合的目的，比逐件报名称更有用。 | 当前产品不能照写圣诞节或成人专用。 |
+用户在比较Excel后确定了后续统一结构：**非儿童玩具声明→编号分点→分类复核请求**。历史原文中的短段落仅供借鉴语气和论据，不再作为默认成文格式。开头、各点标题及结尾一并写成页面所选语言；站点、案例或下方示例语言不覆盖所选语言。
 
-上一版仅强调“有镜腿、能佩戴、颈绳在脖子上”，说明了形态，但尚不足以区分穿戴玩具与穿搭配件。更适合的主线是：整套的复古造型目的→主要配件承担穿戴装饰作用→请求按服饰配件复核。佩戴结构放在需要时作辅助；若用户再给出节日、年龄标注或完整页面，就加入与本轮问题最相关的证据，而不是继续扩写外观。
+| 部分 | 要回答的问题 | 怎样填 | 原表可借鉴的位置 |
+|---|---|---|---|
+| 开头 | 不是儿童玩具，那是什么？ | 第一分句说明非儿童玩具，紧接具体类别；套装先说整体定位，不列长清单。 | 一组22行；二组32/38行 |
+| 产品用途 | 做什么、产生什么结果？ | 具体到制作物或实用作用，如穿线制作项链、服饰搭配、存放硬币；不只写装饰。 | 一组27/37行；二组17/18行 |
+| 使用场景与对象 | 在哪里、什么活动、谁使用？ | 写本品实际节日、活动、位置和已明确对象；年龄不明可只写场景。 | 一组23/66/82/95行；二组2/30/32行 |
+| 结构与使用方式 | 怎样实现上述用途？ | 解释穿线孔、佩戴、固定、悬挂、摆放等；声光或可动功能仍保留并说明作用。 | 一组37行；二组34/47行；三组18行 |
+| 商品信息与定位 | 哪些资料支持这一定位？ | 指出标题、描述、图片、包装或已明确的设计销售定位；年龄仅是可用信息之一。 | 一组73/78行；二组46/84行 |
+| 结尾 | 请平台复核什么？ | 一句话请求按实际类别重新审核；与开头对应，确有销售限制才请求解除。 | 二组2/80/96行 |
 
-## 句式与结构：沿用已有案例的表达
+每点默认一句，按以上顺序保留有新信息的项，用1、2、3连续编号。默认以四项取材，资料不足可缩为两三点；没有年龄信息时先看第四项是否有其他定位资料，不直接删点或编造标签。相同事实不跨点重复，几次改写“纯装饰”不等于几个理由。只有一项明确理由时也保留编号说明，不输出空标签。
 
-同用途案例既是论据选择的参考，也是文字风格的参考。L008直接以“This product is a fashion accessory set”定位，L064以“These items are Halloween themed…”说明主题，L028用“It is used for making…”列实际加工用途。写本品时延续这种产品主语、直接陈述、具体用途的表达。短段与分点均可，依据材料选择；不把所有案例改写成英文小标题报告，也不将外观描写扩展为重复的审美描述。参考文中的事实仍须逐项核对。
+直接说用途，使用平实的“用于”“通过”“注明”等表达；不要加长称呼、政策承诺或审美描述。每点小标题也用所选语言，字数紧时缩短标签。成品不保留模板括号、案例编号或填写指导。
 
-1. **定位先行**：如二组96行L134，短开头就点出商品与具体用途。不要先用大量称呼、致谢、承诺遵守政策占据字符。
-2. **用途与属性相互解释**：如一组37行L028，孔用于穿线、穿线用于制作首饰；如二组34行L106，充气后固定悬挂、悬挂用于环境展示。比“纯装饰、无玩具性、不是玩具”反复改写更有信息。
-3. **有需要才分点**：一组22–24行、二组34行适合分点，因为比例、用户、位置、方法确实不同。二组31/35行L103/L107较长，但多段重复装饰定位，不能把段落多视为理由多。
-4. **把强理由放前面**：收到具体年龄疑问时，已有的包装年龄和实际用途可先说；要求说明装饰用途时，具体安装和展示方法可先说。没有平台回复，不编造它质疑了什么。
-5. **请求与问题对应**：通常请求复核分类；确有销售限制才请求解除对应限制。不要照一组80行L060把产品分类问题写成店铺封禁申诉。
-6. **完整压缩**：先去重复，再压缩语言；中文和英文分别计数。历史最长911字符、部分700字符正文仍被截断，说明不能把历史长度直接作为合格样板。最终正文按当前700字符要求完整成文。
+网站的四种角度控制重点：purpose对应用途，occasion对应场景，method对应使用方式，age对应商品信息。它们不改变统一结构，不凭勾选创造事实，也不代表未勾选就禁止使用已有相关信息。再次申诉把平台疑问和本轮解释放在对应分点，不重新套无关案例。
+
+最终正文最多700个Unicode字符，含编号、标点、空格与换行；中文翻译单独交付、不计入正文。历史文案最长911字符且有截断片段，不能沿用原文长度作为限制；应先去重复，再压缩为完整句子。
 
 ### 再次申诉如何变化
 
@@ -138,44 +139,72 @@
 | 一组80，L060 | 产品描述前带店铺封禁申诉背景。 | 本品只涉及分类时，不扩大为账号申诉。 |
 | 二组28/29，L100/L101 | 泛泛说不是玩具，缺少具体事实。 | 不能因其标记通过就降低当前写作质量。 |
 
-## 改写示范：均为演示，不是原表通过原文
+## 改写示范：均为统一格式演示，不是原表通过原文
 
-这些示范只使用各自给定的事实，用于检查不同输入下是否选对理由。它们不表示已在平台提交或通过，不能将示范事实套入别的商品。
+下面分别使用明确给定的语言和事实；仅演示填写方式，不能把示例事实移植到其他商品。括号中的材料说明不进入申诉正文。
 
-### A. 图片有限的穿戴配饰
+### A. 图片有限的穿戴配饰；选择德语
 
-已知：粉色圆框眼镜、和平标志项链、红色布质配件，用户明确要求以穿搭配件用途申诉；没有年龄、页面、具体节日资料。借鉴L008/L009/L108/L134的论证关系。
+已知：粉色圆框眼镜、和平标志项链、红色布质配件，用户明确要求以穿搭配件用途申诉；没有年龄、页面、具体节日资料。借鉴L008/L009/L108/L134，用两项不同内容成文，不强求第四点。
 
-> This product is a retro costume-accessory set consisting of pink-lensed glasses, a peace-sign necklace and a red fabric accessory. It is used for dressing up and clothing coordination. The glasses and necklace are worn as decorative accessories, while the fabric accessory completes the outfit. The set's intended use is themed styling, not children's play. We request that Amazon review its classification as fashion/costume accessories.
+> Dieses Produkt ist kein Kinderspielzeug, sondern ein Set aus Kostümaccessoires.
+> 1. Zweck: Die rosa Brille, die Halskette mit Friedenssymbol und das rote Stoffaccessoire ergänzen ein gemeinsames Outfit.
+> 2. Verwendung: Brille und Halskette werden als Schmuck getragen; das Stoffaccessoire vervollständigt die Kleidungskombination.
+> Bitte prüfen Sie die Einstufung anhand dieser Verwendung als Kostümaccessoires erneut.
 
-核对：不再只写组成；没有添加成人、14+、头带用法、材质或未经提供的节日。语气明确，但没有自称已获得官方认定。
+核对：德语开头、标题和结尾一致；没有编造成人、14+、布料固定方法、页面或节日。用途与佩戴方式分别说明，省略无依据的场景及商品信息并连续编号。
 
-### B. 有节日和固定方法的气球
+### B. 有节日和固定方法的气球；选择法语
 
-已知：圣诞树形气球，用空气泵充气后固定在背景墙，作为圣诞活动布置；活动允许儿童参加，年龄标签未提供。借鉴L106/L123及L075保留实际活动对象的方式。
+已知：圣诞树形气球，用空气泵充气后固定在背景墙，作为圣诞活动布置；活动允许儿童参加，年龄标签未提供。借鉴L106/L123及L075。
 
-> This product is a Christmas-tree-shaped balloon used for Christmas event decoration. It is inflated with an air pump and fixed to a backdrop as part of the festive display. Although children may attend the event, the balloon is installed as a scene decoration, not provided for children's play. We request that Amazon review its classification based on this fixed display use.
+> Ce produit n’est pas un jouet pour enfants, mais un ballon décoratif en forme de sapin.
+> 1. Usage : Il sert à composer un décor de Noël.
+> 2. Cadre : Il fait partie du fond décoratif d’un événement de Noël auquel des enfants peuvent participer.
+> 3. Installation : Gonflé avec une pompe à air puis fixé au fond, il reste exposé comme décoration.
+> Veuillez réexaminer son classement selon cet usage décoratif fixe.
 
-核对：保留儿童参加的事实，不改成人专用；按提供的方法写空气泵而非氦气；用实际固定展示用途解释。
+核对：保留儿童参与事实；写空气泵，不改为氦气或成人专用；缺少页面、包装资料时不凑第四点。
 
-### C. 发光手环与年龄标注
+### C. 发光手环与年龄标注；选择英语
 
-已知：LED手环，用于活动穿搭，光效增强佩戴造型；本品描述和包装都明确写14+，未提供完整页面图片。借鉴L102/L104与L127/L132引用证据位置的方式。
+已知：LED手环，用于活动穿搭，佩戴于手腕，光效增强造型；本品描述和包装都明确写14+，未提供完整页面图片。借鉴L102/L104及L127/L132，材料覆盖四项。
 
-> This product is an LED bracelet intended for event dressing-up. Its light effect is used as part of the wearer's outfit, serving a decorative purpose. Both the product description and packaging specify ages 14 and above. Based on its stated audience and actual use, we request that Amazon review its classification as a wearable decorative accessory rather than a children's toy.
+> This product is not a children's toy, but an LED costume bracelet.
+> 1. Purpose: It complements clothing as a decorative accessory.
+> 2. Occasion: It is intended for event dressing-up.
+> 3. Use: Worn on the wrist, its LEDs add a light effect to the outfit.
+> 4. Product information: Both the description and packaging specify ages 14 and above.
+> Please review its classification as a wearable decorative accessory based on this use and information.
 
-核对：没有否认LED功能；准确引用两处已经提供的标注；没有添加“所有图片没有儿童”或声称仅靠14+就必然免除玩具要求。
+核对：保留LED功能；准确引用两处标注，不添加所有页面无儿童内容。用途、场景、发光方式、标注分别提供信息。
 
-### D. 被要求解释装饰用途后的补充材料
+### D. 被要求解释装饰用途后再次申诉；选择西班牙语
 
-已知：平台询问产品的装饰用途；新增材料显示蛋糕插件通过插杆牢固固定于蛋糕，用作顶部展示。没有具体节日、成人年龄或材质信息。借鉴L113的位置描述和L002补充说明的写法，固定方式来自本次输入。
+已知：平台询问产品的装饰用途；新增图片显示蛋糕插件通过插杆牢固固定于蛋糕，用作顶部展示。没有具体节日、年龄或材质信息。借鉴L113的位置描述及L002补充说明方式。
 
-> In response to your request to clarify the product's decorative use, we have provided an image showing the topper secured to a cake by its insertion stem. The stem positions and holds the decoration on the cake, where it forms part of the cake-top display. This supplied setup demonstrates its intended role as a cake decoration rather than a children's play item. Please review the classification using this installation evidence and intended use.
+> Este producto no es un juguete infantil, sino un adorno para tartas.
+> 1. Uso: Se coloca sobre la tarta como parte de su decoración.
+> 2. Instalación: En respuesta a su consulta sobre el uso decorativo, la nueva imagen muestra cómo la varilla fija el adorno a la tarta para su exposición.
+> Solicitamos que se revise la clasificación teniendo en cuenta este uso y la instalación mostrada.
 
-核对：回应平台实际问题，指出新增图片支持什么；不编造成人专用、材质、节日、页面整改或既往通过。
+核对：第一句仍先表达非儿童玩具；在使用方式点回应平台问题并说明新增图片支持什么，不捏造年龄、材质、节日、整改或既往通过。
+
+### E. 没有年龄信息，但有包装用途；选择中文
+
+已知：木珠带穿线孔，用于制作节日挂饰和项链，适用于圣诞手工制作；包装注明“手工制作与装饰材料”，未提供年龄信息。借鉴L028/L050/L114。
+
+> 本产品不是儿童玩具，而是手工装饰木珠。具体说明如下：
+> 1. 产品用途：用于制作项链及节日挂饰。
+> 2. 使用场景：用于圣诞主题手工制作与布置。
+> 3. 使用方式：利用珠子上的孔穿入线绳，组合成饰品或挂饰。
+> 4. 商品信息：包装注明“手工制作与装饰材料”，与上述用途一致。
+> 请根据实际用途和包装说明，按手工装饰材料重新审核分类。
+
+核对：没有14+也可以保留第四点，引用的是已有包装用途，不新增年龄或成人专用声明。
 
 ### 仍需正确处理的输入边界
 
-- 教学用卡片同时带有真实游戏规则：保留教学和游戏用途，根据已提供的对象、课堂方法说明复核理由，不输出“无教育或游戏功能”。
-- 普通模型只有一张照片：不猜专业比赛规格、专业收藏定位或年龄标签；用途无法确定且影响正文时，问收藏陈列还是游戏使用这一关键问题。
-- 同一产品只切换站点且没有新回复：调整目标语言和相关站点通知，保持事实，不制造新增证据或获批经历。
+- 教学用卡片同时有游戏规则：保留教学和游戏功能，根据已知对象、方法及定位说明；不能为写开头而抹去核心事实，无法据实成立时先澄清。
+- 只有一张模型照片、用途无法识别：不猜专业比赛、收藏定位或年龄；仅问影响成文的核心用途，不逐项索要完整包装、通知和年龄。
+- 同一产品仅切换站点、语言或写作角度：使用当前所选语言，保持事实与结构，不制造新证据、拒绝记录或获批经历。
