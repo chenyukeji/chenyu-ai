@@ -99,7 +99,9 @@
 
 上一版仅强调“有镜腿、能佩戴、颈绳在脖子上”，说明了形态，但尚不足以区分穿戴玩具与穿搭配件。更适合的主线是：整套的复古造型目的→主要配件承担穿戴装饰作用→请求按服饰配件复核。佩戴结构放在需要时作辅助；若用户再给出节日、年龄标注或完整页面，就加入与本轮问题最相关的证据，而不是继续扩写外观。
 
-## 句式与结构：学习信息关系，不复制空话
+## 句式与结构：沿用已有案例的表达
+
+同用途案例既是论据选择的参考，也是文字风格的参考。L008直接以“This product is a fashion accessory set”定位，L064以“These items are Halloween themed…”说明主题，L028用“It is used for making…”列实际加工用途。写本品时延续这种产品主语、直接陈述、具体用途的表达。短段与分点均可，依据材料选择；不把所有案例改写成英文小标题报告，也不将外观描写扩展为重复的审美描述。参考文中的事实仍须逐项核对。
 
 1. **定位先行**：如二组96行L134，短开头就点出商品与具体用途。不要先用大量称呼、致谢、承诺遵守政策占据字符。
 2. **用途与属性相互解释**：如一组37行L028，孔用于穿线、穿线用于制作首饰；如二组34行L106，充气后固定悬挂、悬挂用于环境展示。比“纯装饰、无玩具性、不是玩具”反复改写更有信息。
@@ -144,10 +146,7 @@
 
 已知：粉色圆框眼镜、和平标志项链、红色布质配件，用户明确要求以穿搭配件用途申诉；没有年龄、页面、具体节日资料。借鉴L008/L009/L108/L134的论证关系。
 
-> This is a retro costume-accessory set, not a children's toy.
-> 1. Intended use: The pink-lensed glasses, peace-sign necklace and red fabric accessory are combined for clothing coordination and themed styling.
-> 2. Product function: The glasses and necklace are worn as decorative accessories, while the fabric completes the outfit. Their purpose is to create a coordinated look, not to provide a children's game or play activity.
-> 3. Classification request: Please assess the set by its actual wearing and decorative purpose and classify it as fashion/costume accessories rather than children's toys.
+> This product is a retro costume-accessory set consisting of pink-lensed glasses, a peace-sign necklace and a red fabric accessory. It is used for dressing up and clothing coordination. The glasses and necklace are worn as decorative accessories, while the fabric accessory completes the outfit. The set's intended use is themed styling, not children's play. We request that Amazon review its classification as fashion/costume accessories.
 
 核对：不再只写组成；没有添加成人、14+、头带用法、材质或未经提供的节日。语气明确，但没有自称已获得官方认定。
 
@@ -155,7 +154,7 @@
 
 已知：圣诞树形气球，用空气泵充气后固定在背景墙，作为圣诞活动布置；活动允许儿童参加，年龄标签未提供。借鉴L106/L123及L075保留实际活动对象的方式。
 
-> Please review this Christmas-tree-shaped balloon as a seasonal decoration. It is inflated with an air pump and secured to a backdrop for Christmas events. Its tree shape contributes to the festive display, and its specified use is fixed scene decoration rather than a children's play activity. Children may attend the event, but the balloon's role in the supplied setup is to decorate the backdrop. Please reassess its classification based on this installation method and intended use.
+> This product is a Christmas-tree-shaped balloon used for Christmas event decoration. It is inflated with an air pump and fixed to a backdrop as part of the festive display. Although children may attend the event, the balloon is installed as a scene decoration, not provided for children's play. We request that Amazon review its classification based on this fixed display use.
 
 核对：保留儿童参加的事实，不改成人专用；按提供的方法写空气泵而非氦气；用实际固定展示用途解释。
 
@@ -163,7 +162,7 @@
 
 已知：LED手环，用于活动穿搭，光效增强佩戴造型；本品描述和包装都明确写14+，未提供完整页面图片。借鉴L102/L104与L127/L132引用证据位置的方式。
 
-> We request a review of this LED bracelet's classification as a children's toy. Its intended use is wearable decoration for events: the light effect enhances the wearer's outfit and visual appearance. Both the product description and packaging specify ages 14 and above. Please consider this stated audience together with the bracelet's actual styling purpose, and reassess it as a wearable decorative accessory rather than a children's toy.
+> This product is an LED bracelet intended for event dressing-up. Its light effect is used as part of the wearer's outfit, serving a decorative purpose. Both the product description and packaging specify ages 14 and above. Based on its stated audience and actual use, we request that Amazon review its classification as a wearable decorative accessory rather than a children's toy.
 
 核对：没有否认LED功能；准确引用两处已经提供的标注；没有添加“所有图片没有儿童”或声称仅靠14+就必然免除玩具要求。
 
