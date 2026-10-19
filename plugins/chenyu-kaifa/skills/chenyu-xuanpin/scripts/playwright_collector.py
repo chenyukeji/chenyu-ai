@@ -963,10 +963,11 @@ def _select_sellersprite_market(page, marketplace: str) -> str:
     option_names = {
         "US": ("美国站", "United States"),
         "DE": ("德国站", "Germany"),
+        "FR": ("法国站", "France"),
     }
     names = option_names.get(marketplace)
     if not names:
-        raise BrowserCollectionError("SellerSprite ASIN enrichment currently supports US and DE")
+        raise BrowserCollectionError("SellerSprite ASIN enrichment currently supports US, DE and FR")
     selectors = page.locator("input.el-input__inner[readonly]:visible")
     if not selectors.count():
         raise BrowserCollectionError("SellerSprite marketplace selector was not found")
@@ -1125,8 +1126,8 @@ def _query_sellersprite_batch(page, payload, marketplace, asins, query_timeout_m
 def collect_sellersprite_by_asin(payload: dict) -> dict:
     url = validate_url(payload.get("url") or "https://www.sellersprite.com/v3/competitor-lookup")
     marketplace = str(payload.get("marketplace") or "").upper()
-    if marketplace not in {"US", "DE"}:
-        raise BrowserCollectionError("marketplace must be US or DE for SellerSprite ASIN enrichment")
+    if marketplace not in {"US", "DE", "FR"}:
+        raise BrowserCollectionError("marketplace must be US, DE or FR for SellerSprite ASIN enrichment")
     requested = payload.get("asins") or []
     if not isinstance(requested, list):
         raise BrowserCollectionError("asins must be a list")

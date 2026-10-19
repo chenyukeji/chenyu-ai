@@ -231,6 +231,29 @@ def _detail_image_errors(rows: dict[int, dict[int, str]], anchors: set[tuple[int
     return errors
 
 
+def _research_data_errors(rows: list[dict[int, str]]) -> list[str]:
+    """A category label is not evidence that market research was completed."""
+    errors = []
+    verified = 0
+    for row in rows:
+        if not (_present(row.get(11)) or _present(row.get(12))):
+            continue
+        # Date, ratings, price, BSR and sales; intentionally exclude category.
+        has_metrics = any(_present(row.get(col)) and re.search(r"\d", str(row.get(col)))
+                          for col in (2, 3, 4, 5, 7))
+        if has_metrics:
+            verified += 1
+            continue
+        note = row.get(14, "")
+        queried = re.search(r"卖家精灵|SellerSprite", note, re.I)
+        reason = re.search(r"未提供|无有效|未返回|未查到|占位|not.found|no.data", note, re.I)
+        if not (queried and reason):
+            errors.append(f"参考商品 {row.get(11, '')} 缺少市场数据及卖家精灵查询缺失说明；类目文字不算完成调研")
+    if rows and not verified:
+        errors.append("所有参考商品均缺少已核实市场数据，不能将空白研究表作为完成结果交付；请查询卖家精灵或报告阻塞")
+    return errors
+
+
 def inspect_workbook(path: Path, template: bool = False, expected_variants: list[str] | None = None) -> dict:
     report = {"path": str(path.resolve()), "errors": [], "warnings": [], "sheets": []}
     if path.suffix.lower() != ".xlsx":
@@ -298,6 +321,7 @@ def inspect_workbook(path: Path, template: bool = False, expected_variants: list
             if row_number > 1 and any(_present(value) for value in row.values())
         ]
         if not template:
+            report["errors"].extend(_research_data_errors(research_rows))
             if not research_rows:
                 report["errors"].append("参考产品信息调研至少需要一条商品记录")
             for row in research_rows:

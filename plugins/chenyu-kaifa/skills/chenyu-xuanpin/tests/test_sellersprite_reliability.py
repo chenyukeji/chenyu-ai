@@ -376,3 +376,18 @@ class PartialEnrichmentTests(unittest.TestCase):
                 completed = run.run_discovery_flow(args)
             self.assertEqual(completed['status'], 'COMPLETE')
             self.assertFalse(json.loads((root / '00-run.json').read_text(encoding='utf-8')).get('enrichment_incomplete'))
+
+class FranceDevelopmentLookupTests(unittest.TestCase):
+    def test_fr_market_reaches_authenticated_query(self):
+        page = MagicMock()
+        with patch.object(collector, '_require_playwright', return_value=MagicMock()), \
+             patch.object(collector, '_launch_context', return_value=(MagicMock(), page, Path('/tmp/profile'))), \
+             patch.object(collector, '_sellersprite_credentials', return_value=('', '', None)), \
+             patch.object(collector, '_wait_for_sellersprite_session', return_value=None), \
+             patch.object(collector, '_select_sellersprite_market', return_value='法国站') as select, \
+             patch.object(collector, '_goto'), \
+             patch.object(collector, '_wait_sellersprite_query', return_value=([{'asin': ASIN, 'price': 17.99}], 10, 'matched')):
+            result = collector.collect_sellersprite_by_asin({'marketplace': 'FR', 'asins': [ASIN]})
+        select.assert_called_with(page, 'FR')
+        self.assertEqual(result['source_metadata']['marketplace'], 'FR')
+        self.assertEqual(result['records'][0]['price'], 17.99)

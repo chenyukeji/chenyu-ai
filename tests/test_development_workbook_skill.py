@@ -132,3 +132,15 @@ def test_multiple_variant_names_match_in_detail_row_order():
     )
     assert len(errors) == 2
     assert "B2" in errors[0] and "B5" in errors[1]
+
+
+def test_research_category_does_not_hide_missing_market_data():
+    validator = load_validator()
+    row = {11: "B0FNLDQKXJ", 12: "https://www.amazon.com/dp/B0FNLDQKXJ", 6: "圣诞椅套（用户参考归类）"}
+    assert validator._research_data_errors([row])
+    row[14] = "卖家精灵查询仅返回占位行，未提供有效数据"
+    assert validator._research_data_errors([row])  # all-empty must still fail
+    available = {11: "B0B9785KTH", 4: "17.99", 3: "141（评分数）"}
+    assert validator._research_data_errors([available, row]) == []
+    row[14] = "Amazon返回验证页"
+    assert validator._research_data_errors([available, row])
