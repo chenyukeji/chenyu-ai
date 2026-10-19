@@ -1,4 +1,4 @@
 interface:
   display_name: "晨玙 A+ 要求"
-  short_description: "自主设计共用 A+：无品牌三张、有品牌四张，生成逐图要求与交接表"
-  default_prompt: "使用 $chenyu-aplusyaoqiu，根据产品资料自主设计 A+ 作图要求，同产品变体共用一套；无品牌三张，有品牌额外增加品牌图共四张，参考链接可选。"
+  short_description: "设计共用 A+ 模板、可选品牌头图与统一配色，生成逐图要求及交接表"
+  default_prompt: "使用 $chenyu-aplusyaoqiu，根据产品资料自主设计 A+ 作图要求，同产品变体共用一套；采用所选纯图或图文模板，可选 600×180 品牌头图并统一主题配色，参考链接可选。"
