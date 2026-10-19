@@ -11,7 +11,7 @@ description: 晨玙开发总入口。接收自然语言需求、选品结果、1
 
 | 用户目标或输入 | 读取并执行 |
 | --- | --- |
-| 找品、筛选新品、比较候选、分析新品榜历史、筛查近期 FBM 热销商品或生成开品结果 | [chenyu-xuanpin](../chenyu-xuanpin/SKILL.md)；找品策略、站点、类目和评分规则由该 Skill 决定 |
+| 找品、竞品 ASIN 关键词反查找暴涨长尾词、筛选新品、比较候选、分析新品榜历史、筛查近期 FBM 热销商品或生成开品结果 | [chenyu-xuanpin](../chenyu-xuanpin/SKILL.md)；找品策略、站点、类目和评分规则由该 Skill 决定 |
 | 1688链接和目标属性，要求供应商名称、规格、图片、报价或库存 | [chenyu-gongyingshang](../chenyu-gongyingshang/SKILL.md)；通过已授权领星只读解析，歧义规格待确认 |
 | 从1688链接和属性继续生成开发Excel | 先采集供应商资料，确认匹配规格后，将事实包和对应本地图交给开发文档Skill |
 | 已确认产品，要求整理竞品、供应商报价、规格、变体和图片，生成或修改产品开发 Excel | [chenyu-kaifawendang](../chenyu-kaifawendang/SKILL.md)；每个产品独立一个三表工作簿，同一产品的变体留在同一文件 |
