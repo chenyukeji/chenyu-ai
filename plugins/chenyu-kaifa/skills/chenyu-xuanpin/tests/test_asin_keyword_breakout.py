@@ -9,10 +9,11 @@ from openpyxl import load_workbook
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asin_keyword_breakout import normalize_item, render
+from discovery_workbook import HEADERS
 
 
 class ReverseKeywordReportTests(unittest.TestCase):
-    def test_monthly_points_and_matching_product_are_rendered(self):
+    def test_only_result_workbook_is_delivered_and_raw_evidence_is_preserved(self):
         item = normalize_item({
             "keywords": "brotbeutel bienenwachs", "keywordCn": "面包袋蜂蜡",
             "searches": 16740, "searchesGrowth": 16.23, "exactPpc": 0.97,
@@ -27,29 +28,75 @@ class ReverseKeywordReportTests(unittest.TestCase):
             evidence.write_text(json.dumps({
                 "marketplace": "DE", "asin": "B0HJ66GXZK",
                 "product": {"name": "Bienenwachs Brotbeutel", "url": "https://www.amazon.de/dp/B0HJ66GXZK",
-                            "image_file": "product.png"},
+                            "image_file": "product.png", "Review数量": 27, "预估月销量": 125,
+                            "结论": "优先调研", "理由": "已核实的商品判断"},
                 "source_url": "https://www.sellersprite.com/v3/keyword-reverse/?q=B0HJ66GXZK",
                 "observed_at": "2026-10-19T00:00:00+00:00", "collected_count": 174,
-                "reported_total": 174, "keywords": [item],
+                "reported_total": 174, "keywords": [item, {**item, "keyword": "bienenwachs brotbeutel"}],
             }), encoding="utf-8")
             selected = root / "selected.json"
             selected.write_text(json.dumps([{"marketplace": "DE", "asin": "B0HJ66GXZK",
                                              "keyword": "brotbeutel bienenwachs",
-                                             "direction": "蜂蜡面包袋"}]), encoding="utf-8")
+                                             "direction": "蜂蜡面包袋"},
+                                            {"marketplace": "DE", "asin": "B0HJ66GXZK",
+                                             "keyword": "bienenwachs brotbeutel"}]), encoding="utf-8")
+            evidence_before = evidence.read_bytes()
             result = render([evidence], selected, root / "report")
             workbook = load_workbook(result["workbook"])
-            sheet = workbook["长尾词趋势"]
-            self.assertEqual(sheet["C2"].value, "brotbeutel bienenwachs")
-            self.assertEqual(sheet["F2"].value, 16740)
-            self.assertEqual(sheet["N2"].value, "B0HJ66GXZK")
-            self.assertEqual(len(sheet._images), 2)
-            monthly = workbook["逐月搜索量原始点"]
-            self.assertEqual(monthly.max_row, 5)
-            self.assertEqual(monthly["D5"].value, "202609")
-            self.assertEqual(monthly["E5"].value, 16740)
+            self.assertEqual(workbook.sheetnames, ["开品结果"])
+            self.assertEqual(Path(result["workbook"]).name, "开品结果.xlsx")
+            self.assertEqual(list((root / "report").iterdir()), [Path(result["workbook"])])
+            self.assertNotIn("preview", result)
+            self.assertEqual(result["rows"], 1)
+            sheet = workbook["开品结果"]
+            self.assertEqual([cell.value for cell in sheet[1]], HEADERS)
+            self.assertEqual(sheet.max_row, 2)
+            self.assertEqual(sheet["C2"].value, 27)
+            self.assertEqual(sheet["G2"].value, 125)  # Product sales, not keyword searches.
+            self.assertEqual(sheet["K2"].value, "B0HJ66GXZK")
+            self.assertEqual(sheet["L2"].hyperlink.target, "https://www.amazon.de/dp/B0HJ66GXZK")
+            self.assertEqual(sheet["N2"].value, "优先调研")
+            self.assertIn("已核实的商品判断", sheet["O2"].value)
+            self.assertIn("brotbeutel bienenwachs", sheet["O2"].value)
+            self.assertIn("bienenwachs brotbeutel", sheet["O2"].value)
+            self.assertIn("16740", sheet["O2"].value)
+            self.assertEqual(len(sheet._images), 1)  # Product image only, no trend charts.
             workbook.close()
-            with Image.open(result["preview"]) as preview:
-                self.assertEqual(preview.size, (1600, 205))
+            self.assertEqual(evidence.read_bytes(), evidence_before)
+            # Rebuilding reuses embedded product images and still creates only one file.
+            rebuilt = render([evidence], selected, root / "report")
+            with_image = load_workbook(rebuilt["workbook"])
+            self.assertEqual(len(with_image.active._images), 1)
+            with_image.close()
+
+    def test_markets_stay_separate_and_missing_product_facts_stay_blank(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            sources, choices = [], []
+            for market in ("US", "DE"):
+                source = root / f"{market}.json"
+                source.write_text(json.dumps({
+                    "marketplace": market, "asin": "B0HJ66GXZK",
+                    "product": {"name": "Bread Bag", "url": f"https://example.com/{market}"},
+                    "source_url": "source", "observed_at": "today",
+                    "collected_count": 1, "reported_total": 1,
+                    "keywords": [normalize_item({"keywords": "bread bag", "searches": 1000})],
+                }))
+                sources.append(source)
+                choices.append({"marketplace": market, "asin": "B0HJ66GXZK", "keyword": "bread bag"})
+            selection = root / "selected.json"
+            selection.write_text(json.dumps(choices))
+            result = render(sources, selection, root / "out")
+            self.assertEqual(result["rows"], 2)
+            workbook = load_workbook(result["workbook"])
+            self.assertEqual(workbook.sheetnames, ["开品结果"])
+            sheet = workbook.active
+            self.assertEqual([sheet.cell(i, 1).value for i in (2, 3)], ["US", "DE"])
+            for i in (2, 3):
+                for column in (2, 3, 4, 5, 6, 7, 9, 10, 14):
+                    self.assertFalse(sheet.cell(i, column).value)
+            self.assertEqual(len(sheet._images), 0)
+            workbook.close()
 
     def test_unverified_keyword_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder:

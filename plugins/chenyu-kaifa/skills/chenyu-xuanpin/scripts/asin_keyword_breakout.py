@@ -1,4 +1,4 @@
-"""Collect real SellerSprite ASIN reverse-keyword trends and render a product-linked report."""
+"""Collect real SellerSprite ASIN reverse-keyword evidence and export selection results."""
 from __future__ import annotations
 
 import argparse
@@ -9,18 +9,14 @@ from pathlib import Path
 import re
 from urllib.parse import urlencode
 
-from PIL import Image, ImageDraw, ImageFont, ImageOps
-from openpyxl import Workbook
-from openpyxl.drawing.image import Image as ExcelImage
-from openpyxl.styles import Alignment, Font, PatternFill
-from openpyxl.utils import get_column_letter
+from PIL import Image
+from discovery_workbook import HEADERS, export_discovery_workbook
 
 MARKET_IDS = {"US": 1, "DE": 4}
 MARKET_STATIONS = {"US": {"US", "USA", "UNITED_STATES"}, "DE": {"DE", "GERMANY"}}
 ASIN_PATTERN = re.compile(r"^[A-Z0-9]{10}$")
 MONTH_PATTERN = re.compile(r"^20\d{4}$")
 API_PATH = "/v3/api/relation/reversing"
-FONT_PATH = Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
 
 
 def number(value):
@@ -157,36 +153,6 @@ def collect_reverse(market, asin, output, max_pages=20):
     return result
 
 
-def sparkline(points, width=166, height=58):
-    image = Image.new("RGB", (width, height), "#ffffff")
-    draw = ImageDraw.Draw(image)
-    values = [int(item["searches"]) for item in points if isinstance(item.get("searches"), (int, float))][-36:]
-    draw.line((5, height-5, width-5, height-5), fill="#e6eaf0")
-    if len(values) < 2:
-        return image
-    scale = max(values) or 1
-    coords = [(5 + i * (width-10) / (len(values)-1), height-6 - value * (height-14) / scale)
-              for i, value in enumerate(values)]
-    draw.polygon([(coords[0][0], height-5), *coords, (coords[-1][0], height-5)], fill="#fff1e4")
-    draw.line(coords, fill="#f58b29", width=2, joint="curve")
-    return image
-
-
-def _font(size):
-    return ImageFont.truetype(str(FONT_PATH), size) if FONT_PATH.exists() else ImageFont.load_default()
-
-
-def _formatted(value, decimals=0):
-    return "—" if value is None else f"{value:,.{decimals}f}"
-
-
-def _image(path, size=(72, 72)):
-    if not path or not Path(path).is_file():
-        return None
-    with Image.open(path) as opened:
-        return ImageOps.contain(opened.convert("RGB"), size)
-
-
 def _selected_rows(evidence_paths, selection_path):
     evidence = {}
     for path in evidence_paths:
@@ -217,97 +183,56 @@ def _selected_rows(evidence_paths, selection_path):
 
 
 def render(evidence_paths, selection_path, output_dir):
-    """Render only selected source-backed words, with a separate raw-month sheet."""
-    rows = _selected_rows(evidence_paths, selection_path)
+    """Export one product-result sheet; detailed keyword evidence stays in input JSON."""
+    selected = _selected_rows(evidence_paths, selection_path)
+    products = {}
+    local_images = {}
+    for row in selected:
+        key = (row["marketplace"], row["asin"])
+        if key not in products:
+            product = row["product"]
+            result = {header: product.get(header) for header in HEADERS}
+            result.update({"站点": key[0], "ASIN": key[1],
+                           "亚马逊产品链接": product.get("url", ""), "图片": ""})
+            # Keyword intent is not a product attribute or a sales estimate.
+            if not result["产品优点&特征"] and product.get("name"):
+                result["产品优点&特征"] = product["name"]
+            image_path = row["image_path"]
+            if image_path and image_path.is_file():
+                image_key = str(image_path.resolve())
+                local_images[image_key] = image_path
+                result["图片"] = image_key
+            products[key] = (result, [])
+        result, reasons = products[key]
+        metrics = []
+        for field, label in (("monthly_searches", "月搜索量"),
+                             ("growth_percent", "搜索增长率(%)"), ("ppc", "PPC")):
+            if row.get(field) is not None:
+                metrics.append(f"{label} {row[field]:g}")
+        reason = f"关键词 {row['keyword']}" + ("：" + "，".join(metrics) if metrics else "")
+        if row["note"]:
+            reason += "；" + row["note"]
+        if reason not in reasons:
+            reasons.append(reason)
+    results = []
+    for result, reasons in products.values():
+        result["理由"] = "\n".join(filter(None, [result.get("理由"), *reasons]))
+        results.append(result)
+
+    def load_local_image(key):
+        path = local_images[key]
+        with Image.open(path) as image:
+            extension = {"JPEG": "jpg", "PNG": "png", "GIF": "gif"}.get(image.format)
+            image.verify()
+        if not extension:
+            raise ValueError("不支持的产品图片格式")
+        return path.read_bytes(), extension
+
     output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.title = "长尾词趋势"
-    headers = ["站点", "产品方向", "关键词", "中文含义", "月搜索趋势", "月搜索量", "增长率", "月购买量",
-               "PPC竞价", "广告竞品数", "商品数", "产品图", "对应竞品", "ASIN", "产品链接", "证据覆盖", "说明"]
-    sheet.append(headers)
-    for index, width in enumerate([8, 19, 30, 18, 25, 16, 13, 16, 14, 15, 13, 14, 48, 17, 42, 14, 38], 1):
-        sheet.column_dimensions[get_column_letter(index)].width = width
-    for cell in sheet[1]:
-        cell.fill = PatternFill("solid", fgColor="E9EDF3")
-        cell.font = Font(bold=True, color="26364D")
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-    sheet.row_dimensions[1].height = 30
-    sheet.freeze_panes = "C2"
-    sheet.auto_filter.ref = f"A1:Q{len(rows)+1}"
-    monthly = workbook.create_sheet("逐月搜索量原始点")
-    monthly.append(["站点", "ASIN", "关键词", "月份", "搜索量", "数据来源", "采集时间"])
-    for col, width in {"A": 9, "B": 17, "C": 32, "D": 12, "E": 14, "F": 72, "G": 30}.items():
-        monthly.column_dimensions[col].width = width
-    monthly.freeze_panes = "D2"
-    preview = Image.new("RGB", (1600, 100 + 105 * min(len(rows), 20)), "#ffffff")
-    draw = ImageDraw.Draw(preview)
-    label_font, small_font = _font(16), _font(12)
-    draw.text((25, 17), "ASIN 关键词反查 · 长尾词趋势选品", font=_font(20), fill="#243750")
-    draw.text((25, 55), "每行对应真实反查词与竞品；折线为卖家精灵逐月搜索量。历史 0 可能低于收录阈值。",
-              font=small_font, fill="#66788f")
-    for index, row in enumerate(rows, 2):
-        values = [row["marketplace"], row["direction"], row["keyword"], row["translation"], "",
-                  row["monthly_searches"], row["growth_percent"], row["monthly_purchases"], row["ppc"],
-                  row["advertising_competitors"], row["products"], "", row["product"]["name"],
-                  row["asin"], row["product"]["url"], row["coverage"], row["note"]]
-        sheet.append(values)
-        for point in row["trend"]:
-            monthly.append([row["marketplace"], row["asin"], row["keyword"], point["month"],
-                            point["searches"], row["source_url"], row["observed_at"]])
-        sheet.row_dimensions[index].height = 70
-        for cell in sheet[index]:
-            cell.alignment = Alignment(vertical="center", wrap_text=True)
-            if index % 2 == 0:
-                cell.fill = PatternFill("solid", fgColor="F8FAFD")
-        sheet.cell(index, 15).hyperlink = row["product"]["url"]
-        sheet.cell(index, 15).font = Font(color="245BD5", underline="single")
-        for col, fmt in {6: '#,##0', 7: '0.00"%"', 8: '#,##0', 9: '0.00'}.items():
-            sheet.cell(index, col).number_format = fmt
-        chart = sparkline(row["trend"])
-        buffer = BytesIO()
-        chart.save(buffer, format="PNG")
-        buffer.seek(0)
-        excel_chart = ExcelImage(buffer)
-        excel_chart.width, excel_chart.height = chart.size
-        sheet.add_image(excel_chart, f"E{index}")
-        product_image = _image(row["image_path"])
-        if product_image:
-            buffer = BytesIO()
-            product_image.save(buffer, format="PNG")
-            buffer.seek(0)
-            excel_product = ExcelImage(buffer)
-            excel_product.width, excel_product.height = product_image.size
-            sheet.add_image(excel_product, f"L{index}")
-        if index <= 21:
-            y = 100 + (index-2) * 105
-            draw.rectangle((15, y, 1585, y+101), fill="#f8fafc" if index % 2 == 0 else "#ffffff")
-            draw.line((15, y+101, 1585, y+101), fill="#e6eaf0")
-            draw.text((30, y+15), row["keyword"][:33], font=label_font, fill="#243750")
-            draw.text((30, y+49), (row["direction"] or row["translation"])[:25],
-                      font=small_font, fill="#67788d")
-            preview.paste(chart.resize((215, 65)), (420, y+5))
-            if row["trend"]:
-                draw.text((425, y+75), f"{row['trend'][0]['month']} → {row['trend'][-1]['month']}",
-                          font=small_font, fill="#718096")
-            draw.text((665, y+15), "月搜索 " + _formatted(row["monthly_searches"]),
-                      font=small_font, fill="#243750")
-            draw.text((665, y+50), "增长 " + _formatted(row["growth_percent"], 1) +
-                      "%  ·  PPC " + _formatted(row["ppc"], 2), font=small_font, fill="#d36c15")
-            if product_image:
-                preview.paste(product_image, (940, y+15))
-            name = row["product"]["name"]
-            draw.text((1030, y+10), name[:48], font=small_font, fill="#243750")
-            if len(name) > 48:
-                draw.text((1030, y+31), name[48:96], font=small_font, fill="#243750")
-            draw.text((1030, y+60), f"{row['marketplace']} · {row['asin']}",
-                      font=small_font, fill="#66788f")
-    workbook_path = output_dir / "长尾词趋势选品.xlsx"
-    preview_path = output_dir / "长尾词趋势选品.png"
-    workbook.save(workbook_path)
-    preview.save(preview_path)
-    return {"workbook": str(workbook_path), "preview": str(preview_path), "rows": len(rows)}
+    exported = export_discovery_workbook(output_dir / "开品结果.xlsx", results,
+                                         image_loader=load_local_image, headers=HEADERS)
+    return {"workbook": exported["path"], "rows": len(results),
+            "image_failure_count": exported["image_failure_count"]}
 
 
 def main():
