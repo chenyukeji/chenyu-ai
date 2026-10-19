@@ -37,7 +37,7 @@
 用户实际指定的布局限制可写“用户固定要求”；模型提出的最终构图写“画面方案”，允许出图端优化未锁定细节，不把内部方案冒充用户指令。执行文字包括：
 
 - 本张具体展示的产品内容与已确认特点。
-- 先写主参考方向及各图片实际贡献，再写最终分区、主体位置/占比、裁切、姿态/朝向、背景、局部窗和文字落点，说明重新组合及优化的具体效果。一般信息图可调整参考原有位置或边框；采用场景参考主图时按 Skill 保留场景表现并加四边等宽纯白外框，G 列写明白框宽度。
+- 先写主参考方向及各图片实际贡献，再写最终分区、主体位置/占比、裁切、姿态/朝向、背景、局部窗和文字落点，说明重新组合及优化的具体效果。主图行的首张嵌图使用第一条链接的对应变体主图，G 列明确保留内容与小幅替换；一般信息图可调整参考原有位置或边框；采用场景参考主图时按 Skill 保留场景表现并加四边等宽纯白外框，G 列写明白框宽度。
 - 准确上图文字与位置；无文字时明确写出。尺寸任务写测量部位、方向、成对 cm / in 数值，并写辅助场景/细节的内容、来源、位置、占比及其与尺寸/适配判断的关系；省略辅助内容时内部记录用户指令或具体设计理由。
 - 适用变体、成品数量、固定画幅规格 1254×1254 px（1:1）及当前任务的具体缺口。
 
@@ -51,17 +51,17 @@
 
 - `products[]`：每个变体有唯一 `id`、`product_content_image_id`、`product_content_image_source`、`product_content_image_source_ref`，以及候选 `own_main_image_id`、`supplier_image_id`（无候选填空字符串）。来源为 `own_main`、`supplier`、`confirmed_reference_main`；参考主图可来自任一清单，须有 `matching_basis` 且 source_ref 引用对应 ASIN。旧 `first_reference_main` 值仅作兼容，同样要求匹配依据。
 - 每个产品保存非空 `visual_direction`，其设计要求落实到各行 G 列，不另增顶部行；共用方向可使用相同文本。每个产品必须覆盖 6–8 个任务，对应 6–8 张交付图，首张为主图、末张为四宫格场景图；不能用 `task_count_reason` 绕过数量要求。此范围不限制整个包总任务数；共用任务须核对每个产品的成品数量。
-- 新作图包设置 `schema_version: 3`，旧 1/2 版可读取，重新规划时升级。`image_tasks[]` 每项有唯一 `id`、`type`、非空 `product_ids`、`new_information`、`instructions`、`on_image_text`、`content_mappings`、`text_mappings`。每项新增 `composition`，含非空 `final_layout`、`replacements`、`optimizations`，前两项逐字落实到 G 列，分别描述最终取景、主辅关系、布局与本品替换；新包不再生成 `density_plan`，旧包该字段可读取但不要求写进 G 列；`optimizations` 仅保存内部设计依据，不强制写入 G 列，也不输出独立设计优化段落。有嵌图时 `visual_anchor` 含已映射该任务的 `source_image_id` 与本行 `reference_slot`；它只确定主要方向，不限制最终版式。无嵌图记录具体 `reference_gap_reason`，仍写完整最终设计。旧版 `retained_layout/retained_density` 不再作为新包字段。主图第一，其余类型仍可用 `detail`、`feature`、`advantage`、`process`、`packaging`、`size`、`scene`、`closeup_scene`、`key_scene`、`four_grid`。
+- 新作图包设置 `schema_version: 3`，旧 1/2 版可读取，重新规划时升级。`image_tasks[]` 每项有唯一 `id`、`type`、非空 `product_ids`、`new_information`、`instructions`、`on_image_text`、`content_mappings`、`text_mappings`。每项新增 `composition`，含非空 `final_layout`、`replacements`、`optimizations`，前两项逐字落实到 G 列，分别描述最终取景、主辅关系、布局与本品替换；新包不再生成 `density_plan`，旧包该字段可读取但不要求写进 G 列；`optimizations` 仅保存内部设计依据，不强制写入 G 列，也不输出独立设计优化段落。有嵌图时 `visual_anchor` 含已映射该任务的 `source_image_id` 与本行 `reference_slot`；非主图只确定主要方向，不限制最终版式；主图锚定首链接对应变体主图，最终内容与展示关系对应一致，仅作小幅调整。无嵌图记录具体 `reference_gap_reason`，仍写完整最终设计。旧版 `retained_layout/retained_density` 不再作为新包字段。主图第一，其余类型仍可用 `detail`、`feature`、`advantage`、`process`、`packaging`、`size`、`scene`、`closeup_scene`、`key_scene`、`four_grid`。
 - `reference_images` 按 C–F 实际嵌图顺序保存路径，最多四项；兼容旧字段 `embedded_reference_paths`。执行文字逐一写明“参考图片1”等编号及用途，不能引用空白栏。
 - 多变体新任务另有 `output_count` 和 `output_groups[]`，每组对应一张独立成品，字段为全包唯一 `id`、非空 `product_ids`、非空 `replacements`（该组成品的具体产品替换要求，逐字写进 G 列）。各组的 product_ids 必须不重不漏地覆盖本行 product_ids，output_count 必须等于组数；一组多个变体还需非空 `shared_reason` 说明可见事实与文案一致的证据，并在 G 列明确同图共用。仅共用构图时每组只有一个变体。新单变体任务也建议用相同字段；旧包缺字段可读取，重新规划多变体时补齐。变体尺寸或上图文案不同且不能在共用字段无歧义表达时拆成各自任务，不能把两套尺寸混进同一成品。
 - 主图另有 `main_style`（`clean_white`、`white_with_use_inset`、`scene_hero`）、`main_style_reason`、`product_image_ids`（与本任务适用变体身份图完全一致）和 `identity_lock`。后者记录 `shape_structure`、`color_pattern`、`quantity_components`、`accessories_packaging`。主图 `on_image_text` 为空。
 - 场景任务 `scene`、`closeup_scene`、`key_scene` 另有 `scene_mode`。每个产品的最后一个任务必须为 `four_grid`，有四个场景不同的 `scene_cells`；每格都有非空 `output_scene` 和非空字符串 `output_text`，后者为该格独立场景标题，即使来源无字也必填。四格标题均须写入 `on_image_text` 与 `instructions`，执行文字按左上、右上、左下、右下分别说明标题对应场景和落点；全图总标题不能替代分格标题。
 - 尺寸任务有 `dimension_labels`（每项同一部位成对 cm / in）；`dimension_source` 保存 `kind`（`own_measurement`、`development`、`confirmed_same_product`、`user_adopted_primary_reference`）和 `source_ref`；已确认同款另有 `matching_basis`，用户授权首链接补充的尺寸另有 `user_instruction`，`source_ref` 指明首链接 ASIN 和原点位。不同测量值来自不同资料时在 source_ref 内逐项对应。未确认数值在执行文字标具体缺口，补齐前不得标记可交付。
-- 尺寸任务的 `supporting_visual.kind` 可为 `detail`、`scene`、`both`、`none`；按尺寸判断需要选择，辅助内容可以与测量主体处于同一场景，不要求独立窗口。辅助图另有 `description`、`source_ref`、`dimension_relevance`，在 instructions 写清内容、位置、占比及尺寸关系。单主体与标注已足够说明或用户要求纯尺寸时可用 `none`；分别在 `supporting_visual.design_reason` 记录具体设计理由，或在 `supporting_visual.user_instruction` 记录原指令。`instructions` 和 `on_image_text` 都含尺寸标签及默认标题 Product Size；用户指定其他标题或无标题时保存 `size_heading`、`size_heading_override_reason`。
+- 尺寸任务的 `supporting_visual.kind` 可为 `detail`、`scene`、`both`、`none`；按尺寸判断需要选择，辅助内容可以与测量主体处于同一场景，不要求独立窗口。辅助图另有 `description`、`source_ref`、`dimension_relevance`，在 instructions 写清内容、位置、占比及尺寸关系。选择单主体或用户要求纯尺寸时可用 `none`；分别在 `supporting_visual.design_reason` 记录本品为何不需要额外使用说明、保留哪些视觉层次，或在 `supporting_visual.user_instruction` 记录原指令。不能仅用测量方向少、数字可读或无适配范围证据作为省略理由；具体判断按模型规则执行。`instructions` 和 `on_image_text` 都含尺寸标签及默认标题 Product Size；用户指定其他标题或无标题时保存 `size_heading`、`size_heading_override_reason`。
 
 ### 全部参考与内容取舍
 
-- `primary_reference` 保存第一条竞品链接，提供主要内容和视觉起点；其余链接在 `additional_references[]`，同样完整比较。逐图可采用任一链接中更清楚、更突出产品、场景更真实或信息安排更饱满的图作主参考，并在设计中吸收其他图的互补内容。没有竞品参考时用 null 与空列表，不编造来源。
+- `primary_reference` 保存第一条竞品链接，提供主要内容和视觉起点；其余链接在 `additional_references[]`，同样完整比较。主图采用首链接的对应变体主图；其他图片可采用任一链接中更清楚、更突出产品、场景更真实或信息安排更饱满的图作主参考，并在设计中吸收其他图的互补内容。没有竞品参考时用 null 与空列表，不编造来源。
 - 每个参考清单保存 `asin`、`marketplace`、原始 `url`、`coverage_status`（`complete`、`partial`、`failed`）和 `images[]`。部分或失败另有具体 `coverage_note`；完全失败可用空图片列表。完整性仍须与原始输入链接及研究包核对，不能用这个字段自证覆盖。
 - 每张来源图保存全包唯一 `id`、`role`、原图内容 `content_elements`、原图文字 `text_elements`、`mapped_task_ids`。整图不采用时改存具体 `omitted_reason`，仍保留实际画面的 `content_elements`；下载或读取失败另记 `status: failed` 及具体失败原因，不虚构画面内容。因重复不采用时另存 `duplicate_of`（已采用来源图 ID 列表），理由说明重复的展示内容与保留图的优势；不能把多个不同画面套用同一句舍弃理由。已用图内舍弃的模块用 `omitted_elements` 记录 `kind`（`content`、`text`、`scene`）、`value`、具体 `reason`。重复、无证明力、无关或已有更清楚表达均可成为理由；“图数已够”不构成理由。
 - 每条 `content_mappings` 写 `source_image_id`、`source_content`、`output_content`、`placement`；`text_mappings` 写 `source_image_id`、`source_text`、`output_text`、`placement`。内容与位置均落实到 instructions，多来源可映射同一模块。每个最终产品信息模块都须有来源映射；原创背景、主题道具与装饰图形属于设计选择，记录于 `composition.optimizations`，具体表现和位置写进 `final_layout` 及 instructions，不为它们伪造产品来源；本品独有模块在 `own_content_mappings` 写 `output_content`、`source_ref`、`placement`；上图产品宣称在 `product_claim_sources` 写 `claim`、`source_ref`（具体资料单元格或已授权采用的 ASIN/原点位），无此类内容时为空数组。图片只能证明可见外观和设计方法，材料、尺寸、功能需要对应文字或产品依据。原创光线、排版等写 composition.optimizations，不虚构来源。
@@ -73,7 +73,7 @@
 ## 导出与验收
 
 1. 对照原始输入与研究包逐链接核对图册范围、变体、A+ 和失败记录；漏链接或漏图册先补研究。核对全部清单的逐图选择/舍弃、实际嵌图数和来源 ASIN；不以最终图数代替覆盖。
-2. 对照所有参考检查各模块来源及最终组合：主画面是否突出本张重点，局部窗是否补充新信息，标题与标注是否保持次级层级，辅助场景的产品是否可辨，重组是否保留参考的有效取景和层次。比例注明宽度、高度或面积，检查各区是否放得下；不以分区更多判定优化成功。允许分区、姿态、取景和占比与参考不同；核对具体优化是否落到执行文字。删除原模块后重新分配空间，无目的空白优先调整取景和主体位置，不强行加窗填空；尺寸图辅助画面须解释尺寸或实际效果。四宫格四种场景真实适用且有区别，每格有对应的独立标题，准确文字与位置均已落实；场景参考主图保留其场景表现，写明四边等宽纯白外框及宽度。检查整套信息重复、实际产品属性和模块来源，未出图时只审核方案，不宣称成品已通过视觉检查。
+2. 对照所有参考检查各模块来源及最终组合：主画面是否突出本张重点，局部窗是否补充新信息，标题与标注是否保持次级层级，辅助场景的产品是否可辨，重组是否保留参考的有效取景和层次。比例注明宽度、高度或面积，检查各区是否放得下；不以分区更多判定优化成功。主图逐项核对首链接主图的展示内容、组合与使用关系，除本品实质差异外保持对应，仅小幅改变模特、场景或布局；其他图片允许分区、姿态、取景和占比与参考不同；核对具体优化是否落到执行文字。删除原模块后重新分配空间，无目的空白优先调整取景和主体位置，不强行加窗填空；尺寸图辅助画面须解释尺寸或实际效果。四宫格四种场景真实适用且有区别，每格有对应的独立标题，准确文字与位置均已落实；场景参考主图保留其场景表现，写明四边等宽纯白外框及宽度。检查整套信息重复、实际产品属性和模块来源，未出图时只审核方案，不宣称成品已通过视觉检查。
 3. 运行 `scripts/validate_image_brief_boundaries.py <image-brief-package.json>`，通过后写 Excel。视觉方向中的具体设计及各任务对应内容/短标签/格子信息须实际落到 G 列执行文字，产品内容页及各行 B 列中的每个名称与开发文档对应变体单元格逐字核对，来源与精确数值逐项核对；共用成品计一次、变体专属分别计数。
 4. 导出后与原模板逐项核对工作表、A–G 七列表头及位置、列宽、字体、配色、边框和对齐；行高须容纳完整文字且不低于模板；检查图片清晰度、锚点及文字截断。运行 `python3 plugins/chenyu-yunying/skills/chenyu-yunying/scripts/validate_product_content_workbook.py <最终工作簿.xlsx>` 检查产品行嵌图与内部备注；此脚本不能替代作图表的内容与视觉检查。
 5. 最终文件另存任务输出目录，不覆盖原工作簿；研究包和临时素材同样留在任务输出目录，插件中只保留统一母版。
