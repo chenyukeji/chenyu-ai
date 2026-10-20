@@ -31,7 +31,7 @@ G 列按需要写清：
 
 ## 内部包
 
-`aplus-brief-package.json` 使用独立 `schema_version=1` 和 `deliverable_type=aplus_brief`，不要送入针对图册 6–8 张与末张四格规则的 `validate_image_brief_boundaries.py`。
+`aplus-brief-package.json` 使用独立 `schema_version=1` 和 `deliverable_type=aplus_brief`，不要送入针对图册 默认 7 张或用户指定张数与末张四格规则的 `validate_image_brief_boundaries.py`。
 
 - 顶层保存目标市场/语言、等级及假设、统一事实记录路径、可选竞品研究包路径（没有时为空）、整体风格、品牌依据、`has_brand`、`expected_output_count`、`shared_variants`、默认规则覆盖依据、`status`、`gaps`、`modules`。
 - 沿用 `modules[]/assets[]` 兼容现有读取：默认每个 module 只有一个 asset、成品数量为 1；默认正文四项、开启品牌后五项。不确定后台模块时 `module_type` 为未确认，不据画布猜官方类型。默认画布记录 `spec_source=company_default`，尺寸已定与上传适配未核实分开表示。

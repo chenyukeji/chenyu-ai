@@ -222,9 +222,20 @@ def validate_visual_contract(image_brief, errors):
             task for task in tasks.values()
             if product_id in task.get('product_ids', [])
         ]
-        if not 6 <= len(product_tasks) <= 8:
+        expected_count = product.get('image_count', 7)
+        if type(expected_count) is not int or expected_count < 1:
+            errors.append(f'$.products[{product_id}].image_count must be a positive integer')
+            expected_count = 7
+        if expected_count != 7:
+            instruction = product.get('image_count_instruction')
+            if not isinstance(instruction, str) or not instruction.strip():
+                errors.append(
+                    f'$.products[{product_id}] non-default image_count requires '
+                    'image_count_instruction citing the user request'
+                )
+        if len(product_tasks) != expected_count:
             errors.append(
-                f'$.image_tasks must contain 6-8 tasks for product {product_id}; '
+                f'$.image_tasks must contain {expected_count} tasks for product {product_id}; '
                 f'found {len(product_tasks)}'
             )
         task_types = [task.get('type') for task in product_tasks]
@@ -591,6 +602,20 @@ def validate_visual_contract(image_brief, errors):
                 composition = {}
             if not str(composition.get('optimizations', '')).strip():
                 errors.append(f'{context}.composition.optimizations is required for internal design notes')
+            # Older v3 packages remain readable; new plans document these four
+            # decisions and must carry them through to the actual Excel brief.
+            if 'visual_design' in composition:
+                design = composition['visual_design']
+                if not isinstance(design, dict):
+                    errors.append(f'{context}.composition.visual_design must be an object')
+                else:
+                    for field in ('background', 'palette', 'typography', 'labels'):
+                        value = design.get(field)
+                        if not isinstance(value, str) or not value.strip() or value not in instructions:
+                            errors.append(
+                                f'{context}.composition.visual_design.{field} '
+                                'must be non-empty and appear in final instructions'
+                            )
             for field in ('final_layout', 'replacements'):
                 value = str(composition.get(field, '')).strip()
                 if not value or value not in instructions:

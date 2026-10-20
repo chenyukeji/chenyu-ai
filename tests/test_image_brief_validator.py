@@ -16,7 +16,8 @@ SPEC.loader.exec_module(VALIDATOR)
 def package():
     data = {
         'products': [
-            {'id': 'V1', 'product_content_image_id': 'product-v1',
+            {'id': 'V1', 'image_count': 6, 'image_count_instruction': '用户要求本产品出6张',
+             'product_content_image_id': 'product-v1',
              'product_content_image_source': 'own_main',
              'product_content_image_source_ref': 'development workbook embedded image B2',
              'own_main_image_id': 'product-v1', 'supplier_image_id': ''}
@@ -155,6 +156,55 @@ def test_dynamic_six_task_plan_is_valid():
     assert all('buyer_question' not in task for task in data['image_tasks'])
     result = VALIDATOR.validate(data)
     assert result['ready_for_delivery'], result['errors']
+
+
+def test_unspecified_image_count_defaults_to_seven():
+    data = package()
+    data['products'][0].pop('image_count')
+    data['products'][0].pop('image_count_instruction')
+    errors = VALIDATOR.validate(data)['errors']
+    assert any('must contain 7 tasks for product V1; found 6' in e for e in errors)
+    data['image_tasks'].insert(-1, {
+        'id': 'T7', 'type': 'packaging', 'product_ids': ['V1'],
+        'new_information': '已确认包装内的配件清单',
+        'instructions': '按真实清单展示包装内含物；上图文字：无文字。',
+        'on_image_text': '', 'content_mappings': [], 'text_mappings': [],
+    })
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    data['products'][0]['image_count'] = 7
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+
+
+def test_user_can_choose_counts_outside_old_six_to_eight_range():
+    for count in (5, 9):
+        data = package()
+        data['products'][0]['image_count'] = count
+        data['products'][0]['image_count_instruction'] = f'本次只制作{count}张'
+        if count == 5:
+            data['image_tasks'].pop(3)
+        else:
+            for index in range(3):
+                data['image_tasks'].insert(-1, {
+                    'id': f'EXTRA{index}', 'type': 'detail', 'product_ids': ['V1'],
+                    'new_information': f'不同细节{index}',
+                    'instructions': f'展示有依据的细节{index}',
+                    'content_mappings': [], 'text_mappings': [],
+                })
+        result = VALIDATOR.validate(data)
+        assert result['ready_for_delivery'], result['errors']
+
+
+def test_custom_count_needs_user_instruction_and_integer():
+    for instruction in (None, '', '   ', 6):
+        data = package()
+        data['products'][0]['image_count_instruction'] = instruction
+        assert any('non-default image_count requires' in e
+                   for e in VALIDATOR.validate(data)['errors'])
+    for count in (True, '6', 6.0, 0, -1, None):
+        data = package()
+        data['products'][0]['image_count'] = count
+        assert any('image_count must be a positive integer' in e
+                   for e in VALIDATOR.validate(data)['errors'])
 
 
 
@@ -326,7 +376,7 @@ def test_legacy_embedded_reference_paths_also_require_usage():
     assert any('cites non-embedded reference 1' in e for e in VALIDATOR.validate(data)['errors'])
 
 
-def test_six_to_eight_tasks_are_required_per_product():
+def test_explicit_image_count_is_required_per_product():
     data = package()
     assert VALIDATOR.validate(data)['ready_for_delivery']
 
@@ -334,7 +384,7 @@ def test_six_to_eight_tasks_are_required_per_product():
     five_tasks['image_tasks'].pop(3)
     result = VALIDATOR.validate(five_tasks)
     assert not result['ready_for_delivery']
-    assert any('must contain 6-8 tasks for product V1; found 5' in item
+    assert any('must contain 6 tasks for product V1; found 5' in item
                for item in result['errors'])
 
     for task_id, task_type in [('T-M2', 'process'), ('T-M3', 'detail')]:
@@ -344,6 +394,8 @@ def test_six_to_eight_tasks_are_required_per_product():
             'new_information': task_id + ' 新增信息',
             'content_mappings': [], 'text_mappings': [], 'scene_cells': [],
         })
+    data['products'][0]['image_count'] = 8
+    data['products'][0]['image_count_instruction'] = '用户调整为8张'
     assert VALIDATOR.validate(data)['ready_for_delivery']
 
     data['image_tasks'].insert(-2, {
@@ -353,7 +405,7 @@ def test_six_to_eight_tasks_are_required_per_product():
     })
     result = VALIDATOR.validate(data)
     assert not result['ready_for_delivery']
-    assert any('must contain 6-8 tasks for product V1; found 9' in item
+    assert any('must contain 8 tasks for product V1; found 9' in item
                for item in result['errors'])
 
 
@@ -487,7 +539,7 @@ def test_short_plan_cannot_bypass_count_with_reason():
     data['products'][0]['task_count_reason'] = '五个独立问题已覆盖'
     result = VALIDATOR.validate(data)
     assert not result['ready_for_delivery']
-    assert any('must contain 6-8 tasks for product V1; found 5' in e for e in result['errors'])
+    assert any('must contain 6 tasks for product V1; found 5' in e for e in result['errors'])
 
 
 def test_last_image_must_be_four_grid_with_distinct_scenes():
@@ -689,9 +741,49 @@ def integrated_package():
     return data
 
 
-def test_v3_accepts_recomposed_design_without_preserving_layout():
+def test_v3_legacy_composition_remains_readable():
     result = VALIDATOR.validate(integrated_package())
     assert result['ready_for_delivery'], result['errors']
+
+
+def test_visual_design_reaches_final_brief_including_typography_and_labels():
+    data = integrated_package()
+    task = data['image_tasks'][1]
+    design = {
+        'background': '沿用参考图片的厨房后景和前景台面层次',
+        'palette': '保留参考的绿色标题底块与橙色强调标签',
+        'typography': '沿用参考圆润无衬线半粗白字及标题比例',
+        'labels': '保留参考圆角色牌和绿色细节窗描边',
+    }
+    task['composition']['visual_design'] = design
+    task['instructions'] += '；' + '；'.join(design.values())
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    for field, value in design.items():
+        missing = copy.deepcopy(data)
+        missing['image_tasks'][1]['instructions'] = task['instructions'].replace(value, '')
+        assert any(f'visual_design.{field}' in e for e in VALIDATOR.validate(missing)['errors'])
+        missing = copy.deepcopy(data)
+        del missing['image_tasks'][1]['composition']['visual_design'][field]
+        assert any(f'visual_design.{field}' in e for e in VALIDATOR.validate(missing)['errors'])
+    task['composition']['visual_design'] = []
+    assert any('visual_design must be an object' in e for e in VALIDATOR.validate(data)['errors'])
+
+
+def test_scene_can_have_no_title_while_grid_retains_four_titles():
+    data = integrated_package()
+    scene = data['image_tasks'][-2]
+    scene['on_image_text'] = ''
+    scene['composition']['visual_design'] = {
+        'background': '沿用参考的室内使用场景',
+        'palette': '沿用参考环境配色',
+        'typography': '不新增文字，保留产品实际印刷',
+        'labels': '不新增标题或标签',
+    }
+    scene['instructions'] += '；上图文字：无文字；' + '；'.join(scene['composition']['visual_design'].values())
+    assert VALIDATOR.validate(data)['ready_for_delivery']
+    assert len(data['image_tasks'][-1]['scene_cells']) == 4
+    data['image_tasks'][-1]['scene_cells'][0]['output_text'] = ''
+    assert any('requires a non-empty output_text title' in e for e in VALIDATOR.validate(data)['errors'])
 
 
 def test_v3_keeps_design_notes_internal_without_losing_overlay_text():
