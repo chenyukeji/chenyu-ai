@@ -1019,11 +1019,117 @@ class ListingTests(unittest.TestCase):
                              ['créoles sucre orge', 'créoles multicolores', 'créoles étoile', 'créoles orge'], limit=18)
         self.assertEqual(result['search_terms'], 'sucre orge étoile')
         self.assertEqual(result['utf8_bytes'], 18)
+        self.assertEqual(result['characters'], 17)
+        self.assertEqual(result['decisions'][0]['front_end_tokens'], ['créoles'])
+        self.assertEqual(result['decisions'][0]['added_tokens'], ['sucre', 'orge'])
         self.assertEqual(result['decisions'][1]['exclusion_reason'], 'byte_limit')
         self.assertEqual(result['decisions'][3]['decision'], 'adopt')
         exact = packer.pack('FR', '', ['é' * 124, 'x'])
         self.assertEqual(exact['utf8_bytes'], 248)
         self.assertEqual(exact['decisions'][1]['exclusion_reason'], 'byte_limit')
+
+    def test_keyword_report_separates_markets_and_full_phrases_from_tokens(self):
+        data = {'targets': ['DE', 'FR', 'IT'], 'variants': [{'id': 'V1'}],
+                'search_term_concepts': [{'id': 'hat'}],
+                'listings': [
+                    {'marketplace': 'DE', 'variant_id': 'V1', 'title': 'Weihnachtsmütze', 'search_terms': 'bommel'},
+                    {'marketplace': 'FR', 'variant_id': 'V1', 'title': 'Bonnet de Noël',
+                     'description': '<p>maille &amp; lumière</p>', 'search_terms': 'pompon'}],
+                'search_term_audits': [
+                    {'marketplace': 'DE', 'variant_id': 'V1', 'concept_id': 'hat',
+                     'phrase': 'Weihnachtsmütze Bommel', 'decision': 'adopt'},
+                    {'marketplace': 'FR', 'variant_id': 'V1', 'concept_id': 'hat',
+                     'phrase': 'bonnet de Noël à pompon', 'decision': 'adopt'},
+                    {'marketplace': 'FR', 'variant_id': 'V1', 'concept_id': 'hat',
+                     'phrase': 'bonnet lumière', 'decision': 'exclude', 'exclusion_reason': 'front_end_covered'}]}
+        rows = package_validator.keyword_coverage(data)
+        fr = rows[1]
+        self.assertEqual(fr['candidate_count'], 2)
+        self.assertEqual(fr['incremental_pool_tokens'], 1)
+        self.assertEqual(fr['candidates'][0]['backend_tokens'], ['pompon'])
+        self.assertEqual(fr['candidates'][0]['placement'], 'across_fields')
+        self.assertEqual(fr['candidates'][0]['exact_front_end_fields'], [])
+        self.assertEqual(fr['candidates'][1]['front_end_tokens_by_field']['description'], ['lumière'])
+        self.assertEqual(rows[2]['next_actions'], ['create_missing_listing'])
+        self.assertIn('review_target_market_expansion', fr['next_actions'])
+        self.assertNotIn('reconcile_backend_with_reviewed_candidates', fr['next_actions'])
+
+    def test_keyword_report_detects_frontend_changes_and_unreviewed_loss(self):
+        data = {'listings': [{'marketplace': 'FR', 'variant_id': 'A', 'title': 'bonnet',
+                             'search_terms': 'pompon', 'previous_search_terms': 'pompon tricoté cadeau',
+                             'previous_term_exclusions': [{'term': 'cadeau', 'reason': 'low_relevance',
+                                                          'detail': 'Broad gift intent'}]}],
+                'search_term_audits': [{'marketplace': 'FR', 'variant_id': 'A', 'decision': 'adopt',
+                                       'phrase': 'bonnet tricoté pompon'}]}
+        before = package_validator.keyword_coverage(data)[0]
+        self.assertEqual(before['unplaced_adopted_tokens'], ['tricoté'])
+        self.assertEqual(before['previous_terms']['removed_without_review'], ['tricoté'])
+        self.assertEqual(before['previous_terms']['removed_with_reason'], ['cadeau'])
+        data['listings'][0]['description'] = '<p>tricot&#233;</p>'
+        after = package_validator.keyword_coverage(data)[0]
+        self.assertEqual(after['unplaced_adopted_tokens'], [])
+        self.assertEqual(after['previous_terms']['removed_without_review'], [])
+        self.assertEqual(after['previous_terms']['covered_in_front_end'], ['tricoté'])
+
+    def test_long_keyword_field_without_audits_is_not_delivery_ready(self):
+        data = self.localized_search_package()
+        data['competitors'] = []
+        data['search_term_audits'] = []
+        data['listings'][0]['search_terms'] = 'x' * 240
+        result = package_validator.validate(data)
+        self.assertFalse(result['ready_for_delivery'])
+        self.assertTrue(any('without an adopted relevance audit' in error for error in result['errors']))
+        self.assertTrue(result['keyword_coverage'][0]['target_reached'])
+        self.assertIn('complete_localized_candidate_review', result['keyword_coverage'][0]['next_actions'])
+
+    def test_short_keyword_field_can_pass_when_evidence_review_is_complete(self):
+        result = package_validator.validate(self.localized_search_package())
+        self.assertTrue(result['ready_for_delivery'])
+        self.assertFalse(result['keyword_coverage'][0]['target_reached'])
+        self.assertTrue(result['keyword_coverage'][0]['semantic_review_required'])
+
+    def test_keyword_report_flags_false_frontend_and_byte_exclusions(self):
+        data = {'listings': [{'marketplace': 'FR', 'variant_id': 'A', 'title': 'bonnet',
+                             'search_terms': 'pompon'}],
+                'search_term_audits': [
+                    {'marketplace': 'FR', 'variant_id': 'A', 'phrase': 'bonnet tricoté',
+                     'decision': 'exclude', 'exclusion_reason': 'front_end_covered'},
+                    {'marketplace': 'FR', 'variant_id': 'A', 'phrase': 'bonnet maille',
+                     'decision': 'exclude', 'exclusion_reason': 'byte_limit'},
+                    {'marketplace': 'FR', 'variant_id': 'A', 'phrase': 'pochette cadeau',
+                     'decision': 'exclude', 'exclusion_reason': 'product_mismatch'}]}
+        row = package_validator.keyword_coverage(data)[0]
+        self.assertEqual(row['incorrect_exclusions'], ['bonnet tricoté', 'bonnet maille'])
+        self.assertIn('reconcile_backend_with_reviewed_candidates', row['next_actions'])
+        self.assertEqual(row['incremental_pool_tokens'], 2)
+
+    def test_keyword_report_counts_utf8_separately_and_keeps_variant_scope(self):
+        data = {'listings': [{'marketplace': 'FR', 'variant_id': 'A', 'search_terms': 'écharpe'},
+                             {'marketplace': 'FR', 'variant_id': 'B', 'search_terms': 'pompon'}],
+                'search_term_audits': [{'marketplace': 'FR', 'variant_id': 'A',
+                                       'phrase': 'écharpe', 'decision': 'adopt'}]}
+        first, second = package_validator.keyword_coverage(data)
+        self.assertEqual((first['characters'], first['utf8_bytes']), (7, 8))
+        self.assertEqual(first['unaudited_backend_tokens'], [])
+        self.assertEqual(second['unaudited_backend_tokens'], ['pompon'])
+
+    def test_keyword_report_previous_package_does_not_mutate_current(self):
+        with patch.dict(sys.modules, {'validate_listing_package': package_validator}):
+            reviewer = module('review_keyword_coverage')
+        data = {'listings': [{'marketplace': 'FR', 'variant_id': 'A', 'search_terms': 'pompon'},
+                             {'marketplace': 'IT', 'variant_id': 'A', 'search_terms': 'berretto'}]}
+        previous = {'listings': [{'marketplace': 'FR', 'variant_id': 'A', 'search_terms': 'tricoté'}]}
+        result = reviewer.review(data, previous)
+        self.assertEqual(result['market_variants'][0]['previous_terms']['removed_without_review'], ['tricoté'])
+        self.assertEqual(result['unmatched_previous_listings'], [{'marketplace': 'IT', 'variant_id': 'A'}])
+        self.assertNotIn('previous_search_terms', data['listings'][0])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'coverage.csv'
+            reviewer.write_csv(result, path)
+            import csv
+            with path.open(encoding='utf-8-sig', newline='') as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertEqual([row['marketplace'] for row in rows], ['FR', 'IT'])
 
     def test_query_inventory_collects_queries_missing_from_final_review(self):
         collector = module('collect_search_query_inventory')

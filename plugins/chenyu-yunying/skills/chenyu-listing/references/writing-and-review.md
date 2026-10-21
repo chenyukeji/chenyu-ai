@@ -31,7 +31,7 @@
 - Item Highlights：自然承接至少一个标题核心关键词短语或有效同义词形，再补标题放不下的核心/长尾词、规格、材质结构和多个场景。
 - 五点：详细解释产品特点、使用方式、条件和买家结果，可自然重复核心词和关键事实。
 - 详情：完整展开全部信息，不以机械避重为目标。
-- Search Terms：最后生成，只补前台字段和其他属性尚未覆盖的增量词。
+- Search Terms：完整候选词池在前台写作前建立，最终后台串在前台定稿后装填，只补前台字段和其他属性尚未覆盖的增量词；按 [跨语言搜索词与短字段复核](search-localization.md) 逐站检查并补词。
 
 `Design A/B/C`、`Diseño A`、`Variante A` 等仅供内部区分的编号，不属于产品卖点或搜索词。它们可以作为 Excel 的内部列名，但不得进入 Item Name、Item Highlights、五点、HTML 详情或 Search Terms。只有用户明确确认的买家公开变体名，才加入 `buyer_visible_variant_terms` 允许清单。
 

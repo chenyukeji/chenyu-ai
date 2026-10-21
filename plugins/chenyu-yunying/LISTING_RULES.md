@@ -147,6 +147,8 @@
 
 ## 8. Search Terms
 
+关键词执行顺序为“产品概念与各站完整候选 → 前台分配 → 后台去重装填 → 缺口补查 → 逐站复核”。按 [跨语言搜索词与短字段复核](skills/chenyu-listing/references/search-localization.md) 生成内部覆盖表；前台或关键词修改后重算，分别检查每个站点/变体，不能只凭后台长度判定充分性。
+
 Search Terms 最后生成，只填写 Item Name、Item Highlights、五点、详情和其他前台属性尚未覆盖的增量词。
 
 ### 8.1 候选词来源

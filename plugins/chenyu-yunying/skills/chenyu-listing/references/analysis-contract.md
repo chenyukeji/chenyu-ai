@@ -244,3 +244,7 @@ python scripts/analyze_listing.py listing-package.json --out listing-analysis.js
 `validate_listing_package.py` 检查站点/变体覆盖、事实与同款证据、逐字段事实绑定、75/125 字符限制、恰好三个核心标题词及标题尺寸末尾规则、数量与关键差异位置、适配型产品在标题/Highlights/五点 1/详情及中文翻译中的兼容标识覆盖、五点来源记录与逐字段已确认事实映射、内部变体编号泄漏、五点数量/格式/正文长度、HTML 详情结构、Search Terms 增量词、卖家精灵与参考标题来源审计（含额外同类标题），以及已采用增量词是否全部写入。它同时拒绝目标语言和中文翻译中的证据状态、资料来源、参考产品、竞品差异和其他内部审核叙述。`ready_for_delivery=false` 时不得将文案标为已完成审核。
 
 `analyze_listing.py` 输出竞品独立商品组频次、字段覆盖、Item Name/Item Highlights/五点/Search Terms 长度，以及与竞品连续 8 词重合的人工复核提示。重合提示不等于抄袭判定，也不会禁止同款事实在多个前台字段自然重复。
+
+## 关键词覆盖报告（派生结果）
+
+候选沿用 `search_term_concepts` / `search_term_audits`；原词来源、产品适用理由和排除记录不变。`review_keyword_coverage.py` 从最终字段重新计算内部 JSON/CSV，`validate_listing_package.py` 返回的 `keyword_coverage` 同步包含逐站/变体结果，无需人工回填覆盖字段。每行包含 `characters`、`utf8_bytes`、`candidate_count`、`incremental_pool_bytes`、候选 `exact_front_end_fields` / `front_end_tokens_by_field` / `backend_tokens` / `uncovered_tokens` 和 `previous_terms` 去向。`next_actions` 指向补本地化、核对落位、补查或复核历史词；`target_reached` 仅表示容量目标，不表示语义质量通过。缺少目标站点/变体的文案会单列 `create_missing_listing`。详见 [执行顺序与内部覆盖表](search-localization.md)。
