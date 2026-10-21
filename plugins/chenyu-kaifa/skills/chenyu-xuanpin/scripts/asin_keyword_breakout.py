@@ -10,6 +10,7 @@ import re
 from urllib.parse import urlencode
 
 from PIL import Image
+from sellersprite_session import assert_access, private_write
 from discovery_workbook import HEADERS, export_discovery_workbook
 
 MARKET_IDS = {"US": 1, "DE": 4}
@@ -86,7 +87,8 @@ def collect_reverse(market, asin, output, max_pages=20):
     output.parent.mkdir(parents=True, exist_ok=True)
     url = "https://www.sellersprite.com/v3/keyword-reverse/?" + urlencode(
         {"marketId": MARKET_IDS[market], "q": asin})
-    with selection_collectors.session({"headless": True}, url, sellersprite=True) as page:
+    landing = "https://www.sellersprite.com/v3/keyword-reverse/?" + urlencode({"marketId": MARKET_IDS[market]})
+    with selection_collectors.session({"headless": True}, landing, sellersprite=True) as page:
         def matches(response):
             if API_PATH not in response.url or response.request.method != "POST":
                 return False
@@ -96,8 +98,9 @@ def collect_reverse(market, asin, output, max_pages=20):
                 return False
 
         with page.expect_response(matches, timeout=30000) as pending:
-            page.reload(wait_until="domcontentloaded")
+            page.goto(url, wait_until="domcontentloaded")
         first = pending.value
+        assert_access(page)
         body = first.json() if first.status == 200 else {}
         if not _valid_response(body, market, asin):
             data = body.get("data") if isinstance(body, dict) else None
@@ -106,24 +109,58 @@ def collect_reverse(market, asin, output, max_pages=20):
                                f"asin={data.get('asin') if isinstance(data, dict) else None}, "
                                f"station={data.get('station') if isinstance(data, dict) else None}")
         request = json.loads(first.request.post_data)
-        if request.get("limit") != 50 or request.get("skip") != 0:
+        page_size = request.get("limit")
+        if type(page_size) is not int or not 1 <= page_size <= 100 or request.get("skip") != 0:
             raise RuntimeError("关键词反查分页参数未核实")
         data = body["data"]
         items = list(data["items"])
         total = int(data.get("total") or 0)
         gaps = []
+        product = _product(page, market, asin)
+
+        def checkpoint(*, final=False):
+            records = {}
+            for item in items:
+                row = normalize_item(item)
+                if row and row['keyword']:
+                    records[row['keyword'].casefold()] = row
+            result = {"marketplace": market, "asin": asin, "product": product,
+                      "source_url": page.url, "observed_at": datetime.now(timezone.utc).isoformat(),
+                      "reported_total": total, "collected_count": len(records),
+                      "status": "complete" if final and len(items) >= total and not gaps else "partial",
+                      "gaps": gaps + ([f"仅覆盖前 {len(items)}/{total} 条"] if len(items) < total else []),
+                      "keywords": list(records.values())}
+            private_write(output, result)
+            return result
+
+        checkpoint()
         for page_index in range(1, max_pages):
             if len(items) >= total:
                 break
-            request["skip"] = page_index * 50
-            response = page.request.post(first.url, data=json.dumps(request),
-                                         headers={"Content-Type": "application/json"}, timeout=30000)
+            assert_access(page)
+            next_button = page.locator('.el-pagination .btn-next').first
+            if not next_button.count() or not next_button.is_enabled():
+                gaps.append(f"第 {page_index + 1} 页无可用网页翻页控件")
+                break
+            expected_skip = page_index * page_size
+
+            def next_matches(response):
+                if not matches(response):
+                    return False
+                payload = json.loads(response.request.post_data or '{}')
+                return payload.get('skip') == expected_skip and payload.get('limit') == page_size
+
+            # Only the website's pagination button may issue the next query.
+            with page.expect_response(next_matches, timeout=30000) as pending:
+                next_button.click()
+            response = pending.value
+            assert_access(page)
             next_body = response.json() if response.status == 200 else {}
             if not _valid_response(next_body, market, asin):
                 gaps.append(f"第 {page_index + 1} 页未取得匹配结果")
                 break
             items.extend(next_body["data"]["items"])
-        product = _product(page, market, asin)
+            checkpoint()
         image_url = product["image_url"]
         if image_url.startswith("https://"):
             try:
@@ -138,18 +175,8 @@ def collect_reverse(market, asin, output, max_pages=20):
                     product["image_file"] = image_path.name
             except Exception:
                 gaps.append("产品图未能下载，保留商品链接")
-        records = {}
-        for item in items:
-            row = normalize_item(item)
-            if row and row["keyword"]:
-                records[row["keyword"].casefold()] = row
-        result = {"marketplace": market, "asin": asin, "product": product,
-                  "source_url": page.url, "observed_at": datetime.now(timezone.utc).isoformat(),
-                  "reported_total": total, "collected_count": len(records),
-                  "status": "complete" if len(items) >= total and not gaps else "partial",
-                  "gaps": gaps + ([f"仅覆盖前 {len(items)}/{total} 条"] if len(items) < total else []),
-                  "keywords": list(records.values())}
-    output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        assert_access(page)
+        result = checkpoint(final=True)
     return result
 
 

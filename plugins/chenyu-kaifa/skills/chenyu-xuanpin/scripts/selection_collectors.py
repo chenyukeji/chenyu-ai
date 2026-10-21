@@ -9,6 +9,7 @@ import sqlite3
 from urllib.parse import parse_qs, unquote, urljoin, urlsplit, urlencode
 
 import playwright_collector as browser
+from sellersprite_session import assert_access
 from category_sources import DOMAINS, normalize_url
 from sellersprite_j import PRODUCT_RESEARCH_URL, MARKET_LABELS, _item
 from new_releases_history import resolve_database_path
@@ -50,6 +51,7 @@ def session(payload, url, *, sellersprite=False):
             if browser._challenge_visible(page):
                 raise browser.BrowserCollectionError('verification_required')
             if sellersprite:
+                assert_access(page)
                 identity = browser._wait_for_sellersprite_identity(page)
                 if identity != 'authenticated':
                     user, password, _ = browser._sellersprite_credentials()
@@ -63,6 +65,8 @@ def session(payload, url, *, sellersprite=False):
                     raise browser.BrowserCollectionError('sellersprite_login_unverified')
                 browser._save_sellersprite_session(context)
             yield page
+            if sellersprite:
+                assert_access(page)
         finally:
             if sellersprite and browser._sellersprite_auth_state(page) == 'authenticated':
                 browser._save_sellersprite_session(context)

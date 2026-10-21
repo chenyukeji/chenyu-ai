@@ -15,7 +15,8 @@ from pathlib import Path
 
 # Also support importlib-based callers without an installed Python package.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sellersprite_session import launch_context, ensure_login, auth_state
+from sellersprite_session import (launch_context, ensure_login, auth_state,
+                                 assert_access, private_write, SessionError)
 
 MARKET_IDS = {"US": 1, "UK": 3, "DE": 4, "FR": 5, "IT": 35691, "ES": 44551}
 ASIN_RE = re.compile(r"^[A-Z0-9]{10}$")
@@ -59,12 +60,13 @@ def extract_rows(page) -> list[dict]:
 def login(page, username: str, password: str) -> None:
     result = ensure_login(page, username, password, BASE_URL)
     if result.get("login_status") != "verified":
-        raise RuntimeError(result.get("block_reason") or "sellersprite_login_unverified")
+        raise SessionError(result.get("block_reason") or "sellersprite_login_unverified")
     if not page.get_by_placeholder("请输入单个ASIN或产品链接").count():
         raise RuntimeError("SellerSprite reverse-ASIN form is unavailable")
 
 
 def collect(page, market: str, asin: str) -> dict:
+    assert_access(page)
     page.goto(f"{BASE_URL}?marketId={MARKET_IDS[market]}", wait_until="domcontentloaded")
     expected = {"US": "美国", "UK": "英国", "DE": "德国", "FR": "法国",
                 "IT": "意大利", "ES": "西班牙"}[market]
@@ -77,24 +79,66 @@ def collect(page, market: str, asin: str) -> dict:
     else:
         raise RuntimeError(f"SellerSprite market mismatch: expected {market}, got {market_label}")
     page.get_by_placeholder("请输入单个ASIN或产品链接").first.fill(asin)
+    assert_access(page)
     page.get_by_role("button", name="立即查询").click()
     try:
         page.wait_for_url(lambda url: f"q={asin}" in url and
                           f"marketId={MARKET_IDS[market]}" in url, timeout=30000)
     except Exception as exc:
-        raise RuntimeError(f"SellerSprite {market}:{asin} query did not complete") from exc
+        assert_access(page)
+        raise SessionError('sellersprite_query_timeout') from exc
     try:
         page.locator("table tbody tr td:nth-child(2) span.title[title]").first.wait_for(timeout=20000)
     except Exception:
         pass
+    assert_access(page)
     if auth_state(page) != "authenticated":
-        raise RuntimeError("sellersprite_session_lost")
+        page.context._chenyu_sellersprite_store.failed('sellersprite_session_lost')
+        raise SessionError("sellersprite_session_lost")
     rows = extract_rows(page)
     if not rows:
-        raise RuntimeError(f"SellerSprite returned no keyword rows for {market}:{asin}")
+        # Empty DOM alone is not proof that SellerSprite has no keywords.
+        raise SessionError('sellersprite_query_no_verified_rows')
     return {"marketplace": market, "asin": asin, "source_tool": "sellersprite_reverse_asin",
             "source_url": page.url, "retrieved_at": datetime.now(timezone.utc).isoformat(),
             "period": page.locator("input:visible").nth(1).input_value(), "rows": rows}
+
+
+def collect_requests(requests, output, open_runtime, username, password):
+    results, failures = [], []
+    pending = [{'marketplace': market, 'asin': asin, 'status': 'not_run'} for market, asin in requests]
+
+    def checkpoint():
+        private_write(output, {'queries': results, 'failures': failures, 'pending': pending})
+
+    checkpoint()
+    context = None
+    try:
+        with open_runtime() as runtime:
+            try:
+                context, page, _ = launch_context(runtime, {'headless': True})
+                login(page, username, password)
+                while pending:
+                    item = pending[0]
+                    try:
+                        results.append(collect(page, item['marketplace'], item['asin']))
+                    except Exception as exc:
+                        reason = str(exc) if isinstance(exc, SessionError) else 'sellersprite_query_failed'
+                        failures.append({**item, 'status': 'failed', 'reason': reason})
+                        pending.pop(0)
+                        checkpoint()
+                        # Stop the batch on any unverified query; retain all not-run requests.
+                        break
+                    pending.pop(0)
+                    checkpoint()
+            finally:
+                if context is not None:
+                    context.close()
+    except Exception as exc:
+        reason = str(exc) if isinstance(exc, SessionError) else 'sellersprite_collection_blocked'
+        failures.append({'status': 'blocked', 'reason': reason})
+    checkpoint()
+    return results, failures
 
 
 def main() -> None:
@@ -108,24 +152,7 @@ def main() -> None:
     if not username or not password:
         raise SystemExit("SellerSprite credentials are unavailable to this task")
     from playwright.sync_api import sync_playwright
-    results = []
-    failures = []
-    with sync_playwright() as playwright:
-        context, page, _ = launch_context(playwright, {"headless": True})
-        try:
-            login(page, username, password)
-            for market, asin in requests:
-                try:
-                    results.append(collect(page, market, asin))
-                except Exception as exc:
-                    reason = str(exc).splitlines()[0][:240]
-                    failures.append({"marketplace": market, "asin": asin, "reason": reason})
-                    if reason == "sellersprite_session_lost":
-                        break
-        finally:
-            context.close()
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps({"queries": results, "failures": failures}, ensure_ascii=False, indent=2), encoding="utf-8")
+    results, failures = collect_requests(requests, args.out, sync_playwright, username, password)
     print(f"Collected {len(results)} SellerSprite ASIN queries; {len(failures)} failed; output: {args.out}")
     if failures:
         raise SystemExit(1)

@@ -1,7 +1,8 @@
 """Shared SellerSprite session contract, bundled identically in both plugins.
 
-One shared browser per account; tasks own separate windows in its default
-context. The last window closes the browser; login state survives restarts.
+One account lease covers browser startup, login, queries and cleanup.
+Website and manual collectors resolve the same host entry configuration.
+The browser stays running between tasks; only task-owned windows are closed.
 """
 from __future__ import annotations
 
@@ -21,7 +22,8 @@ LOGIN_URL = 'https://www.sellersprite.com/cn/w/user/login'
 DEFAULT_URL = 'https://www.sellersprite.com/v3/competitor-lookup'
 COOLDOWN_SECONDS = 300
 HARD_BLOCKS = {'sellersprite_account_locked', 'invalid_credentials',
-               'sellersprite_security_challenge_requires_user'}
+               'sellersprite_security_challenge_requires_user', 'sellersprite_session_lost',
+               'sellersprite_access_denied'}
 
 
 class SessionError(ValueError):
@@ -39,6 +41,15 @@ def seller_url(url):
 
 
 def base_dir():
+    # The website registers one host entry. A missing task env must never fork it.
+    entry = Path(os.environ.get('CHENYU_SELLERSPRITE_ENTRY_CONFIG',
+                                Path.home() / '.config/chenyu/sellersprite-entry.json')).expanduser()
+    if entry.exists() or 'CHENYU_SELLERSPRITE_ENTRY_CONFIG' in os.environ:
+        config = read_json(entry)
+        value = config.get('browser_data_dir')
+        if config.get('version') != 1 or not isinstance(value, str) or not Path(value).is_absolute():
+            raise SessionError('sellersprite_entry_config_invalid')
+        return Path(value).resolve()
     configured = os.environ.get('CHENYU_BROWSER_DATA_DIR')
     return (Path(configured).expanduser() if configured else
             Path.home() / '.local/share/chenyu/browser-profiles').resolve()
@@ -113,33 +124,76 @@ class SessionStore:
         self.state = self.root / 'sellersprite-session.json'
         self.guard = self.root / 'login-guard.json'
         self.lock = None
+        self.operation_lock = None
+        self.recovering = False
+        self.recovery_failed = False
+        self.authenticated = False
 
-    def acquire(self, timeout=180):
+    def acquire_operation(self, timeout=1200, *, recover=False):
+        # Separate from the short login/startup lock for backwards compatibility.
+        self.recovering = recover
+        self._check_operation()
+        lease = SessionStore(self.account)
+        lease.root = self.root
+        lease.acquire(timeout, name='operation.lock', check=self._check_operation)
+        self.operation_lock = lease
+        try:
+            self._check_operation()
+        except BaseException:
+            self.release_operation()
+            raise
+
+    def release_operation(self):
+        if self.operation_lock is not None:
+            self.operation_lock.release()
+            self.operation_lock = None
+
+    def operation_block(self):
+        reason = self.blocked_reason()
+        if self.recovering and not self.recovery_failed:
+            return None
+        if reason in HARD_BLOCKS or reason == 'sellersprite_login_guard_invalid':
+            return reason
+        guard = read_json(self.guard)
+        if reason and guard.get('block_reason') not in (None, 'sellersprite_login_in_progress'):
+            return reason
+        return None
+
+    def _check_operation(self):
+        if reason := self.operation_block():
+            raise SessionError(reason)
+
+    def acquire(self, timeout=180, *, name='session.lock', check=None):
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.root.chmod(0o700)
-        path = self.root / 'session.lock'
+        path = self.root / name
         self.lock = path.open('a+b')
         path.chmod(0o600)
         self.lock.seek(0)
         self.lock.write(b'0')
         self.lock.flush()
         deadline = time.monotonic() + timeout
-        while True:
-            try:
-                if os.name == 'nt':
-                    import msvcrt
-                    self.lock.seek(0)
-                    msvcrt.locking(self.lock.fileno(), msvcrt.LK_NBLCK, 1)
-                else:
-                    import fcntl
-                    fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                return
-            except (BlockingIOError, OSError):
-                if time.monotonic() >= deadline:
-                    self.lock.close()
-                    self.lock = None
-                    raise SessionError('sellersprite_session_busy')
-                time.sleep(0.2)
+        try:
+            while True:
+                if check:
+                    check()
+                try:
+                    if os.name == 'nt':
+                        import msvcrt
+                        self.lock.seek(0)
+                        msvcrt.locking(self.lock.fileno(), msvcrt.LK_NBLCK, 1)
+                    else:
+                        import fcntl
+                        fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    return
+                except (BlockingIOError, OSError):
+                    if time.monotonic() >= deadline:
+                        raise SessionError('sellersprite_session_busy')
+                    time.sleep(0.2)
+        except BaseException:
+            self.lock.close()
+            self.lock = None
+            raise
 
     def release(self):
         if self.lock is not None:
@@ -167,18 +221,23 @@ class SessionStore:
         return None
 
     def attempted(self):
+        if read_json(self.guard).get('block_reason') in HARD_BLOCKS:
+            return
         private_write(self.guard, {'block_reason': 'sellersprite_login_in_progress',
                                   'retry_after': time.time() + COOLDOWN_SECONDS})
 
-    def failed(self, reason):
+    def failed(self, reason, *, cooldown=COOLDOWN_SECONDS):
+        self.recovery_failed = True
         previous = read_json(self.guard).get('block_reason')
-        if previous in HARD_BLOCKS and reason not in HARD_BLOCKS:
+        if previous in HARD_BLOCKS:
             return previous
         private_write(self.guard, {'block_reason': reason,
-                                  'retry_after': time.time() + COOLDOWN_SECONDS})
+                                  'retry_after': time.time() + cooldown})
         return reason
 
-    def verified(self):
+    def verified(self, *, recover=False):
+        if not recover and self.operation_block():
+            raise SessionError(self.operation_block())
         # Retain the last login's cooldown if the session immediately disappears.
         guard = read_json(self.guard)
         private_write(self.guard, {'block_reason': None,
@@ -186,7 +245,7 @@ class SessionStore:
 
 
 class ManagedContext:
-    """Close the owned window; stop the shared browser only after its last user."""
+    """Close only this task window and keep the account browser running."""
     def __init__(self, context, page, browser):
         self.context, self.page, self.browser = context, page, browser
         self.closed = False
@@ -203,38 +262,18 @@ class ManagedContext:
                 self.page.close()
             self.closed = True
             return
-        store.acquire()
         try:
-            if not self.page.is_closed():
-                self.page.close()
-            self.closed = True
-            close_idle_browser(self.browser, self.context, store)
+            store.acquire()
+            try:
+                if not self.page.is_closed():
+                    observe_page(self.page)
+                    self.page.close()
+                self.closed = True
+                save_session(self.context)
+            finally:
+                store.release()
         finally:
-            store.release()
-
-
-def close_idle_browser(browser, context, store):
-    """Called under the startup lock; unknown/live task pages prevent shutdown."""
-    state = read_json(store.root / 'browser-process.json')
-    seeds = set(state.get('seed_targets', []))
-    cdp = browser.new_browser_cdp_session()
-    closing = False
-    try:
-        targets = cdp.send('Target.getTargets')['targetInfos']
-        if any(t['type'] == 'page' and (t['targetId'] not in seeds or t.get('url') != 'about:blank')
-               for t in targets):
-            return False
-        save_session(context)
-        closing = True
-        cdp.send('Browser.close')
-        # Keep startup serialized until the browser has disconnected.
-        deadline = time.monotonic() + 10
-        while browser_endpoint(store) and time.monotonic() < deadline:
-            time.sleep(0.1)
-        return True
-    finally:
-        if not closing:
-            cdp.detach()
+            store.release_operation()
 
 
 def browser_endpoint(store):
@@ -272,7 +311,7 @@ def start_browser(runtime, store, headless=True):
     options = {'start_new_session': True} if os.name != 'nt' else {
         'creationflags': subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
     process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL, env=environment, **options)
+                               stderr=subprocess.DEVNULL, env=environment, cwd=store.root, **options)
     deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
         if endpoint := browser_endpoint(store):
@@ -288,10 +327,12 @@ def start_browser(runtime, store, headless=True):
 
 
 def launch_context(runtime, payload):
-    """Create a task window atomically with respect to last-user shutdown."""
+    """Acquire the account queue and open one window in its persistent browser."""
     store = SessionStore()
-    store.acquire(max(0, min(float(payload.get('session_wait_seconds', 180)), 1200)))
+    store.acquire_operation(max(0, min(float(payload.get('session_wait_seconds', 1200)), 1200)),
+                            recover=payload.get('recover') is True)
     try:
+        store.acquire()
         endpoint, started = start_browser(runtime, store, bool(payload.get('headless', True)))
         browser = runtime.chromium.connect_over_cdp(endpoint)
         context = browser.contexts[0]
@@ -313,7 +354,26 @@ def launch_context(runtime, payload):
             for path in candidates:
                 if restore_session(context, path, store.account):
                     break
-        return _create_task_window(browser, context, store, payload)
+        # A crashed/legacy caller may still own a live page despite the new lease.
+        # Do not open a concurrent window or kill that caller's browser.
+        channel = browser.new_browser_cdp_session()
+        try:
+            seeds = set(read_json(store.root / 'browser-process.json').get('seed_targets', []))
+            if any(t['type'] == 'page' and (t['targetId'] not in seeds or t.get('url') != 'about:blank')
+                   for t in channel.send('Target.getTargets')['targetInfos']):
+                raise SessionError('sellersprite_browser_in_use')
+        finally:
+            channel.detach()
+        managed, page, profile = _create_task_window(browser, context, store, payload)
+        try:
+            install_guard(page, store)
+        except BaseException:
+            page.close()
+            raise
+        return managed, page, profile
+    except BaseException:
+        store.release_operation()
+        raise
     finally:
         store.release()
 
@@ -359,15 +419,96 @@ def _create_task_window(browser, context, store, payload):
     return ManagedContext(context, page, browser), page, store.profile
 
 
+def observe_page(page):
+    store = getattr(page.context, '_chenyu_sellersprite_store', None)
+    reason = page_block_reason(page)
+    if reason and isinstance(store, SessionStore):
+        store.failed(reason)
+    return reason
+
+
+def assert_access(page):
+    store = getattr(page.context, '_chenyu_sellersprite_store', None)
+    if not isinstance(store, SessionStore):
+        raise SessionError('sellersprite_shared_context_required')
+    observe_page(page)
+    store._check_operation()
+
+
+def install_guard(page, store):
+    def gate(route):
+        host = (urlparse(route.request.url).hostname or '').lower()
+        if (host == 'sellersprite.com' or host.endswith('.sellersprite.com')) and store.operation_block():
+            route.abort('blockedbyclient')
+        else:
+            route.continue_()
+
+    def response_status(response):
+        host = (urlparse(response.url).hostname or '').lower()
+        if not (host == 'sellersprite.com' or host.endswith('.sellersprite.com')):
+            return
+        if response.request.resource_type not in ('document', 'xhr', 'fetch'):
+            return
+        reasons = {429: 'sellersprite_rate_limited', 401: 'sellersprite_session_lost',
+                   403: 'sellersprite_access_denied'}
+        if response.status == 401 and not store.authenticated:
+            return  # guest identity probes during initial login are expected
+        if response.status in reasons:
+            cooldown = COOLDOWN_SECONDS
+            if response.status == 429:
+                value = (getattr(response, 'headers', {}) or {}).get('retry-after', '')
+                try:
+                    from email.utils import parsedate_to_datetime
+                    delay = int(value) if str(value).isdigit() else parsedate_to_datetime(value).timestamp() - time.time()
+                    cooldown = max(cooldown, delay)
+                except (ValueError, TypeError, AttributeError, OverflowError):
+                    pass
+            store.failed(reasons[response.status], cooldown=cooldown)
+
+    def report(source, reason):
+        host = (urlparse(source['frame'].url).hostname or '').lower()
+        if (host == 'sellersprite.com' or host.endswith('.sellersprite.com')) and reason in HARD_BLOCKS:
+            store.failed(reason)
+
+    page.route('**/*', gate)
+    page.on('response', response_status)
+    page.expose_binding('__chenyuSellerBlock', report)
+    # Observe asynchronous toast/dialog errors, including an already logged-in header.
+    page.add_init_script(r"""(() => {
+      if (!(location.hostname === 'sellersprite.com' || location.hostname.endsWith('.sellersprite.com'))) return;
+      let sent = '', pending = false;
+      const check = () => {
+        pending = false;
+        const text = document.body?.innerText || '';
+        let reason = '';
+        if (/子账[号户].*锁定|账号被锁|account.{0,30}locked/i.test(text)) reason = 'sellersprite_account_locked';
+        else if (/账号或密码错误|用户名或密码错误|密码错误|incorrect password|invalid credentials/i.test(text)) reason = 'invalid_credentials';
+        else if (/请输入验证码|请完成安全验证|向右滑动完成验证|人机验证|robot check/i.test(text)
+          || [...document.querySelectorAll("input[name='captcha'], iframe[src*='captcha']")].some(el => el.getClientRects().length)) reason = 'sellersprite_security_challenge_requires_user';
+        if (reason && reason !== sent) { sent = reason; window.__chenyuSellerBlock(reason).catch(() => {}); }
+      };
+      new MutationObserver(() => { if (!pending) { pending = true; setTimeout(check, 50); } })
+        .observe(document, {subtree: true, childList: true, characterData: true, attributes: true});
+      document.addEventListener('DOMContentLoaded', check);
+    })();""")
+
+
 def auth_state(page):
     try:
         seller_url(page.url)
+        if observe_page(page):
+            return 'blocked'
+        store = getattr(page.context, '_chenyu_sellersprite_store', None)
+        if isinstance(store, SessionStore) and store.operation_block():
+            return 'blocked'
         identity = page.locator('.profile-trigger:visible').first
         if identity.count():
             label = identity.inner_text(timeout=1000).strip()
             if re.search(r'未登录|游客|登录/注册|sign in|log in', label, re.I):
                 return 'guest'
             if label:
+                if isinstance(store, SessionStore):
+                    store.authenticated = True
                 return 'authenticated'
         body = page.locator('body').inner_text(timeout=1000)
         if re.search(r'未登录|您是游客身份|登录/注册', body):
@@ -418,8 +559,15 @@ def _ensure_login_locked(page, username, password, destination=DEFAULT_URL, time
         return {'login_status': 'blocked', 'block_reason': reason}
 
     def verified(reused):
+        if reason := page_block_reason(page):
+            return blocked(reason)
+        if not recover and (reason := store.operation_block()):
+            return blocked(reason, False)
+        if store.recovery_failed:
+            return blocked(store.blocked_reason() or 'sellersprite_login_unverified', False)
         save_session(page.context)
-        store.verified()
+        store.verified(recover=recover)
+        store.authenticated = True
         if require_asin_query:
             field = page.locator("input[placeholder*='ASIN' i]:visible").first
             try:
@@ -431,13 +579,17 @@ def _ensure_login_locked(page, username, password, destination=DEFAULT_URL, time
         return {'login_status': 'verified', 'session_reused': reused}
 
     try:
-        # A different window may have logged in while this task waited for the lock.
+        # Persisted hard blocks win over stale headers and precede every navigation.
+        store.recovering = recover
+        store.recovery_failed = False
+        if not recover and (reason := store.operation_block()):
+            return blocked(reason, False)
         page.goto(destination, wait_until='domcontentloaded')
         identity = wait_identity(page)
-        if identity == 'authenticated':
-            return verified(True)
         if reason := page_block_reason(page):
             return blocked(reason)
+        if identity == 'authenticated':
+            return verified(True)
         if check_only:
             return blocked(store.blocked_reason() or 'sellersprite_login_required', False)
         if not recover and (reason := store.blocked_reason()):
@@ -494,9 +646,12 @@ def main():
     args = parser.parse_args()
     user = os.environ.get('CHENYU_SELLERSPRITE_USERNAME', '').strip()
     secret = os.environ.get('CHENYU_SELLERSPRITE_PASSWORD', '')
+    if args.action == 'status' and (reason := SessionStore(user).operation_block()):
+        print(json.dumps({'login_status': 'blocked', 'block_reason': reason}))
+        return 1
     from playwright.sync_api import sync_playwright
     with sync_playwright() as runtime:
-        context, page, _ = launch_context(runtime, {})
+        context, page, _ = launch_context(runtime, {'recover': args.action == 'recover'})
         try:
             result = ensure_login(page, user, secret, recover=args.action == 'recover',
                                   check_only=args.action == 'status')

@@ -22,6 +22,8 @@ SPEC.loader.exec_module(ss)
 @pytest.fixture
 def store(tmp_path, monkeypatch):
     monkeypatch.setenv('CHENYU_BROWSER_DATA_DIR', str(tmp_path))
+    monkeypatch.setenv('CHENYU_SELLERSPRITE_ENTRY_CONFIG', str(tmp_path / 'entry.json'))
+    (tmp_path / 'entry.json').write_text(json.dumps({'version': 1, 'browser_data_dir': str(tmp_path)}))
     monkeypatch.setenv('CHENYU_SELLERSPRITE_USERNAME', 'test-account')
     return ss.SessionStore()
 
@@ -211,24 +213,29 @@ def test_real_browser_windows_and_driver_disconnect_share_cookies(store):
     try:
         with sync_playwright() as runtime:
             first, a, _ = ss.launch_context(runtime, {})
+            browser_pid = ss.read_json(store.root / 'browser-process.json')['pid']
+            if os.name != 'nt':
+                assert (Path('/proc') / str(browser_pid) / 'cwd').resolve() == store.root
             first.add_cookies([{'name': 'shared-test', 'value': 'same-browser',
                                'domain': 'www.sellersprite.com', 'path': '/'}])
             a.goto('data:text/html,<title>First window</title>')
+            with pytest.raises(ss.SessionError, match='sellersprite_session_busy'):
+                ss.launch_context(runtime, {'session_wait_seconds': 0})
+            assert a.title() == 'First window'
+            first.close()
             second, b, _ = ss.launch_context(runtime, {})
             b.goto('data:text/html,<title>Second window</title>')
-            assert a.title() == 'First window'
             assert any(c['name'] == 'shared-test' for c in second.cookies())
-            first.close()
-            assert ss.browser_endpoint(store) is not None
             assert b.title() == 'Second window'
             second.close()
-            assert ss.browser_endpoint(store) is None
+            assert ss.browser_endpoint(store) is not None
             assert store.state.exists()
         with sync_playwright() as runtime:
             third, c, _ = ss.launch_context(runtime, {})
+            assert ss.read_json(store.root / 'browser-process.json')['pid'] == browser_pid
             assert any(x['name'] == 'shared-test' for x in third.cookies())
             third.close()
-            assert ss.browser_endpoint(store) is None
+            assert ss.browser_endpoint(store) is not None
     finally:
         data = ss.read_json(store.root / 'browser-process.json')
         if data.get('pid'):
@@ -236,3 +243,145 @@ def test_real_browser_windows_and_driver_disconnect_share_cookies(store):
                 os.kill(data['pid'], signal.SIGTERM)
             except ProcessLookupError:
                 pass
+
+
+@pytest.mark.parametrize('authenticated', [True, False])
+def test_saved_lock_stops_before_any_navigation(store, fake_identity, authenticated):
+    store.failed('sellersprite_account_locked')
+    page = fake_page(store, {'authenticated': authenticated, 'submits': 0})
+    result = ss.ensure_login(page, store.account, 'secret')
+    assert result['block_reason'] == 'sellersprite_account_locked'
+    page.goto.assert_not_called()
+    assert store.blocked_reason() == 'sellersprite_account_locked'
+    with pytest.raises(ss.SessionError, match='sellersprite_account_locked'):
+        store.verified()
+
+
+def test_logged_in_header_cannot_hide_page_lock(store, fake_identity):
+    page = fake_page(store, {'authenticated': True, 'submits': 0})
+    page.error = 'sellersprite_account_locked'
+    assert ss.ensure_login(page, store.account, 'secret')['block_reason'] == page.error
+    assert ss.SessionStore().blocked_reason() == page.error
+
+
+def test_host_entry_overrides_missing_or_conflicting_task_env(store, monkeypatch, tmp_path):
+    expected = store.root
+    monkeypatch.delenv('CHENYU_BROWSER_DATA_DIR')
+    assert ss.SessionStore().root == expected
+    monkeypatch.setenv('CHENYU_BROWSER_DATA_DIR', str(tmp_path / 'independent'))
+    assert ss.SessionStore().root == expected
+    Path(os.environ['CHENYU_SELLERSPRITE_ENTRY_CONFIG']).write_text('broken')
+    with pytest.raises(ss.SessionError, match='sellersprite_entry_config_invalid'):
+        ss.SessionStore()
+
+
+def test_lock_prevents_browser_start_and_survives_expired_cooldown(store):
+    ss.private_write(store.guard, {'block_reason': 'sellersprite_account_locked', 'retry_after': 0})
+    runtime = MagicMock()
+    with pytest.raises(ss.SessionError, match='sellersprite_account_locked'):
+        ss.launch_context(runtime, {})
+    runtime.chromium.connect_over_cdp.assert_not_called()
+
+
+def test_operation_lease_covers_queries_after_login_lock_released(store):
+    store.acquire_operation(0)
+    store.acquire()
+    store.release()
+    other = ss.SessionStore()
+    try:
+        with pytest.raises(ss.SessionError, match='sellersprite_session_busy'):
+            other.acquire_operation(0)
+    finally:
+        store.release_operation()
+    other.acquire_operation(0)
+    other.release_operation()
+
+
+def test_waiter_stops_when_other_collector_reports_lock(store):
+    store.acquire_operation(0)
+    outcome = []
+    ready = threading.Event()
+    def wait():
+        ready.set()
+        try:
+            ss.SessionStore().acquire_operation(3)
+        except ss.SessionError as exc:
+            outcome.append(str(exc))
+    thread = threading.Thread(target=wait)
+    thread.start()
+    ready.wait(1)
+    store.failed('sellersprite_account_locked')
+    thread.join(2)
+    store.release_operation()
+    assert not thread.is_alive()
+    assert outcome == ['sellersprite_account_locked']
+
+
+def test_browser_start_exception_releases_operation_lease(store, monkeypatch):
+    monkeypatch.setattr(ss, 'start_browser', MagicMock(side_effect=RuntimeError('launch failed')))
+    with pytest.raises(RuntimeError, match='launch failed'):
+        ss.launch_context(MagicMock(), {})
+    other = ss.SessionStore()
+    other.acquire_operation(0)
+    other.release_operation()
+
+
+def test_request_guard_blocks_next_business_request_and_429_cools_all_tasks(store):
+    page = MagicMock()
+    ss.install_guard(page, store)
+    events = {call.args[0]: call.args[1] for call in page.on.call_args_list}
+    response = SimpleNamespace(url=ss.DEFAULT_URL, status=429,
+                               request=SimpleNamespace(resource_type='xhr'))
+    events['response'](response)
+    route = MagicMock()
+    route.request.url = 'https://www.sellersprite.com/v3/api/relation/reversing'
+    page.route.call_args.args[1](route)
+    route.abort.assert_called_once()
+    route.continue_.assert_not_called()
+    assert ss.SessionStore().operation_block() == 'sellersprite_login_cooldown'
+    ss.private_write(store.guard, {'block_reason': 'sellersprite_rate_limited', 'retry_after': 0})
+    assert store.operation_block() is None
+
+
+def test_async_page_lock_publishes_to_other_plugin_processes(store):
+    page = MagicMock()
+    ss.install_guard(page, store)
+    callback = page.expose_binding.call_args.args[1]
+    callback({'frame': SimpleNamespace(url=ss.DEFAULT_URL)}, 'sellersprite_account_locked')
+    assert ss.SessionStore().operation_block() == 'sellersprite_account_locked'
+
+
+def test_failed_recovery_keeps_original_hard_block(store, fake_identity):
+    store.failed('sellersprite_account_locked')
+    page = fake_page(store, outcome='exception')
+    assert ss.ensure_login(page, store.account, 'secret', recover=True)['block_reason'] == 'sellersprite_account_locked'
+    assert ss.SessionStore().operation_block() == 'sellersprite_account_locked'
+
+
+def test_guest_401_can_login_but_authenticated_401_stops_everyone(store):
+    page = MagicMock()
+    ss.install_guard(page, store)
+    callback = dict(call.args for call in page.on.call_args_list)['response']
+    response = SimpleNamespace(url=ss.DEFAULT_URL, status=401,
+                               request=SimpleNamespace(resource_type='xhr'))
+    callback(response)
+    assert store.operation_block() is None
+    store.authenticated = True
+    callback(response)
+    assert ss.SessionStore().operation_block() == 'sellersprite_session_lost'
+
+
+def test_last_task_keeps_browser_running_and_releases_lease(store, fake_identity):
+    store.acquire_operation(0)
+    page = fake_page(store)
+    browser = MagicMock()
+    managed = ss.ManagedContext(page.context, page, browser)
+    managed.close()
+    managed.close()
+    page.close.assert_called_once()
+    browser.close.assert_not_called()
+    browser.new_browser_cdp_session.assert_not_called()
+    other = ss.SessionStore()
+    other.acquire_operation(0)
+    other.release_operation()
+    assert store.state.exists()
