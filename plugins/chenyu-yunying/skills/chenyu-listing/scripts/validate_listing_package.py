@@ -63,7 +63,7 @@ SEARCH_TERMS_STOP_WORDS = {
            'für', 'fuer', 'von', 'das', 'die', 'der', 'den', 'dem', 'des', 'mit',
            'zu', 'im', 'in', 'am', 'an'},
     'FR': {'un', 'une', 'des', 'le', 'la', 'les', 'et', 'ou', 'de', 'du', 'en',
-           'pour', 'avec', 'sur'},
+           'pour', 'avec', 'sur', 'à', 'au', 'aux'},
     'IT': {'un', 'uno', 'una', 'il', 'lo', 'la', 'i', 'gli', 'le', 'e', 'o',
            'di', 'da', 'per', 'con', 'su', 'in'},
     'ES': {'un', 'una', 'unos', 'unas', 'el', 'la', 'los', 'las', 'y', 'o',
@@ -799,7 +799,7 @@ def validate_search_localization(errors, audit, *, source_supported=False):
         errors.append(f'{label} decision must be adopt or exclude')
     if audit.get('decision') == 'exclude':
         if audit.get('exclusion_reason') not in (
-                'front_end_covered', 'product_mismatch', 'low_relevance', 'byte_limit'):
+                'front_end_covered', 'product_mismatch', 'low_relevance', 'byte_limit', 'fallback_not_needed'):
             errors.append(f'{label} exclusion must be based on localized coverage, product match, relevance or bytes; source language and absent local volume are not exclusion reasons')
         detail = audit.get('exclusion_detail')
         if not isinstance(detail, str) or not detail.strip():
@@ -807,6 +807,160 @@ def validate_search_localization(errors, audit, *, source_supported=False):
         if (audit.get('exclusion_reason') == 'low_relevance'
                 and audit.get('relevance_band') == 'high'):
             errors.append(f'{label} cannot exclude a high-relevance phrase as low_relevance')
+
+
+def listing_front_end_fields(listing):
+    """Visible text only; field locations are evidence of tokens, not indexing."""
+    fields = {'title': listing.get('title', ''),
+              'item_highlights': listing.get('item_highlights', ''),
+              **{f'bullet_{i}': value for i, value in enumerate(listing.get('bullets', []), 1)},
+              'description': listing.get('description', ''),
+              **{f'attribute_{i}': value for i, value in enumerate(listing.get('front_end_attributes', []), 1)}}
+    return {key: visible_source_text(str(value)) for key, value in fields.items()}
+
+
+def keyword_coverage(data):
+    """Recompute per-market/variant coverage from actual copy and candidate audits.
+
+    Does not generate phrases, judge meaning or certify research completeness.
+    Keeping whole phrases alongside token placement makes those reviews possible.
+    """
+    reports = []
+    source_concepts = data.get('search_term_concepts')
+    concepts = {c['id'] for c in source_concepts if isinstance(c, dict) and isinstance(c.get('id'), str)} if isinstance(source_concepts, list) else set()
+    for listing in data.get('listings', []):
+        market, variant = listing.get('marketplace'), listing.get('variant_id')
+        fields = listing_front_end_fields(listing)
+        field_tokens = {key: set(words(value)) for key, value in fields.items()}
+        front = set().union(*field_tokens.values())
+        stops = SEARCH_TERMS_STOP_WORDS.get(market, set())
+        text = str(listing.get('search_terms', '')).strip()
+        backend = set(words(text))
+        audits = [a for a in data.get('search_term_audits', [])
+                  if a.get('marketplace') == market and a.get('variant_id') == variant]
+        rows, usable, adopted, missing_adopted = [], set(), set(), set()
+        incorrect_exclusions = []
+        for audit in audits:
+            phrase = str(audit.get('phrase', ''))
+            tokens = set(words(phrase)) - stops
+            decision, reason = audit.get('decision'), audit.get('exclusion_reason')
+            eligible = decision == 'adopt' or (decision == 'exclude' and reason in ('front_end_covered', 'byte_limit'))
+            if eligible:
+                usable.update(tokens)
+            missing = tokens - front - backend
+            if decision == 'exclude' and (
+                    (reason == 'front_end_covered' and tokens - front)
+                    or (reason == 'byte_limit' and missing
+                        and len(' '.join([text, *sorted(missing)]).strip().encode('utf-8')) <= SEARCH_TERMS_MAX_BYTES)):
+                incorrect_exclusions.append(phrase)
+            if decision == 'adopt':
+                adopted.update(tokens)
+                missing_adopted.update(missing)
+            rows.append({
+                'phrase': phrase, 'concept_id': audit.get('concept_id'),
+                'source_phrase': audit.get('source_phrase'), 'source_asin': audit.get('source_asin'),
+                'source_marketplace': audit.get('source_marketplace'), 'source_tool': audit.get('source_tool'),
+                'source_evidence': audit.get('source_evidence') or audit.get('search_evidence'),
+                'product_match_reason': audit.get('product_match_reason'),
+                'specificity': audit.get('specificity'),
+                'relevance_fact_ids': audit.get('relevance_fact_ids', []),
+                'decision': decision, 'exclusion_reason': reason,
+                'exclusion_detail': audit.get('exclusion_detail'),
+                'exact_front_end_fields': [key for key, value in fields.items() if contains(value, phrase)],
+                'front_end_tokens_by_field': {key: sorted(tokens & values) for key, values in field_tokens.items()
+                                             if tokens & values},
+                'backend_tokens': sorted(tokens & backend), 'uncovered_tokens': sorted(missing),
+                'placement': ('excluded' if decision == 'exclude' else
+                              'uncovered' if missing else 'front_end' if tokens and tokens <= front else
+                              'backend' if tokens and tokens <= backend else 'across_fields'),
+            })
+        incremental = usable - front
+        missing_concepts = sorted(concepts - {a.get('concept_id') for a in audits})
+        previous = set(words(listing.get('previous_search_terms', ''))) - stops
+        reviewed_removals = set()
+        for entry in listing.get('previous_term_exclusions', []) or []:
+            if (isinstance(entry, dict) and entry.get('reason') in ('product_mismatch', 'low_relevance', 'byte_limit')
+                    and str(entry.get('detail') or '').strip()):
+                reviewed_removals.update(words(entry.get('term', '')))
+        lost = previous - front - backend
+        byte_count = len(text.encode('utf-8'))
+        actions = []
+        if not audits or missing_concepts:
+            actions.append('complete_localized_candidate_review')
+        if missing_adopted or backend - adopted or incorrect_exclusions:
+            actions.append('reconcile_backend_with_reviewed_candidates')
+        if lost - reviewed_removals:
+            actions.append('review_lost_previous_terms')
+        if byte_count < SEARCH_TERMS_TARGET_BYTES:
+            actions.append('review_target_market_expansion')
+        if byte_count > SEARCH_TERMS_MAX_BYTES:
+            actions.append('reduce_to_byte_limit')
+        reports.append({
+            'marketplace': market, 'variant_id': variant,
+            'characters': len(text), 'utf8_bytes': byte_count,
+            'remaining_bytes': max(0, SEARCH_TERMS_MAX_BYTES - byte_count),
+            'target_reached': SEARCH_TERMS_TARGET_BYTES <= byte_count <= SEARCH_TERMS_MAX_BYTES,
+            'broad_candidate_count': sum(a.get('specificity') == 'related_broad' for a in audits),
+            'candidate_count': len(audits), 'usable_unique_tokens': len(usable),
+            'front_end_covered_tokens': len(usable & front),
+            'incremental_pool_tokens': len(incremental),
+            'incremental_pool_bytes': len(' '.join(sorted(incremental)).encode('utf-8')),
+            'missing_concepts': missing_concepts,
+            'incorrect_exclusions': incorrect_exclusions,
+            'unplaced_adopted_tokens': sorted(missing_adopted),
+            'unaudited_backend_tokens': sorted(backend - adopted),
+            'previous_terms': {'retained_in_backend': sorted(previous & backend),
+                               'covered_in_front_end': sorted((previous - backend) & front),
+                               'removed_with_reason': sorted(lost & reviewed_removals),
+                               'removed_without_review': sorted(lost - reviewed_removals)},
+            'expansion_review': listing.get('search_term_expansion'),
+            'next_actions': actions, 'candidates': rows,
+            'semantic_review_required': True,
+        })
+    present = {(r['marketplace'], r['variant_id']) for r in reports}
+    for variant in data.get('variants', []):
+        for market in variant.get('marketplaces', data.get('targets', [])):
+            if market in data.get('targets', []) and (market, variant.get('id')) not in present:
+                reports.append({'marketplace': market, 'variant_id': variant.get('id'),
+                                'next_actions': ['create_missing_listing'], 'candidates': [],
+                                'semantic_review_required': True})
+    return reports
+
+
+def validate_broad_fallback(listing, audits, errors):
+    """Related broad terms may fill a researched shortfall, never displace precise terms."""
+    label = f"{listing.get('marketplace')}/{listing.get('variant_id')}"
+    current = str(listing.get('search_terms', ''))
+    for audit in audits:
+        if audit.get('exclusion_reason') == 'fallback_not_needed' and (
+                audit.get('specificity') != 'related_broad'
+                or len(current.encode('utf-8')) < SEARCH_TERMS_TARGET_BYTES):
+            errors.append(f'{label} fallback_not_needed only applies to related_broad after reaching 240 bytes')
+    broad = [a for a in audits if a.get('decision') == 'adopt' and a.get('specificity') == 'related_broad']
+    if not broad:
+        return
+    precise = [a for a in audits if a.get('specificity') == 'product_specific']
+    front = set(words(' '.join(listing_front_end_fields(listing).values())))
+    covered = front | SEARCH_TERMS_STOP_WORDS.get(listing.get('marketplace'), set())
+    precise_tokens = {t for a in precise if a.get('decision') == 'adopt' for t in words(a.get('phrase', ''))} - covered
+    precise_text = ' '.join(sorted(precise_tokens))
+    if len(precise_text.encode('utf-8')) >= SEARCH_TERMS_TARGET_BYTES:
+        errors.append(f'{label} related_broad is unnecessary: precise terms already reach 240 bytes')
+    for audit in precise:
+        if audit.get('decision') == 'exclude' and audit.get('exclusion_reason') == 'byte_limit':
+            extra = set(words(audit.get('phrase', ''))) - covered - precise_tokens
+            if extra and len(' '.join(sorted(precise_tokens | extra)).encode('utf-8')) <= SEARCH_TERMS_MAX_BYTES:
+                errors.append(f'{label} related_broad must not displace a fitting precise candidate: {audit.get("phrase")}')
+    expansion = listing.get('search_term_expansion')
+    expansion = expansion if isinstance(expansion, dict) else {}
+    queries = expansion.get('queries')
+    reviewed = expansion.get('reviewed_phrases')
+    if (not precise or not isinstance(queries, list) or not queries
+            or any(not isinstance(q, str) or not q.strip() for q in queries)
+            or not str(expansion.get('shortfall_reason') or '').strip()
+            or not isinstance(reviewed, list)
+            or not {a.get('phrase') for a in precise} <= {p for p in reviewed if isinstance(p, str)}):
+        errors.append(f'{label} related_broad requires actual precise expansion queries, reviewed_phrases and shortfall_reason')
 
 
 def validate_search_coverage(data, errors):
@@ -834,6 +988,7 @@ def validate_search_coverage(data, errors):
         label = f'{market}/{variant}'
         audits = [a for a in data.get('search_term_audits', [])
                   if a.get('marketplace') == market and a.get('variant_id') == variant]
+        validate_broad_fallback(listing, audits, errors)
         audited_ids = {a.get('concept_id') for a in audits}
         if concept_ids - audited_ids:
             errors.append(f'{label} omits source concepts: {", ".join(sorted(concept_ids - audited_ids))}')
@@ -850,11 +1005,8 @@ def validate_search_coverage(data, errors):
             if (isinstance(query, dict) and query.get('marketplace') == market
                     and tuple(words(query.get('query', ''))) not in queried):
                 errors.append(f'{label} saved search query has no decision: {query.get("query", "")}')
-        previous = set(words(listing.get('previous_search_terms', '')))
-        front = ' '.join([str(listing.get('title', '')), str(listing.get('item_highlights', '')),
-                          *map(str, listing.get('bullets', [])),
-                          re.sub(r'<[^>]+>', ' ', str(listing.get('description', ''))),
-                          *map(str, listing.get('front_end_attributes', []))])
+        previous = set(words(listing.get('previous_search_terms', ''))) - SEARCH_TERMS_STOP_WORDS.get(market, set())
+        front = ' '.join(listing_front_end_fields(listing).values())
         removed = previous - set(words(listing.get('search_terms', ''))) - set(words(front))
         previous_exclusions = listing.get('previous_term_exclusions', [])
         for entry in previous_exclusions if isinstance(previous_exclusions, list) else []:
@@ -980,7 +1132,7 @@ def validate(data, *, require_current_search_policy=True):
                     or any(not isinstance(i, str) or i not in valid_facts for i in ids))):
                 errors.append(f'search term audit {key[0]}/{key[1]} source_product_match requires applicable confirmed relevance_fact_ids')
             if (not str(audit.get('source_evidence') or '').strip()
-                    or (audit.get('decision') == 'adopt' and (audit.get('specificity') != 'product_specific'
+                    or (audit.get('decision') == 'adopt' and (audit.get('specificity') not in ('product_specific', 'related_broad')
                     or not str(audit.get('product_match_reason') or '').strip()))):
                 errors.append(f'search term audit {key[0]}/{key[1]} source_product_match requires specific source evidence and product match explanation')
             if audit.get('decision') == 'adopt' and audit.get('search_intent') not in ('same_product', 'not_measured'):
@@ -1018,8 +1170,9 @@ def validate(data, *, require_current_search_policy=True):
         if search_policy in (2, 3, 4) and audit.get('decision') == 'adopt':
             if search_policy != 4 and expected_band != 'high':
                 errors.append(f'search term audit {key[0]}/{key[1]} must adopt only high-relevance phrases')
-            if audit.get('specificity') != 'product_specific':
-                errors.append(f'search term audit {key[0]}/{key[1]} must be product_specific, not generic')
+            allowed_specificity = ('product_specific', 'related_broad') if search_policy == 4 else ('product_specific',)
+            if audit.get('specificity') not in allowed_specificity:
+                errors.append(f'search term audit {key[0]}/{key[1]} must be product_specific or reviewed related_broad (v4), not generic')
             reason = audit.get('product_match_reason')
             if not isinstance(reason, str) or not reason.strip():
                 errors.append(f'search term audit {key[0]}/{key[1]} requires product_match_reason')
@@ -1500,7 +1653,7 @@ def validate(data, *, require_current_search_policy=True):
                 warnings.append(
                     f'{market}/{variant_id} search_terms uses only {byte_count} UTF-8 bytes; '
                     'target 240–249 when supported: expand omitted reference-title terms and '
-                    'high-relevance reverse-ASIN keywords, never generic filler'
+                    'high-relevance reverse-ASIN keywords, then reviewed related broad terms if still short'
                 )
                 if search_policy in (2, 3, 4):
                     expansion = listing.get('search_term_expansion')
@@ -1755,7 +1908,23 @@ def validate(data, *, require_current_search_policy=True):
     for fact in facts:
         if fact.get('status') in ('unconfirmed', 'conflict'):
             warnings.append(f'pending fact {fact.get("id")}: {fact.get("status")}')
+    keyword_reports = keyword_coverage(data)
+    if search_policy == 4:
+        # These checks also apply without competitor records. A long field alone
+        # cannot bypass the reviewed candidate pool.
+        for report in keyword_reports:
+            label = f"{report['marketplace']}/{report['variant_id']}"
+            for key, message in (
+                ('unplaced_adopted_tokens', 'search_terms omits audited incremental tokens'),
+                ('unaudited_backend_tokens', 'search_terms contains tokens without an adopted relevance audit'),
+                ('incorrect_exclusions', 'search-term exclusions contradict actual front-end coverage or remaining bytes'),
+            ):
+                if report.get(key):
+                    error = f'{label} {message}: {", ".join(report[key])}'
+                    if error not in errors:
+                        errors.append(error)
     return {
+        'keyword_coverage': keyword_reports,
         'ready_for_delivery': not errors,
         'errors': errors,
         'warnings': warnings,
