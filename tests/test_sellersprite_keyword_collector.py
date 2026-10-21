@@ -24,3 +24,42 @@ def test_request_rejects_invalid_market_and_asin():
             pass
         else:
             raise AssertionError(f'{value} should be rejected')
+
+
+def test_mid_batch_failure_preserves_success_and_not_run(tmp_path, monkeypatch):
+    import json
+    from unittest.mock import MagicMock
+    output = tmp_path / 'checkpoint.json'
+    context, page = MagicMock(), MagicMock()
+    monkeypatch.setattr(COLLECTOR, 'launch_context', lambda *a: (context, page, None))
+    monkeypatch.setattr(COLLECTOR, 'login', lambda *a: None)
+    seen = []
+    def collect(page, market, asin):
+        seen.append(market)
+        if market == 'IT':
+            assert len(json.loads(output.read_text())['queries']) == 1
+            raise COLLECTOR.SessionError('sellersprite_account_locked')
+        return {'marketplace': market, 'asin': asin, 'rows': [{'keyword': 'boucles'}]}
+    monkeypatch.setattr(COLLECTOR, 'collect', collect)
+    requests = [('FR', 'B000000001'), ('IT', 'B000000002'), ('ES', 'B000000003')]
+    COLLECTOR.collect_requests(requests, output, MagicMock(), 'fake', 'secret')
+    data = json.loads(output.read_text())
+    assert seen == ['FR', 'IT']
+    assert data['failures'][0]['reason'] == 'sellersprite_account_locked'
+    assert data['pending'] == [{'marketplace': 'ES', 'asin': 'B000000003', 'status': 'not_run'}]
+    context.close.assert_called_once()
+    assert 'secret' not in output.read_text()
+
+
+def test_launch_block_keeps_all_requests_pending(tmp_path, monkeypatch):
+    import json
+    from unittest.mock import MagicMock
+    def launch(*a):
+        raise COLLECTOR.SessionError('sellersprite_account_locked')
+    monkeypatch.setattr(COLLECTOR, 'launch_context', launch)
+    output = tmp_path / 'blocked.json'
+    COLLECTOR.collect_requests([('FR', 'B000000001')], output, MagicMock(), 'fake', 'secret')
+    data = json.loads(output.read_text())
+    assert data['queries'] == []
+    assert len(data['pending']) == 1
+    assert data['failures'][0]['reason'] == 'sellersprite_account_locked'

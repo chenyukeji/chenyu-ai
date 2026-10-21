@@ -114,5 +114,72 @@ class ReverseKeywordReportTests(unittest.TestCase):
                 render([evidence], selection, root / "out")
 
 
+class ReversePaginationTests(unittest.TestCase):
+    def run_collection(self, folder, fail_second=False):
+        from contextlib import contextmanager
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock, patch
+        import asin_keyword_breakout as collector
+        import selection_collectors
+        asin = 'B000000001'
+        page = MagicMock()
+        page.url = 'https://www.sellersprite.com/v3/keyword-reverse/?q=' + asin
+        responses = []
+        for skip in (0, 2):
+            response = MagicMock()
+            response.url = 'https://www.sellersprite.com' + collector.API_PATH
+            response.status = 200
+            response.request.method = 'POST'
+            response.request.post_data = json.dumps({'asin': asin, 'skip': skip, 'limit': 2})
+            response.json.return_value = {'code': 'OK', 'data': {
+                'asin': asin, 'station': 'DE', 'total': 4,
+                'items': [{'keywords': f'word{n}'} for n in range(skip, skip + 2)]}}
+            responses.append(response)
+        calls = []
+        @contextmanager
+        def response_context(predicate, **kw):
+            response = responses[len(calls)]
+            self.assertTrue(predicate(response))
+            calls.append(response)
+            yield SimpleNamespace(value=response)
+        page.expect_response.side_effect = response_context
+        page.locator.return_value.first.count.return_value = 1
+        page.locator.return_value.first.is_enabled.return_value = True
+        output = Path(folder) / 'evidence.json'
+        def click():
+            self.assertEqual(json.loads(output.read_text())['collected_count'], 2)
+            if fail_second:
+                raise RuntimeError('page timed out')
+        page.locator.return_value.first.click.side_effect = click
+        @contextmanager
+        def session(payload, url, **kw):
+            self.assertNotIn('q=', url)  # no duplicate first-page query
+            yield page
+        with patch.object(selection_collectors, 'session', session), \
+             patch.object(collector, 'assert_access'), \
+             patch.object(collector, '_product', return_value={'image_url': ''}):
+            if fail_second:
+                with self.assertRaisesRegex(RuntimeError, 'page timed out'):
+                    collector.collect_reverse('DE', asin, output)
+                result = json.loads(output.read_text())
+            else:
+                result = collector.collect_reverse('DE', asin, output)
+        page.request.post.assert_not_called()
+        page.locator.return_value.first.click.assert_called_once()
+        return result
+
+    def test_pagination_clicks_browser_and_preserves_matching_rows(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = self.run_collection(folder)
+            self.assertEqual(result['collected_count'], 4)
+            self.assertEqual(result['status'], 'complete')
+
+    def test_later_page_error_preserves_earlier_evidence(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = self.run_collection(folder, fail_second=True)
+            self.assertEqual(result['collected_count'], 2)
+            self.assertEqual(result['status'], 'partial')
+
+
 if __name__ == "__main__":
     unittest.main()

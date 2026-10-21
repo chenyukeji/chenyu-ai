@@ -16,6 +16,7 @@ from urllib.parse import urljoin, urlparse, unquote
 
 from sellersprite_session import (
     launch_context as _launch_shared_sellersprite_context,
+    assert_access as _assert_sellersprite_access,
     ensure_login as _ensure_shared_sellersprite_login,
     restore_session as _restore_sellersprite_session,
     save_session as _save_sellersprite_session,
@@ -239,11 +240,17 @@ def _launch_context(runtime, payload: dict):
 
 
 def _goto(page, url: str) -> None:
+    host = (urlparse(url).hostname or '').lower()
+    seller = host == 'sellersprite.com' or host.endswith('.sellersprite.com')
+    if seller:
+        _assert_sellersprite_access(page)
     page.goto(validate_url(url), wait_until="domcontentloaded")
     try:
         page.wait_for_load_state("networkidle", timeout=3000)
     except Exception:
         pass
+    if seller:
+        _assert_sellersprite_access(page)
 
 
 def _challenge_visible(page) -> bool:
