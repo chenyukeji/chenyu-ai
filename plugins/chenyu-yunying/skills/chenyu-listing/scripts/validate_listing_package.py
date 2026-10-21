@@ -799,7 +799,7 @@ def validate_search_localization(errors, audit, *, source_supported=False):
         errors.append(f'{label} decision must be adopt or exclude')
     if audit.get('decision') == 'exclude':
         if audit.get('exclusion_reason') not in (
-                'front_end_covered', 'product_mismatch', 'low_relevance', 'byte_limit'):
+                'front_end_covered', 'product_mismatch', 'low_relevance', 'byte_limit', 'fallback_not_needed'):
             errors.append(f'{label} exclusion must be based on localized coverage, product match, relevance or bytes; source language and absent local volume are not exclusion reasons')
         detail = audit.get('exclusion_detail')
         if not isinstance(detail, str) or not detail.strip():
@@ -862,6 +862,7 @@ def keyword_coverage(data):
                 'source_marketplace': audit.get('source_marketplace'), 'source_tool': audit.get('source_tool'),
                 'source_evidence': audit.get('source_evidence') or audit.get('search_evidence'),
                 'product_match_reason': audit.get('product_match_reason'),
+                'specificity': audit.get('specificity'),
                 'relevance_fact_ids': audit.get('relevance_fact_ids', []),
                 'decision': decision, 'exclusion_reason': reason,
                 'exclusion_detail': audit.get('exclusion_detail'),
@@ -899,6 +900,7 @@ def keyword_coverage(data):
             'characters': len(text), 'utf8_bytes': byte_count,
             'remaining_bytes': max(0, SEARCH_TERMS_MAX_BYTES - byte_count),
             'target_reached': SEARCH_TERMS_TARGET_BYTES <= byte_count <= SEARCH_TERMS_MAX_BYTES,
+            'broad_candidate_count': sum(a.get('specificity') == 'related_broad' for a in audits),
             'candidate_count': len(audits), 'usable_unique_tokens': len(usable),
             'front_end_covered_tokens': len(usable & front),
             'incremental_pool_tokens': len(incremental),
@@ -923,6 +925,42 @@ def keyword_coverage(data):
                                 'next_actions': ['create_missing_listing'], 'candidates': [],
                                 'semantic_review_required': True})
     return reports
+
+
+def validate_broad_fallback(listing, audits, errors):
+    """Related broad terms may fill a researched shortfall, never displace precise terms."""
+    label = f"{listing.get('marketplace')}/{listing.get('variant_id')}"
+    current = str(listing.get('search_terms', ''))
+    for audit in audits:
+        if audit.get('exclusion_reason') == 'fallback_not_needed' and (
+                audit.get('specificity') != 'related_broad'
+                or len(current.encode('utf-8')) < SEARCH_TERMS_TARGET_BYTES):
+            errors.append(f'{label} fallback_not_needed only applies to related_broad after reaching 240 bytes')
+    broad = [a for a in audits if a.get('decision') == 'adopt' and a.get('specificity') == 'related_broad']
+    if not broad:
+        return
+    precise = [a for a in audits if a.get('specificity') == 'product_specific']
+    front = set(words(' '.join(listing_front_end_fields(listing).values())))
+    covered = front | SEARCH_TERMS_STOP_WORDS.get(listing.get('marketplace'), set())
+    precise_tokens = {t for a in precise if a.get('decision') == 'adopt' for t in words(a.get('phrase', ''))} - covered
+    precise_text = ' '.join(sorted(precise_tokens))
+    if len(precise_text.encode('utf-8')) >= SEARCH_TERMS_TARGET_BYTES:
+        errors.append(f'{label} related_broad is unnecessary: precise terms already reach 240 bytes')
+    for audit in precise:
+        if audit.get('decision') == 'exclude' and audit.get('exclusion_reason') == 'byte_limit':
+            extra = set(words(audit.get('phrase', ''))) - covered - precise_tokens
+            if extra and len(' '.join(sorted(precise_tokens | extra)).encode('utf-8')) <= SEARCH_TERMS_MAX_BYTES:
+                errors.append(f'{label} related_broad must not displace a fitting precise candidate: {audit.get("phrase")}')
+    expansion = listing.get('search_term_expansion')
+    expansion = expansion if isinstance(expansion, dict) else {}
+    queries = expansion.get('queries')
+    reviewed = expansion.get('reviewed_phrases')
+    if (not precise or not isinstance(queries, list) or not queries
+            or any(not isinstance(q, str) or not q.strip() for q in queries)
+            or not str(expansion.get('shortfall_reason') or '').strip()
+            or not isinstance(reviewed, list)
+            or not {a.get('phrase') for a in precise} <= {p for p in reviewed if isinstance(p, str)}):
+        errors.append(f'{label} related_broad requires actual precise expansion queries, reviewed_phrases and shortfall_reason')
 
 
 def validate_search_coverage(data, errors):
@@ -950,6 +988,7 @@ def validate_search_coverage(data, errors):
         label = f'{market}/{variant}'
         audits = [a for a in data.get('search_term_audits', [])
                   if a.get('marketplace') == market and a.get('variant_id') == variant]
+        validate_broad_fallback(listing, audits, errors)
         audited_ids = {a.get('concept_id') for a in audits}
         if concept_ids - audited_ids:
             errors.append(f'{label} omits source concepts: {", ".join(sorted(concept_ids - audited_ids))}')
@@ -1093,7 +1132,7 @@ def validate(data, *, require_current_search_policy=True):
                     or any(not isinstance(i, str) or i not in valid_facts for i in ids))):
                 errors.append(f'search term audit {key[0]}/{key[1]} source_product_match requires applicable confirmed relevance_fact_ids')
             if (not str(audit.get('source_evidence') or '').strip()
-                    or (audit.get('decision') == 'adopt' and (audit.get('specificity') != 'product_specific'
+                    or (audit.get('decision') == 'adopt' and (audit.get('specificity') not in ('product_specific', 'related_broad')
                     or not str(audit.get('product_match_reason') or '').strip()))):
                 errors.append(f'search term audit {key[0]}/{key[1]} source_product_match requires specific source evidence and product match explanation')
             if audit.get('decision') == 'adopt' and audit.get('search_intent') not in ('same_product', 'not_measured'):
@@ -1131,8 +1170,9 @@ def validate(data, *, require_current_search_policy=True):
         if search_policy in (2, 3, 4) and audit.get('decision') == 'adopt':
             if search_policy != 4 and expected_band != 'high':
                 errors.append(f'search term audit {key[0]}/{key[1]} must adopt only high-relevance phrases')
-            if audit.get('specificity') != 'product_specific':
-                errors.append(f'search term audit {key[0]}/{key[1]} must be product_specific, not generic')
+            allowed_specificity = ('product_specific', 'related_broad') if search_policy == 4 else ('product_specific',)
+            if audit.get('specificity') not in allowed_specificity:
+                errors.append(f'search term audit {key[0]}/{key[1]} must be product_specific or reviewed related_broad (v4), not generic')
             reason = audit.get('product_match_reason')
             if not isinstance(reason, str) or not reason.strip():
                 errors.append(f'search term audit {key[0]}/{key[1]} requires product_match_reason')
@@ -1613,7 +1653,7 @@ def validate(data, *, require_current_search_policy=True):
                 warnings.append(
                     f'{market}/{variant_id} search_terms uses only {byte_count} UTF-8 bytes; '
                     'target 240–249 when supported: expand omitted reference-title terms and '
-                    'high-relevance reverse-ASIN keywords, never generic filler'
+                    'high-relevance reverse-ASIN keywords, then reviewed related broad terms if still short'
                 )
                 if search_policy in (2, 3, 4):
                     expansion = listing.get('search_term_expansion')

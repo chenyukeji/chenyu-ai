@@ -231,8 +231,8 @@ v4 新增概念台账 `search_term_concepts`、完整查询清单 `search_query_
 - 参考标题候选使用 `source_tool=reference_title_terms`、`source_field=title`，其 `source_asin` 必须存在于 `competitors`；可以来自任一有效参考链接，不限第一条。
 - 额外同类商品标题候选使用 `source_tool=same_category_title_terms`、`source_field=title`；对应 ASIN 与标题须加入 `competitors`，并先排除不同产品结构、用途、规格和配件词。此来源补充前两类，不替代全部有效参考链接的检查。
 - 有搜索则 `organic_results_checked` 如实记录（可少于 20）；无搜索用 source_product_match，计数留 null，等级 not_measured。以下比例只作集中度记录，不作选词门槛：`relevant_results / organic_results_checked` 不低于 70% 为 `high`，40%–69% 为 `medium`，低于 40% 为 `low`。
-- 新生成或重做包设置顶层 `search_term_policy_version=4`。`decision=adopt` 使用真实来源与本品适用性判断；搜索可采用任意集中度等级，无搜索用 `source_product_match` 的来源与事实依据，并要求 `specificity=product_specific` 与非空 `product_match_reason`（具体解释产品类型、结构或用途匹配）；泛词即使自然位比例高也不采用。不得仅因 `medium`/`low`、不足 20 条或未搜索而删除准确的产品候选。跨站点数据必须设置 `local_volume_claimed=false`。旧包默认版本 1 可读取，但会收到升级提示，修改或交付须升级。
-- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元；反过来，已采用且前台未覆盖的有效词元也必须全部写入。有充足高相关词时目标 240–249 UTF-8 字节。低于 240 字节时每个 listing 必须保存 `search_term_expansion: {"queries": ["实际执行的补查站点、查询词或反查 ASIN"], "shortfall_reason": "补查后仍无法扩充的具体原因，对应候选及排除记录"}`；不允许空值或未执行的查询。短字段还须通过 v4 的逐候选排除与全部参考标题本地化覆盖检查，不强制填充泛词。超过上限时允许把放不下的合格候选记为 `decision=exclude`、`exclusion_reason=byte_limit`，按相关性和新增检索叫法择优；校验器拒绝仍可容纳的字节排除理由。来源审查与产品匹配为人工语义审核，脚本只能检查字段和数值。
+- 新生成或重做包设置顶层 `search_term_policy_version=4`。`decision=adopt` 使用真实来源与本品适用性判断；搜索可采用任意集中度等级，无搜索用 `source_product_match` 的来源与事实依据，并要求精准词 `specificity=product_specific`、兜底相关泛词 `specificity=related_broad` 与非空 `product_match_reason`（具体解释与本品的关系）；相关泛词仅在精准词充分补查仍不足 240 字节时采用。不得仅因 `medium`/`low`、不足 20 条或未搜索而删除准确的产品候选。跨站点数据必须设置 `local_volume_claimed=false`。旧包默认版本 1 可读取，但会收到升级提示，修改或交付须升级。
+- 最终 Search Terms 中的词元必须来自 `decision=adopt` 的候选，并删除所有前台字段已经覆盖的词元；反过来，已采用且前台未覆盖的有效词元也必须全部写入。目标尽可能达到 240–249 UTF-8 字节，精准词优先，相关泛词兜底。低于 240 字节时每个 listing 必须保存 `search_term_expansion: {"queries": ["实际执行的补查站点、查询词或反查 ASIN"], "shortfall_reason": "补查后仍无法扩充的具体原因，对应候选及排除记录"}`；不允许空值或未执行的查询。短字段还须通过 v4 的逐候选排除与全部参考标题本地化覆盖检查，精准词补查仍不足时补充有依据的相关泛词，两类都不足才可留短。超过上限时允许把放不下的合格候选记为 `decision=exclude`、`exclusion_reason=byte_limit`，按相关性和新增检索叫法择优；校验器拒绝仍可容纳的字节排除理由。来源审查与产品匹配为人工语义审核，脚本只能检查字段和数值。
 
 ## 脚本
 
@@ -248,3 +248,5 @@ python scripts/analyze_listing.py listing-package.json --out listing-analysis.js
 ## 关键词覆盖报告（派生结果）
 
 候选沿用 `search_term_concepts` / `search_term_audits`；原词来源、产品适用理由和排除记录不变。`review_keyword_coverage.py` 从最终字段重新计算内部 JSON/CSV，`validate_listing_package.py` 返回的 `keyword_coverage` 同步包含逐站/变体结果，无需人工回填覆盖字段。每行包含 `characters`、`utf8_bytes`、`candidate_count`、`incremental_pool_bytes`、候选 `exact_front_end_fields` / `front_end_tokens_by_field` / `backend_tokens` / `uncovered_tokens` 和 `previous_terms` 去向。`next_actions` 指向补本地化、核对落位、补查或复核历史词；`target_reached` 仅表示容量目标，不表示语义质量通过。缺少目标站点/变体的文案会单列 `create_missing_listing`。详见 [执行顺序与内部覆盖表](search-localization.md)。
+
+相关泛词兜底沿用 policy v4：审核项 `specificity` 使用 `product_specific` 或 `related_broad`，均保留来源和适用理由。采用 `related_broad` 时保留精准词补查的 `search_term_expansion`，即使最终已达到 240 字节也不能删除；已达目标而不用的泛词可标记 `exclude` / `fallback_not_needed`。`pack_search_terms.py` 接收可选 `broad_candidates`，始终先装填 `candidates` 中的精准词，返回 `precise_utf8_bytes` 和 `broad_added_tokens`；覆盖表同步显示 specificity，便于检查泛词占比与用词理由。

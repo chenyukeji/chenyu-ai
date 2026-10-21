@@ -1131,6 +1131,77 @@ class ListingTests(unittest.TestCase):
                 rows = list(csv.DictReader(stream))
             self.assertEqual([row['marketplace'] for row in rows], ['FR', 'IT'])
 
+    def test_packer_uses_related_broad_only_after_precise_shortfall(self):
+        with patch.dict(sys.modules, {'validate_listing_package': package_validator}):
+            packer = module('pack_search_terms')
+        result = packer.pack('FR', '', ['x' * 235], broad_candidates=['fête', 'hiver'])
+        self.assertEqual(result['precise_utf8_bytes'], 235)
+        self.assertEqual(result['utf8_bytes'], 241)
+        self.assertEqual(result['broad_added_tokens'], ['fête'])
+        self.assertEqual(result['decisions'][-1]['exclusion_reason'], 'fallback_not_needed')
+        full = packer.pack('FR', '', ['x' * 240], broad_candidates=['fête'])
+        self.assertEqual(full['broad_added_tokens'], [])
+        self.assertEqual(full['utf8_bytes'], 240)
+        small = packer.pack('FR', '', ['x' * 239], broad_candidates=['accessoires', 'été'])
+        self.assertEqual(small['utf8_bytes'], 245)
+        self.assertEqual(small['broad_added_tokens'], ['été'])
+
+    def test_related_broad_requires_precise_research_and_product_match(self):
+        data = self.localized_search_package()
+        audit = data['search_term_audits'][1]
+        audit['specificity'] = 'related_broad'
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        audit.update(relevance_basis='source_product_match', relevance_fact_ids=['F1'],
+                     source_evidence='Recorded reference title and product facts',
+                     search_intent='not_measured', relevance_band='not_measured',
+                     organic_results_checked=None, relevant_results=None)
+        self.assertTrue(package_validator.validate(data)['ready_for_delivery'])
+        del data['listings'][0]['search_term_expansion']
+        errors = package_validator.validate(data)['errors']
+        self.assertTrue(any('related_broad requires actual precise expansion' in e for e in errors))
+        audit['search_intent'] = 'different_product'
+        self.assertTrue(any('different-product' in e for e in package_validator.validate(data)['errors']))
+
+    def test_broad_fallback_cannot_displace_precise_terms_or_hide_research(self):
+        listing = {'marketplace': 'FR', 'variant_id': 'V1', 'search_terms': 'x' * 230 + ' fête',
+                   'search_term_expansion': {'queries': ['actual target-market query'],
+                       'reviewed_phrases': ['x' * 230, 'bonnet'], 'shortfall_reason': 'Precise terms reviewed'}}
+        audits = [{'phrase': 'x' * 230, 'specificity': 'product_specific', 'decision': 'adopt'},
+                  {'phrase': 'bonnet', 'specificity': 'product_specific', 'decision': 'exclude',
+                   'exclusion_reason': 'byte_limit'},
+                  {'phrase': 'fête', 'specificity': 'related_broad', 'decision': 'adopt'}]
+        errors = []
+        package_validator.validate_broad_fallback(listing, audits, errors)
+        self.assertTrue(any('must not displace a fitting precise' in e for e in errors))
+        audits.pop(1)
+        audits[0]['phrase'] = 'x' * 240
+        listing['search_terms'] = 'x' * 240 + ' fête'
+        listing['search_term_expansion']['reviewed_phrases'] = ['x' * 240]
+        errors = []
+        package_validator.validate_broad_fallback(listing, audits, errors)
+        self.assertTrue(any('precise terms already reach 240' in e for e in errors))
+        audits[0]['phrase'] = 'x' * 235
+        listing['search_terms'] = 'x' * 235 + ' fête'
+        del listing['search_term_expansion']
+        errors = []
+        package_validator.validate_broad_fallback(listing, audits, errors)
+        self.assertTrue(any('requires actual precise expansion' in e for e in errors))
+
+    def test_fallback_not_needed_cannot_discard_precise_or_underfilled_terms(self):
+        audit = {'phrase': 'fête', 'specificity': 'related_broad', 'decision': 'exclude',
+                 'exclusion_reason': 'fallback_not_needed'}
+        listing = {'marketplace': 'FR', 'variant_id': 'V1', 'search_terms': 'bonnet'}
+        errors = []
+        package_validator.validate_broad_fallback(listing, [audit], errors)
+        self.assertTrue(errors)
+        listing['search_terms'] = 'x' * 240
+        errors = []
+        package_validator.validate_broad_fallback(listing, [audit], errors)
+        self.assertFalse(errors)
+        audit['specificity'] = 'product_specific'
+        package_validator.validate_broad_fallback(listing, [audit], errors)
+        self.assertTrue(errors)
+
     def test_query_inventory_collects_queries_missing_from_final_review(self):
         collector = module('collect_search_query_inventory')
         with tempfile.TemporaryDirectory() as tmp:

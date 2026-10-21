@@ -34,7 +34,7 @@ def review(data, previous=None):
 def write_csv(report, path):
     fields = ['marketplace', 'variant_id', 'characters', 'utf8_bytes', 'phrase', 'concept_id',
               'source_phrase', 'source_asin', 'source_marketplace', 'source_tool', 'source_evidence',
-              'product_match_reason', 'relevance_fact_ids', 'exact_front_end_fields',
+              'product_match_reason', 'specificity', 'relevance_fact_ids', 'exact_front_end_fields',
               'front_end_tokens_by_field', 'backend_tokens', 'uncovered_tokens', 'placement',
               'decision', 'exclusion_reason', 'exclusion_detail', 'next_actions']
     path.parent.mkdir(parents=True, exist_ok=True)
