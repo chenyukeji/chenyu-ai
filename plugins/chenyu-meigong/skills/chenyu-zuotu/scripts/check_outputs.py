@@ -13,10 +13,13 @@ def check(manifest):
     seen_ids, seen_hashes = set(), {}
     for task in data.get('tasks', []):
         issues = []
-        tid = task.get('id')
-        if not tid or tid in seen_ids:
+        tid = task.get('task_id') or task.get('id')
+        if task.get('id') and task.get('task_id') and task['id'] != task['task_id']:
+            issues.append('conflicting id and task_id')
+        if not isinstance(tid, str) or not tid or tid in seen_ids:
             issues.append('missing or duplicate task id')
-        seen_ids.add(tid)
+        if isinstance(tid, str):
+            seen_ids.add(tid)
         final = task.get('final_path')
         item = {'id': tid, 'issues': issues, 'scope': 'file properties only'}
         if not final:
@@ -28,6 +31,12 @@ def check(manifest):
             item['path'] = str(path.resolve())
             try:
                 digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                if task.get('preserved_from_baseline') and task.get('baseline_file'):
+                    baseline = Path(task['baseline_file'])
+                    if not baseline.is_absolute():
+                        baseline = manifest.parent / baseline
+                    if digest != hashlib.sha256(baseline.read_bytes()).hexdigest():
+                        issues.append('preserved image differs from baseline')
                 if digest in seen_hashes:
                     issues.append('identical image also used by task ' + str(seen_hashes[digest]) + '; verify intentional reuse')
                 seen_hashes[digest] = tid
