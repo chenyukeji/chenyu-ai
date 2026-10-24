@@ -115,7 +115,7 @@ class ReverseKeywordReportTests(unittest.TestCase):
 
 
 class ReversePaginationTests(unittest.TestCase):
-    def run_collection(self, folder, fail_second=False):
+    def run_collection(self, folder, fail_second=False, global_station=False, wrong_second_market=False):
         from contextlib import contextmanager
         from types import SimpleNamespace
         from unittest.mock import MagicMock, patch
@@ -123,6 +123,7 @@ class ReversePaginationTests(unittest.TestCase):
         import selection_collectors
         asin = 'B000000001'
         page = MagicMock()
+        page.locator.return_value.first.input_value.return_value = '德国站'
         page.url = 'https://www.sellersprite.com/v3/keyword-reverse/?q=' + asin
         responses = []
         for skip in (0, 2):
@@ -132,7 +133,8 @@ class ReversePaginationTests(unittest.TestCase):
             response.request.method = 'POST'
             response.request.post_data = json.dumps({'asin': asin, 'skip': skip, 'limit': 2})
             response.json.return_value = {'code': 'OK', 'data': {
-                'asin': asin, 'station': 'DE', 'total': 4,
+                'asin': asin, 'station': 'GLOBAL' if global_station else 'DE',
+                'marketId': 1 if wrong_second_market and skip else 4, 'total': 4,
                 'items': [{'keywords': f'word{n}'} for n in range(skip, skip + 2)]}}
             responses.append(response)
         calls = []
@@ -174,11 +176,54 @@ class ReversePaginationTests(unittest.TestCase):
             self.assertEqual(result['collected_count'], 4)
             self.assertEqual(result['status'], 'complete')
 
+    def test_global_station_still_collects_only_matching_country(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = self.run_collection(folder, global_station=True)
+            self.assertEqual(result['collected_count'], 4)
+            self.assertEqual(result['market_evidence'], {'page_label': '德国站', 'response_market_id': 4,
+                                                       'response_station': 'GLOBAL'})
+
+    def test_wrong_country_on_later_page_keeps_only_verified_first_page(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = self.run_collection(folder, global_station=True, wrong_second_market=True)
+            self.assertEqual(result['collected_count'], 2)
+            self.assertEqual(result['status'], 'partial')
+            self.assertIn('第 2 页未取得匹配结果', result['gaps'])
+
     def test_later_page_error_preserves_earlier_evidence(self):
         with tempfile.TemporaryDirectory() as folder:
             result = self.run_collection(folder, fail_second=True)
             self.assertEqual(result['collected_count'], 2)
             self.assertEqual(result['status'], 'partial')
+
+
+class ReverseMarketValidationTests(unittest.TestCase):
+    def test_response_country_proof_and_conflicts(self):
+        from asin_keyword_breakout import _valid_response
+        asin = 'B000000001'
+        cases = [({'station':'GLOBAL','marketId':1}, 'US', True),
+                 ({'station':'GLOBAL','marketId':'4'}, 'DE', True),
+                 ({'station':'GLOBAL'}, 'US', False),
+                 ({'station':'GLOBAL','marketId':None}, 'DE', False),
+                 ({'station':'GLOBAL','marketId':1}, 'DE', False),
+                 ({'station':'DE','marketId':1}, 'DE', False),
+                 ({'station':'US','marketId':4}, 'DE', False),
+                 ({'station':'GLOBAL','marketId':True}, 'US', False),
+                 ({'station':'GLOBAL','marketId':'bad'}, 'US', False),
+                 ({'station':'DE'}, 'DE', True),
+                 ({'station':'GLOBAL','marketId':1,'unauthorized':True}, 'US', False)]
+        for fields, market, accepted in cases:
+            with self.subTest(fields=fields,market=market):
+                body={'code':'OK','data':{'asin':asin,'items':[],**fields}}
+                self.assertEqual(_valid_response(body,market,asin),accepted)
+                self.assertFalse(_valid_response(body,market,'B000000002'))
+
+    def test_wrong_page_country_rejected_before_query(self):
+        from unittest.mock import MagicMock
+        from asin_keyword_breakout import _verify_page_market
+        page=MagicMock();page.locator.return_value.first.input_value.return_value='美国站'
+        with self.assertRaisesRegex(RuntimeError,'网页站点不匹配'):
+            _verify_page_market(page,'DE')
 
 
 if __name__ == "__main__":

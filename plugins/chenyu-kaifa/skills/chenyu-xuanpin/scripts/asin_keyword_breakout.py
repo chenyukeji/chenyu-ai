@@ -71,9 +71,29 @@ def _valid_response(body, market, asin):
     if not isinstance(body, dict) or body.get("code") != "OK":
         return False
     data = body.get("data")
-    return (isinstance(data, dict) and data.get("asin") == asin
-            and data.get("station") in MARKET_STATIONS[market]
-            and isinstance(data.get("items"), list))
+    if (not isinstance(data, dict) or data.get("asin") != asin
+            or not isinstance(data.get("items"), list) or data.get("unauthorized") is True):
+        return False
+    # Current responses use station=GLOBAL for country-specific results. The
+    # explicit marketId is the country identity; never accept GLOBAL alone or
+    # allow a conflicting ID to fall back to a legacy country label.
+    market_id = data.get("marketId")
+    if market_id is not None:
+        if type(market_id) not in (int, str) or str(market_id) != str(MARKET_IDS[market]):
+            return False
+        return data.get("station") in MARKET_STATIONS[market] | {"GLOBAL"}
+    return data.get("station") in MARKET_STATIONS[market]
+
+
+def _verify_page_market(page, market):
+    expected = {"US": "美国", "DE": "德国"}[market]
+    label = ""
+    for _ in range(40):
+        label = page.locator("input:visible").first.input_value()
+        if expected in label:
+            return label
+        page.wait_for_timeout(250)
+    raise RuntimeError(f"关键词反查网页站点不匹配：expected={market}, actual={label}")
 
 
 def collect_reverse(market, asin, output, max_pages=20):
@@ -89,6 +109,7 @@ def collect_reverse(market, asin, output, max_pages=20):
         {"marketId": MARKET_IDS[market], "q": asin})
     landing = "https://www.sellersprite.com/v3/keyword-reverse/?" + urlencode({"marketId": MARKET_IDS[market]})
     with selection_collectors.session({"headless": True}, landing, sellersprite=True) as page:
+        market_label = _verify_page_market(page, market)
         def matches(response):
             if API_PATH not in response.url or response.request.method != "POST":
                 return False
@@ -126,6 +147,8 @@ def collect_reverse(market, asin, output, max_pages=20):
                     records[row['keyword'].casefold()] = row
             result = {"marketplace": market, "asin": asin, "product": product,
                       "source_url": page.url, "observed_at": datetime.now(timezone.utc).isoformat(),
+                      "market_evidence": {"page_label": market_label, "response_market_id": data.get("marketId"),
+                                          "response_station": data.get("station")},
                       "reported_total": total, "collected_count": len(records),
                       "status": "complete" if final and len(items) >= total and not gaps else "partial",
                       "gaps": gaps + ([f"仅覆盖前 {len(items)}/{total} 条"] if len(items) < total else []),
