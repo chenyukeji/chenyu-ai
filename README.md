@@ -10,7 +10,7 @@
 | AI 运营 | [chenyu-yunying](plugins/chenyu-yunying/README.md) | 自动选择、竞品研究、Listing、作图要求、订单商业发票 | 竞品研究包、独立运营 Excel、订单 PDF |
 | AI 美工 | [chenyu-meigong](plugins/chenyu-meigong/README.md) | 自动选择、整套作图、主图优化、局部精修 | 完整商品图片 |
 | AI 仓库 | [chenyu-cangku](plugins/chenyu-cangku/README.md) | 领星产品录用 | 产品录用表与按 MSKU 配对表 |
-| AI 物流 | [chenyu-wuliu](plugins/chenyu-wuliu/README.md) | 箱唛发货发票 | 联航或驿路达原格式 `.xls` |
+| AI 物流 | [chenyu-wuliu](plugins/chenyu-wuliu/README.md) | 箱唛发货发票 | 照片物流 `.xlsx`（原版发票按需） |
 
 版本以各插件的 `plugin.json` 和 `.codex-plugin/plugin.json` 为准，两份清单的版本必须一致。
 
@@ -20,7 +20,7 @@
 - 运营的竞品研究是可复用 Skill，网站不单独列为任务类型。Listing、作图要求分别交付；订单商业发票属于运营。
 - 美工实际出图依赖图像生成或编辑工具；文件检查不能替代视觉审核。
 - 仓库生成导入文件，不自动上传领星或修改库存。
-- 物流箱唛发票依赖 Windows＋WPS。网站已有物流表单，正式生成等待执行环境接入；不要把它与运营订单 PDF 混用。
+- 物流默认从箱唛照片生成固定表头 `.xlsx`，缺失字段留空并列出待补项；承运商原版 `.xls` 仍依赖 Windows＋WPS。不要与运营订单 PDF 混用。
 - 广告、采购、自动发布商品，以及独立 MCP/App、岗位 Agent 服务均未在本仓库实现。
 
 ## 目录
@@ -78,7 +78,7 @@ codex plugin add chenyu-wuliu@chenyu-ai
 - 运营订单 PDF：Python 与 PyMuPDF；见 [依赖文件](plugins/chenyu-yunying/skills/chenyu-invoice/scripts/requirements.txt)。
 - 运营工作簿拆分：Node.js 与执行环境提供的 `@oai/artifact-tool`。
 - 美工：图像生成/编辑工具；材料提取和文件检查脚本按各自 Skill 执行。
-- 物流：Windows PowerShell 与 WPS 表格，且能访问经授权的领星商品资料。
+- 物流：照片表格使用 openpyxl、Pillow；原版承运商发票另需 Windows PowerShell 与 WPS。商品补全只使用已核实资料。
 
 这是插件集合，按相应脚本和 Skill 执行，不提供仓库级 Python 应用或统一 CLI。
 

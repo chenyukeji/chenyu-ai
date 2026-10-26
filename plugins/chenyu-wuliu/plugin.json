@@ -1,7 +1,7 @@
 {
   "name": "chenyu-wuliu",
-  "version": "0.1.0",
-  "description": "Carton-photo shipping invoices for Chenyu logistics.",
+  "version": "0.2.0",
+  "description": "Carton photos to logistics Excel worksheets and carrier shipping invoices.",
   "author": {
     "name": "chenyukeji",
     "url": "https://github.com/chenyukeji"
@@ -18,13 +18,13 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "晨玙 Amazon 物流",
-    "shortDescription": "根据箱唛照片与领星资料生成联航、驿路达发货发票。",
-    "longDescription": "面向物流岗位，核对箱唛照片、领星商品资料、发货渠道及 FBA 箱号，保留承运商原版 .xls 模板生成发货发票。执行依赖 Windows 与 WPS 表格；不代替运营的买家订单商业发票。",
+    "shortDescription": "上传箱唛照片生成物流 Excel，缺失字段留空并列出待补项。",
+    "longDescription": "识别箱唛照片中的商品、数量、重量和尺寸，结合商品资料补齐申报字段，生成固定表头的物流 Excel 与待补信息；明确要求承运商原版发票时使用 Windows/WPS 流程。",
     "developerName": "晨玙科技",
     "category": "Productivity",
     "capabilities": [
       "Carton photo to shipping invoice generation"
     ],
-    "defaultPrompt": "使用箱唛照片和已确认的领星商品资料，生成联航或驿路达发货发票。"
+    "defaultPrompt": "根据箱唛照片生成物流 Excel，按商品逐行整理，缺失字段留空并列出待补信息。"
   }
 }
