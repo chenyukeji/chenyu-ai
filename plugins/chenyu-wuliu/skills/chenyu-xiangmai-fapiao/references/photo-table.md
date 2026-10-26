@@ -7,6 +7,7 @@
   "cartons": [{
     "cartonId": null,
     "sourcePhotos": ["箱唛照片.jpg"],
+    "sourceDocuments": ["本次已确认的内容表截图.png"],
     "weightKg": null,
     "dimensionsCm": [null, null, null],
     "notes": ["照片数字的单位待核"],
@@ -33,9 +34,9 @@
 ```
 
 - 每箱一个对象；cartonId 可用本次真实箱标识，缺失由脚本生成临时编号；不同箱须唯一。
-- 每个变体独立 item；quantity 是该箱该款的件数，正整数。含糊数量填 null，notes 写原文与疑问。
+- quantity 是该箱该申报行的件数，正整数。默认保留变体；本次有明确合并依据时，添加 `sourceItems: [{"name":"装备A","quantity":12},{"name":"装备B","quantity":6}]`，`quantity: 18`，以及 `consolidationEvidence` 记录确认来源。脚本强制校验加总，并将明细写入识别依据。
 - 重量、尺寸和价格须为正数；缺失填 null，不用 0、待确认等字符串。hsCode 为字符串以保留前导零。
-- notes 为字符串数组。sourcePhotos 为实际来源照片文件名数组。rawText 保留原文；evidence 记录补充资料来源、英文翻译或核对结果。
-- imagePath 仅接受已核对的本品本地图片路径；可先从本次商品资料提取。未找到则 null，不拿箱唛整图填充。
-- 币种由本次资料确认；若提供价格须在 evidence 记录币种来源，币种不明的价格不填写。表格不默认为 USD。
+- notes 为字符串数组。sourcePhotos 为实际箱唛照片文件名数组；sourceDocuments 为本次已确认资料文件名数组，不把它们当作单纯格式样例。rawText 保留原文；evidence 记录补充资料来源、英文翻译或核对结果。
+- imagePath 仅接受已核对的本品本地图片路径；可先从本次商品资料提取。已确认同货件截图中的对应商品缩略图也可原样裁取并注明来源；未找到则 null，不拿箱唛整图填充。
+- 币种由本次资料确认；提供价格时在 evidence 记录数值来源；已确认资料有价格但未注明币种时保留价格，在 notes 单列币种待核。表格不默认为 USD。
 - 脚本自动列出每一行空缺字段；额外歧义用 notes 补充。「待补信息」和「识别依据」都保留在同一个工作簿中。

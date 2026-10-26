@@ -53,3 +53,25 @@ def test_empty_or_duplicate_cartons_rejected(tmp_path):
     payload['cartons'][0]['cartonId'] = 'same'
     payload['cartons'] *= 2
     with pytest.raises(ValueError): module.generate(payload, tmp_path / 'out.xlsx')
+
+
+def test_confirmed_reference_and_consolidated_lines(tmp_path):
+    payload = {'cartons': [{'cartonId': '珍奇', 'sourcePhotos': ['carton.jpg'],
+        'sourceDocuments': ['confirmed.png'], 'weightKg': 16.05, 'dimensionsCm': [43, 37, 30],
+        'items': [{'nameZh': '滑雪圈', 'nameEn': 'Snow tube', 'quantity': 18,
+            'declaredUnitPrice': 4, 'material': '塑料', 'hsCode': '3926909090',
+            'purpose': '户外', 'brand': '无', 'model': '无',
+            'salesUrl': 'https://www.amazon.de/dp/B0HMZNQN2G',
+            'sourceItems': [{'name': '装备A', 'quantity': 12}, {'name': '装备B', 'quantity': 6}],
+            'consolidationEvidence': '用户确认同一箱内容表合并为滑雪圈'}]}]}
+    out = module.generate(payload, tmp_path / 'confirmed.xlsx')
+    book = load_workbook(out)
+    sheet = book['物流表']
+    assert [sheet.cell(2, col).value for col in (2,3,4,5,7,8,9,10,11,12,13,14)] == [16.05,43,37,30,'滑雪圈',4,18,'塑料','3926909090','户外','无','无']
+    assert sheet['O2'].hyperlink.target == 'https://www.amazon.de/dp/B0HMZNQN2G'
+    assert book['识别依据']['G2'].value == 'confirmed.png'
+    assert book['识别依据']['H2'].value == '装备A：12；装备B：6'
+    book.close()
+    payload['cartons'][0]['items'][0]['quantity'] = 19
+    with pytest.raises(ValueError, match='合并数量'):
+        module.generate(payload, tmp_path / 'bad.xlsx')

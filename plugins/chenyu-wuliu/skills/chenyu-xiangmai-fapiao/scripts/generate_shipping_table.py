@@ -41,7 +41,7 @@ def generate(data, output):
     evidence = wb.create_sheet('识别依据')
     ws.append(HEADERS)
     pending.append(['物流表行号', '箱号/箱唛', '商品', '待补字段', '说明'])
-    evidence.append(['物流表行号', '箱号/箱唛', '来源照片', '商品原文', 'SKU/MSKU', '补充资料/核对说明'])
+    evidence.append(['物流表行号', '箱号/箱唛', '来源照片', '商品原文', 'SKU/MSKU', '补充资料/核对说明', '已确认资料', '合并前明细'])
     seen = set()
     for index, carton in enumerate(cartons, 1):
         carton_id = str(carton.get('cartonId') or f'照片箱{index:03d}')
@@ -51,6 +51,9 @@ def generate(data, output):
         sources = carton.get('sourcePhotos')
         if not isinstance(sources, list) or not sources or not all(isinstance(s, str) and s.strip() for s in sources):
             raise ValueError(f'{carton_id}缺少来源照片')
+        documents = carton.get('sourceDocuments') or []
+        if not isinstance(documents, list) or not all(isinstance(v, str) and v.strip() for v in documents):
+            raise ValueError('sourceDocuments 须为已确认资料名称列表')
         items = carton.get('items')
         if not isinstance(items, list) or not items:
             raise ValueError(f'{carton_id}没有可识别商品')
@@ -67,6 +70,15 @@ def generate(data, output):
             values[1] = item.get("nameZh") or item.get("rawText")
             for key in ('quantity', 'declaredUnitPrice', 'salePrice'):
                 values[ITEM_FIELDS.index(key)] = number(item.get(key), key, key == 'quantity')
+            components = item.get('sourceItems') or []
+            if components:
+                if not isinstance(components, list) or not all(isinstance(part, dict) and part.get('name') for part in components):
+                    raise ValueError('合并前明细须包含各款 name 与 quantity')
+                quantities = [number(part.get('quantity'), '合并前数量', True) for part in components]
+                if any(q is None for q in quantities) or sum(quantities) != item.get('quantity'):
+                    raise ValueError('合并数量须等于各原始款数量之和')
+                if len(components) > 1 and not item.get('consolidationEvidence'):
+                    raise ValueError('合并商品须记录本次确认或相同申报属性的依据')
             if item.get('hsCode') is not None and not isinstance(item['hsCode'], str):
                 raise ValueError('海关编码须为字符串，保留前导零')
             # Product pictures are local, verified assets; carton photos are not product pictures.
@@ -83,6 +95,10 @@ def generate(data, output):
                 picture.width *= ratio
                 picture.height *= ratio
                 ws.add_image(picture, f'Q{row}')
+            url = item.get('salesUrl')
+            if isinstance(url, str) and url.startswith(('https://', 'http://')):
+                ws.cell(row, 15).hyperlink = url
+                ws.cell(row, 15).font = Font(color='0563C1', underline='single')
             ws.row_dimensions[row].height = 58
             missing = [HEADERS[i] for i, value in enumerate(box_values + values)
                        if (value is None or value == '') and not (i == 16 and image_path)]
@@ -92,7 +108,7 @@ def generate(data, output):
             if missing or notes:
                 for c, v in enumerate([row, carton_id, item.get('nameZh') or item.get('rawText'), '、'.join(missing), '；'.join(notes) or '照片及补充资料未提供，保留空白'], 1):
                     text_cell(pending, pending.max_row + 1 if c == 1 else pending.max_row, c, v)
-            for c, v in enumerate([row, carton_id, '、'.join(sources), item.get('rawText') or item.get('nameZh'), item.get('msku') or item.get('sku'), item.get('evidence')], 1):
+            for c, v in enumerate([row, carton_id, '、'.join(sources), item.get('rawText') or item.get('nameZh'), item.get('msku') or item.get('sku'), '；'.join(str(v) for v in [item.get('evidence'), item.get('consolidationEvidence')] if v), '、'.join(documents), '；'.join(f"{part['name']}：{part['quantity']}" for part in components)], 1):
                 text_cell(evidence, evidence.max_row + 1 if c == 1 else evidence.max_row, c, v)
         end = ws.max_row
         if end > start:
@@ -114,7 +130,7 @@ def generate(data, output):
                     cell.font = Font(name='Microsoft YaHei', bold=True, color='C00000' if '*' in str(cell.value) else '1F2937', size=11)
                     cell.fill = PatternFill('solid', fgColor='F3F4F6')
                 else:
-                    cell.fill = PatternFill('solid', fgColor='FFFF99' if sheet == ws else 'FFFFFF')
+                    cell.fill = PatternFill('solid', fgColor='FFFF00' if sheet == ws else 'FFFFFF')
         for col in range(1, sheet.max_column + 1):
             sheet.column_dimensions[get_column_letter(col)].width = 20 if sheet == ws else 30
         sheet.sheet_properties.pageSetUpPr.fitToPage = True
@@ -123,9 +139,9 @@ def generate(data, output):
         sheet.page_setup.fitToWidth = 1
         sheet.page_setup.fitToHeight = 0
         sheet.print_title_rows = '1:1'
-    for col in ('B', 'C', 'D', 'E', 'H', 'I', 'P'):
-        ws.column_dimensions[col].width = 13
-    ws.column_dimensions['O'].width = 35
+    widths = [16, 11, 9, 9, 9, 20, 13, 11, 11, 12, 16, 12, 10, 10, 24, 11, 17]
+    for index, width in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(index)].width = width
     for row in ws.iter_rows(min_row=2):
         row[10].number_format = '@'
         for index in (1, 2, 3, 4, 7, 15):
