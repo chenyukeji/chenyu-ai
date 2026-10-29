@@ -99,7 +99,7 @@ def plan_selection(payload):
                             spec = {**base, 'keyword': term}
                             if month: spec['history_month'] = month
                             queries.append(spec)
-    limit = scope.get('shortlist_limit', 50)
+    limit = scope.get('shortlist_limit', 200)
     if limit is not None and (type(limit) is not int or limit < 1):
         raise ValueError('shortlist_limit 必须为正整数或 null（审阅全部已采集父体）')
     batch_size = scope.get('review_batch_size', 50)
@@ -432,7 +432,7 @@ def run_selection(payload):
             'pending_parent':sum(not p.get('verified_parent_asin') for p in shortlisted),'keywords':len(report['keywords']['directions'])},
             'coverage':[{'source':r['query']['source'],'marketplace':r['query'].get('marketplace'),
                          'status':r.get('collection_status'),'reason':r.get('block_reason'),'rows':len(r.get('records',[]))} for r in results]}
-    target = plan.get('shortlist_limit', 50)
+    target = plan.get('shortlist_limit', 200)
     shortfall = max(0, target - output['counts']['accepted']) if target is not None else None
     output['counts'].update(target=target, shortfall=shortfall)
     output['product_history'] = []

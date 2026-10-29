@@ -133,7 +133,7 @@ def test_keyword_only_evidence_stays_in_json_and_workbook_has_one_sheet(monkeypa
     from openpyxl import load_workbook
     wb=load_workbook(result['workbook']['path'])
     evidence=json.loads((tmp_path/'selection-evidence.json').read_text())
-    assert result['status']=='PARTIAL' and result['counts']['shortfall']==50 and wb.sheetnames==['开品结果']
+    assert result['status']=='PARTIAL' and result['counts']['shortfall']==200 and wb.sheetnames==['开品结果']
     assert wb.active.max_row==1
     assert evidence['keywords']['directions'][0]['absolute_change']==200
     assert len(evidence['keywords']['directions'][0]['history'])==2
@@ -273,9 +273,9 @@ def review(item, relevant=True):
 
 
 @pytest.mark.parametrize('unlimited', [False, True])
-def test_default_fifty_or_explicit_all_in_resumable_batches(monkeypatch, tmp_path, unlimited):
+def test_default_two_hundred_or_explicit_all_in_resumable_batches(monkeypatch, tmp_path, unlimited):
     calls = []
-    rows = [product(asin=f'B{i:09d}') for i in range(125)]
+    rows = [product(asin=f'B{i:09d}') for i in range(225)]
     def collect(*args):
         calls.append(1)
         return {'collection_status': 'complete', 'records': rows}
@@ -284,15 +284,15 @@ def test_default_fifty_or_explicit_all_in_resumable_batches(monkeypatch, tmp_pat
     if unlimited:
         value['shortlist_limit'] = None
     r = flow.run_selection({'scope': value, 'run_dir': str(tmp_path), 'enrich': False})
-    assert r['counts']['families'] == 125 and len(r['analysis_requests']) == 50
-    expected_batches = [(50, 50), (100, 25), (125, 0)] if unlimited else [(50, 0)]
+    assert r['counts']['families'] == 225 and len(r['analysis_requests']) == 50
+    expected_batches = [(50, 50), (100, 50), (150, 50)] + ([(200, 25), (225, 0)] if unlimited else [(200, 0)])
     for expected_reviewed, expected_next in expected_batches:
         r = flow.run_selection({'run_dir': str(tmp_path), 'evidence_id': r['evidence_id'],
                                 'reviews': [review(p) for p in r['analysis_requests']]})
         assert r['counts']['reviewed'] == expected_reviewed
         assert len(r['analysis_requests']) == expected_next
     assert r['status'] == 'PARTIAL'  # Sales/review analysis still missing.
-    assert r['analysis_gaps'] and r['workbook']['row_count'] == (125 if unlimited else 50)
+    assert r['analysis_gaps'] and r['workbook']['row_count'] == (225 if unlimited else 200)
     assert len(calls) == 1
 
 
@@ -400,7 +400,7 @@ def test_product_query_rejects_all_variants_response():
 def test_large_requested_result_count_is_not_capped_at_one_hundred():
     plan = flow.plan_selection({'scope': {**scope(), 'shortlist_limit': 500}})
     assert plan['shortlist_limit'] == 500
-    assert flow.plan_selection({'scope': scope()})['shortlist_limit'] == 50
+    assert flow.plan_selection({'scope': scope()})['shortlist_limit'] == 200
 
 
 @pytest.mark.parametrize('same_parent', [False, True])
@@ -468,22 +468,25 @@ def test_submitting_reviews_keeps_failed_sources_and_evidence_stable(monkeypatch
 
 @pytest.mark.parametrize('input_urls', [[], ['https://www.amazon.com/dp/B012345678'],
                                       ['https://www.amazon.com/stores/example/page/123']])
-def test_default_fifty_counts_only_verified_families_and_replenishes(monkeypatch, tmp_path, input_urls):
+def test_default_two_hundred_counts_only_verified_families_and_replenishes(monkeypatch, tmp_path, input_urls):
     rows = [product(asin='B000000001', parent_asin=None), product(asin='B000000002', parent_asin=None)]
-    rows += [product(asin=f'B{i:09d}', parent_asin=f'B{1000 + i // 2:09d}') for i in range(100, 202)]
+    rows += [product(asin=f'B{i:09d}', parent_asin=f'B{1000 + i // 2:09d}') for i in range(100, 502)]
     monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': rows})
     value = {**scope(['sellersprite_new']), 'input_urls': input_urls}
     r = flow.run_selection({'scope': value, 'run_dir': str(tmp_path), 'enrich': False})
     assert len(r['analysis_requests']) == 50
     r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
-    assert r['counts']['accepted'] == 48 and len(r['analysis_requests']) == 2
-    r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
-    assert r['workbook']['row_count'] == r['counts']['accepted'] == 50
+    assert r['counts']['accepted'] == 48 and len(r['analysis_requests']) == 50
+    for accepted, remaining_batch in [(98, 50), (148, 50), (198, 2), (200, 0)]:
+        r = flow.run_selection({'run_dir': str(tmp_path), 'reviews': [review(p) for p in r['analysis_requests']]})
+        assert r['counts']['accepted'] == accepted
+        assert len(r['analysis_requests']) == remaining_batch
+    assert r['workbook']['row_count'] == r['counts']['accepted'] == 200
     assert r['counts']['pending_parent'] == 2 and r['status'] == 'PARTIAL'
     from openpyxl import load_workbook
     asins = [row[10].value for row in list(load_workbook(r['workbook']['path']).active.rows)[1:]]
     parents = {x['asin']: x.get('parent_asin') for x in rows}
-    assert len({parents[a] for a in asins}) == 50 and all(parents[a] for a in asins)
+    assert len({parents[a] for a in asins}) == 200 and all(parents[a] for a in asins)
 
 
 def test_parent_only_missing_triggers_enrichment_before_review(monkeypatch, tmp_path):
@@ -550,14 +553,14 @@ def test_resume_adds_evidence_to_workbook_and_clears_partial_status(monkeypatch,
     assert flow.run_selection({'run_dir': str(tmp_path)})['status'] == 'COMPLETE'
 
 
-@pytest.mark.parametrize('target, expected', [(50, 46), (10, 6), (None, None)])
+@pytest.mark.parametrize('target, expected', [(200, 196), (50, 46), (10, 6), (None, None)])
 def test_fully_analyzed_four_products_do_not_complete_larger_target(monkeypatch, tmp_path, target, expected):
     from test_product_evidence import analysis
     from copy import deepcopy
     rows = [product(asin=f'B{i:09d}') for i in range(4)]
     monkeypatch.setattr(flow, 'collect_query', lambda *args: {'collection_status': 'complete', 'records': rows})
     values = scope(['sellersprite_new'])
-    if target != 50:
+    if target != 200:
         values['shortlist_limit'] = target
     response = flow.run_selection({'scope': values, 'run_dir': str(tmp_path),
                                     'as_of_date': '2026-10-13', 'enrich': False})

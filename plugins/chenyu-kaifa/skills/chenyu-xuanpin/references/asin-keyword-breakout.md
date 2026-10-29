@@ -20,7 +20,7 @@
 
 ## 开品结果交付
 
-独立长尾词选品使用同目录的 `scripts/asin_keyword_breakout.py` 采集证据并导出开品结果，不启动默认 50 款综合选品。对每个明确竞品 ASIN 执行 `collect --market DE --asin B0HJ66GXZK --output <任务目录>/bread.json`；US 站将 `--market` 改为 US。采集复用共享登录浏览器，按页面普通 50 条分页完整读取；只把接口中与站点、ASIN 匹配的真实月度点写入证据 JSON。登录校验、权限或分页失败时停止或标注 `partial`，不得补造曲线。用户有现成导出表时也可整理为同结构的证据 JSON，但每个指标和月份都须能回溯原表。
+独立长尾词选品使用同目录的 `scripts/asin_keyword_breakout.py` 采集证据并导出开品结果，不启动默认 200 款综合选品。对每个明确竞品 ASIN 执行 `collect --market DE --asin B0HJ66GXZK --output <任务目录>/bread.json`；US 站将 `--market` 改为 US。采集复用共享登录浏览器，按页面普通 50 条分页完整读取；只把接口中与站点、ASIN 匹配的真实月度点写入证据 JSON。登录校验、权限或分页失败时停止或标注 `partial`，不得补造曲线。用户有现成导出表时也可整理为同结构的证据 JSON，但每个指标和月份都须能回溯原表。
 
 逐词审核相关性与趋势后，在内部任务目录写 `selected.json`，每项包含 `marketplace`、`asin`、`keyword`、`direction`、`note`；`keyword` 必须与证据原词完全一致。先确认反查来源商品是否确实属于入选方向，词与商品标题、图片冲突时核实搜索结果，不把来源竞品自动当成推荐商品。入选商品按 Skill 的历史销量、评论和事实规则补数；已核实的结果列可保存到证据 `product` 对象的同名中文字段，保留字段来源，缺项留空。关键词搜索量不能充当产品月销量，关键词材质或用途不能直接当成商品特征。
 
