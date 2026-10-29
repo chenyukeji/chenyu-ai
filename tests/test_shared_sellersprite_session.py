@@ -160,6 +160,42 @@ def test_verified_account_without_query_permission_does_not_relogin(store, fake_
     assert page.state['submits'] == 0
 
 
+def test_dead_owned_window_is_reclaimed_without_touching_unknown_windows(store):
+    store.root.mkdir(parents=True)
+    record = store.root / 'active-window.json'
+    ss.private_write(record, {'target_id': 'owned', 'pid': 99999999, 'process_start': '1'})
+    pages = {'owned', 'other'}
+    channel = MagicMock()
+
+    def send(method, payload=None):
+        if method == 'Target.getTargets':
+            return {'targetInfos': [{'type': 'page', 'targetId': target} for target in pages]}
+        assert method == 'Target.closeTarget' and payload == {'targetId': 'owned'}
+        pages.remove('owned')
+        return {'success': True}
+
+    channel.send.side_effect = send
+    ss.reclaim_abandoned_window(channel, store)
+    assert pages == {'other'}
+    assert not record.exists()
+
+
+def test_live_or_unrecorded_window_is_never_reclaimed(store):
+    store.root.mkdir(parents=True)
+    record = store.root / 'active-window.json'
+    ss.private_write(record, {'target_id': 'owned', 'pid': os.getpid(),
+                              'process_start': ss.process_start_token(os.getpid())})
+    channel = MagicMock()
+    channel.send.return_value = {'targetInfos': [{'type': 'page', 'targetId': 'owned'}]}
+    ss.reclaim_abandoned_window(channel, store)
+    assert record.exists()
+    assert not any(call.args[0] == 'Target.closeTarget' for call in channel.send.call_args_list)
+    record.unlink()
+    channel.reset_mock()
+    ss.reclaim_abandoned_window(channel, store)
+    channel.send.assert_not_called()
+
+
 def test_window_close_never_closes_shared_context_or_browser():
     context, page, browser = MagicMock(), MagicMock(), MagicMock()
     page.is_closed.return_value = False

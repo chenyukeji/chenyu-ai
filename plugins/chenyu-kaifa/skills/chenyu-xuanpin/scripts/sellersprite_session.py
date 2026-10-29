@@ -82,6 +82,54 @@ def read_json(path):
         return {}
 
 
+def process_start_token(pid):
+    # Linux PID reuse must not let a new process inherit an old window.
+    try:
+        return (Path('/proc') / str(pid) / 'stat').read_text().rpartition(')')[2].split()[19]
+    except (OSError, IndexError):
+        return None
+
+
+def owner_alive(record):
+    pid, token = record.get('pid'), record.get('process_start')
+    if type(pid) is not int or pid <= 0 or not isinstance(token, str) or not token:
+        return True  # Unknown ownership is never safe to reclaim.
+    if os.name != 'posix' or not Path('/proc').is_dir():
+        return True
+    current = process_start_token(pid)
+    return current is not None and current == token
+
+
+def reclaim_abandoned_window(channel, store):
+    path = store.root / 'active-window.json'
+    if not path.exists():
+        return
+    record = read_json(path)
+    target = record.get('target_id')
+    if not isinstance(target, str) or not target:
+        raise SessionError('sellersprite_window_owner_invalid')
+    pages = {item['targetId'] for item in channel.send('Target.getTargets')['targetInfos']
+             if item.get('type') == 'page'}
+    if target not in pages:
+        path.unlink(missing_ok=True)
+        return
+    if owner_alive(record):
+        return
+    # The account operation lock is held. Only the exact recorded, dead-owned
+    # target may be closed; unrecorded windows still block a new task.
+    if not channel.send('Target.closeTarget', {'targetId': target}).get('success'):
+        raise SessionError('sellersprite_browser_in_use')
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        pages = {item['targetId'] for item in channel.send('Target.getTargets')['targetInfos']
+                 if item.get('type') == 'page'}
+        if target not in pages:
+            path.unlink(missing_ok=True)
+            return
+        time.sleep(0.05)
+    raise SessionError('sellersprite_browser_in_use')
+
+
 def seller_cookie(cookie):
     if not isinstance(cookie, dict):
         return False
@@ -249,6 +297,7 @@ class ManagedContext:
     def __init__(self, context, page, browser):
         self.context, self.page, self.browser = context, page, browser
         self.closed = False
+        self.target_id = None
 
     def __getattr__(self, name):
         return getattr(self.context, name)
@@ -269,6 +318,8 @@ class ManagedContext:
                     observe_page(self.page)
                     self.page.close()
                 self.closed = True
+                if self.target_id:
+                    (store.root / 'active-window.json').unlink(missing_ok=True)
                 save_session(self.context)
             finally:
                 store.release()
@@ -358,6 +409,7 @@ def launch_context(runtime, payload):
         # Do not open a concurrent window or kill that caller's browser.
         channel = browser.new_browser_cdp_session()
         try:
+            reclaim_abandoned_window(channel, store)
             seeds = set(read_json(store.root / 'browser-process.json').get('seed_targets', []))
             if any(t['type'] == 'page' and (t['targetId'] not in seeds or t.get('url') != 'about:blank')
                    for t in channel.send('Target.getTargets')['targetInfos']):
@@ -384,6 +436,9 @@ def _create_task_window(browser, context, store, payload):
     try:
         target = cdp.send('Target.createTarget', {
             'url': 'about:blank', 'newWindow': True, 'background': True})['targetId']
+        private_write(store.root / 'active-window.json', {
+            'target_id': target, 'pid': os.getpid(),
+            'process_start': process_start_token(os.getpid()) or 'unknown'})
         page = None
         deadline = time.monotonic() + 10
         while page is None and time.monotonic() < deadline:
@@ -416,7 +471,9 @@ def _create_task_window(browser, context, store, payload):
     page.set_default_navigation_timeout(int(payload.get('navigation_timeout_ms', 30000)))
     page.set_viewport_size({'width': max(800, min(int(payload.get('viewport_width', 1440)), 2560)),
                             'height': max(600, min(int(payload.get('viewport_height', 1000)), 1600))})
-    return ManagedContext(context, page, browser), page, store.profile
+    managed = ManagedContext(context, page, browser)
+    managed.target_id = target
+    return managed, page, store.profile
 
 
 def observe_page(page):
