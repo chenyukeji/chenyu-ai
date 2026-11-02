@@ -5,6 +5,8 @@
 | `order_id` | 必填，Amazon 订单号 `000-0000000-0000000`；打印在 `Item No.` 列，分三行居中 |
 | `purchase_date` | **必填**，Amazon 订单购买日期，`YYYY-MM-DD`；打印到 `Date:`，格式 `DD/MM/YYYY`。不得使用配送截至日期或生成 PDF 的当天日期 |
 | `invoice_date` | 不接受此 JSON 字段；可选命令行 `--invoice-date` 仅用于核对，必须等于 `purchase_date` |
+| `sales_channel` | 从本单“销售渠道”读取，如 `Amazon.de`；用于 VAT 站点识别，不从商品链接或收件国推断 |
+| `marketplace_code` | 销售渠道缺失时，仅可用用户明确确认的 UK/DE/FR/IT/ES/NL/PL/CZ/AT/BE；与 sales_channel 同时给出必须一致 |
 | `currency` | 本 EUR 原母版**仅支持 EUR**，显示 `€` 和逗号小数 |
 | `buyer.company` | 原 Amazon 订单企业买家显示名（如虚构样例 Entreprise Exemple），仅保留为来源元数据；**不填写**第一行，不当作收件人姓名 |
 | `buyer.name` | 收件人姓名，填写到 **`Importer/Buyer/Receiver:` 后**。如虚构样例 `Camille EXEMPLE`；不是 Contact，也不是地址行 |
@@ -20,7 +22,8 @@
 | `shipping_fee` | 订单原始运费，已确认才填；缺失则发票留白，不假设 Amazon 配送运费为零 |
 | `shipping_discount` | 运费促销抵扣（用正数录入，如原始运费 0.75、优惠 -0.75 则填 0.75）；发票 Shipping fee 显示净运费 `shipping_fee - shipping_discount`，本例 `0,00` |
 | `order_total` | 已确认的订单实付总额；若未提供，原模板 `Total Amount` **仅展示商品小计**，交付时提醒核对 |
-| `tax.amount` | 可选；脚本按 `Price / 1.2 * 0.2` 自动算，若填写值与该口径不符则拒绝 |
+| `tax.amount` | 可选；脚本按销售站点税率 `r`，用 `Price / (1 + r) * r` 自动算，若填写值与该口径不符则拒绝 |
+| `tax.rate` | 可选，十进制比例（如 `"0.19"`）；必须与销售站点税率表一致，不能用于覆盖站点规则 |
 | `origin` | 有可靠依据才填 `ORGIN:` 后方，否则保持空白，旧发票 `CHINA` 不是默认事实 |
 | `shipping_way` / `fulfillment` | 源订单物流信息可保留在 JSON，但发票 **Shipping way 永远显示 Paypal package** |
 

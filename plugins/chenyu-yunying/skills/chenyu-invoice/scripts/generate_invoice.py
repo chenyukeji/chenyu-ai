@@ -11,11 +11,20 @@ import json
 from pathlib import Path
 import re
 import sys
+from urllib.parse import urlsplit
 
 
 CENT = Decimal('0.01')
-VAT_RATE = Decimal('0.20')  # Fixed business template rule: VAT is included in Price
-VAT_INCLUSIVE_DIVISOR = Decimal('1.20')
+# User-supplied business rates, not an automatic determination of tax treatment.
+SITE_VAT_RATES = {code: Decimal(rate) for code, rate in {
+    'UK': '0.20', 'DE': '0.19', 'FR': '0.20', 'IT': '0.22', 'ES': '0.21',
+    'NL': '0.21', 'PL': '0.23', 'CZ': '0.21', 'AT': '0.20', 'BE': '0.21',
+}.items()}
+SALES_CHANNEL_SITES = {
+    'amazon.co.uk': 'UK', 'amazon.de': 'DE', 'amazon.fr': 'FR',
+    'amazon.it': 'IT', 'amazon.es': 'ES', 'amazon.nl': 'NL',
+    'amazon.pl': 'PL', 'amazon.com.be': 'BE',
+}
 SHIPPING_WAY = 'Paypal package'  # Printed shipping method is fixed by the invoice template
 CURRENCY = {'EUR': '€', 'GBP': '£', 'USD': '$'}
 
@@ -36,6 +45,27 @@ def money(v, field='amount'):
 
 def clean(v):
     return re.sub(r'\s+', ' ', str(v or '')).strip()
+
+
+def resolve_vat_site(data):
+    """Use the order sales channel, never the delivery country or product link."""
+    channel = clean(data.get('sales_channel'))
+    explicit = clean(data.get('marketplace_code')).upper()
+    if explicit and explicit not in SITE_VAT_RATES:
+        raise ValueError(f'Unknown marketplace_code: {explicit}')
+    site = None
+    if channel:
+        host = urlsplit(channel if '://' in channel else '//' + channel).hostname or ''
+        host = host.lower().removeprefix('www.')
+        site = SALES_CHANNEL_SITES.get(host)
+        if site is None:
+            raise ValueError(f'Unknown sales_channel: {channel}; confirm the order marketplace')
+        if explicit and explicit != site:
+            raise ValueError('sales_channel conflicts with marketplace_code')
+    site = site or explicit
+    if not site:
+        raise ValueError('sales_channel or confirmed marketplace_code is required; cannot default to 20%')
+    return site
 
 
 def inferred_description(title):
@@ -59,9 +89,12 @@ def extract_order_text(content):
         raise ValueError('Multiple SKU sections found; provide structured JSON with items[]')
     out = {'order_id': ids[0], 'currency': 'EUR', 'items': [], 'buyer': {},
            'sales_channel': '', 'fulfillment': '', 'warnings': []}
-    channel = re.search(r'销售渠道\s*:\s*\|?\s*(Amazon\.[a-z.]+)', s, re.I)
-    if channel:
-        out['sales_channel'] = channel.group(1)
+    channels = set(re.findall(r'销售渠道\s*[:：]\s*\|?\s*(Amazon\.[a-z.]+)', s, re.I))
+    channels = {value.lower() for value in channels}
+    if len(channels) > 1:
+        raise ValueError('Conflicting sales channels; provide one verified order')
+    if channels:
+        out['sales_channel'] = channels.pop()
     else:
         out['warnings'].append('Sales channel not detected')
     name = re.search(r'买家姓名\s*:\s*\|?\s*([^|\n]+)', s)
@@ -92,11 +125,12 @@ def extract_order_text(content):
     sku = re.search(r'\bSKU\s*:\s*([^|\n]+)', s, re.I)
     asin = re.search(r'\bASIN\s*:\s*([A-Z0-9]{10})', s, re.I)
     qty = re.search(r'数量\s*:\s*\|?\s*(\d+)', s)
-    subtotal = re.search(r'商品小计\s*:\s*\|?\s*[€£$]\s*([0-9.,]+)', s)
+    subtotal = re.search(r'商品小计\s*:\s*\|?\s*([€£$])\s*([0-9.,]+)', s)
     if not product or not subtotal or not qty:
         raise ValueError('Product title, quantity or item subtotal missing; use structured JSON')
     quantity = int(qty.group(1))
-    line_total = money(subtotal.group(1), '商品小计')
+    out['currency'] = {'€': 'EUR', '£': 'GBP', '$': 'USD'}[subtotal.group(1)]
+    line_total = money(subtotal.group(2), '商品小计')
     if quantity <= 0:
         raise ValueError('Quantity must be positive')
     unit = (line_total / Decimal(quantity)).quantize(CENT, rounding=ROUND_HALF_UP)
@@ -125,8 +159,7 @@ def extract_order_text(content):
         out['seller_template'] = clean(seller_profile.group(1))
     if not fee:out['warnings'].append('Shipping fee unknown')
     if not grand:out['warnings'].append('Order grand total unknown')
-    out['warnings'].extend(['VAT calculated using the template 20%-inclusive formula; confirm tax treatment',
-                            'Country of manufacture unknown'])
+    out['warnings'].append('Country of manufacture unknown')
     return out
 
 
@@ -201,21 +234,32 @@ def normalize(data, seller=None, invoice_date=None, template=None):
         if order_total != expected_total:
             raise ValueError(f'Order total {order_total:.2f} does not match goods plus '
                              f'net shipping {expected_total:.2f}; check promotional discounts')
-    # Price is VAT-inclusive. Always use Price / 1.2 * 0.2, never Price * 0.2.
+    # Price is VAT-inclusive; the rate comes from the verified order marketplace.
     # Prefer a confirmed order total; otherwise calculate on the confirmed goods subtotal.
+    site = resolve_vat_site(d)
+    rate = SITE_VAT_RATES[site]
+    if tax.get('rate') not in (None, ''):
+        try:
+            supplied_rate = Decimal(str(tax['rate']))
+        except InvalidOperation as e:
+            raise ValueError('tax.rate must be a decimal fraction, e.g. 0.19') from e
+        if not supplied_rate.is_finite() or supplied_rate != rate:
+            raise ValueError(f'tax.rate conflicts with {site} marketplace rate {rate}')
+    divisor = Decimal('1') + rate
     vat_basis = 'order_total' if order_total is not None else 'items_subtotal'
     price = order_total if order_total is not None else subtotal
-    tax_amount = (price / VAT_INCLUSIVE_DIVISOR * VAT_RATE).quantize(CENT, rounding=ROUND_HALF_UP)
+    tax_amount = (price / divisor * rate).quantize(CENT, rounding=ROUND_HALF_UP)
     if supplied_tax is not None and supplied_tax != tax_amount:
-        raise ValueError(f'tax.amount {supplied_tax:.2f} disagrees with the fixed '
+        raise ValueError(f'tax.amount {supplied_tax:.2f} disagrees with the {site} '
                          f'VAT-inclusive formula ({tax_amount:.2f} on {vat_basis})')
     d['subtotal'] = subtotal
     d['shipping_fee'] = shipping
     d['shipping_discount'] = shipping_discount
     d['shipping_net'] = shipping_net
     d['order_total'] = order_total
-    d['tax'] = {**tax, 'amount': tax_amount, 'rate': '0.20',
-                'calculation': 'Price / 1.2 * 0.2', 'basis': vat_basis}
+    d['marketplace_code'] = site
+    d['tax'] = {**tax, 'amount': tax_amount, 'rate': str(rate),
+                'calculation': f'Price / {divisor.normalize()} * {rate.normalize()}', 'basis': vat_basis}
     warnings = [w for w in d.get('warnings', []) if isinstance(w, str)]
     for key, message in [('buyer','Buyer details missing'), ('seller','Seller details missing')]:
         if not isinstance(d.get(key), dict) or not d[key]:
@@ -231,7 +275,7 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     if vat_basis == 'items_subtotal':
         warnings.append('VAT is calculated on goods subtotal only; order total/shipping may be incomplete')
         warnings.append('Reference template Total Amount displays known goods subtotal; payment grand total not verified')
-    warnings.append('20% VAT-inclusive calculation is the supplied business template rule, not tax status verification')
+    warnings.append(f'{site} {rate:.0%} VAT-inclusive calculation uses the supplied marketplace rate table, not tax status verification')
     if not d.get('origin'):
         warnings.append('Country of manufacture not confirmed')
     d['warnings'] = list(dict.fromkeys(warnings))
@@ -409,6 +453,17 @@ def invoice_pdf(d,output):
         if n:
             doc.insert_pdf(fitz.open(template))
         page=doc[n]
+        # Replace only the preprinted rate label, preserving its baseline and €.
+        rate = Decimal(d['tax']['rate'])
+        if rate != Decimal('0.20'):
+            labels = page.search_for('VAT(20%*Price):')
+            if len(labels) != 1:
+                raise ValueError('Expected exactly one original VAT label in the template')
+            rect = labels[0]
+            page.add_redact_annot(rect, fill=(1,1,1))
+            page.apply_redactions(images=0, graphics=0, text=0)
+            draw_left(page, f'VAT({rate:.0%}*Price):', rect.x0, 664.13,
+                      font=FONT_SANS, size=9.95, max_width=rect.width+1)
         # Recipient name is the only value printed after Importer/Buyer/Receiver.
         # Order buyer's "Entreprise Exemple" is NOT a name and is not printed here.
         # Keep both original labels Contact: and Company Name: with blank values.

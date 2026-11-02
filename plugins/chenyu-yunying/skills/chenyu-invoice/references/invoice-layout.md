@@ -10,9 +10,9 @@
 - 右栏：`Manufacturer/Seller/Shipper:`、`Sales:`、卖家地址、`VAT number:`、`Date:` 使用原位置。Renhaoyuan 的 Sales 为 `Renhaoyuan`，附已确认邮箱；地址用拼音，不含 Business registration。卖家身份、地址及电话与所选母版一致，不默默套用另一卖家。
 - **Shipping way 固定为 `Paypal package`**，本值已经印在原母版上，不因 Amazon FBA / 加急改变。
 - **表格的列宽、边框、灰色表头、留白都从原母版读取，不重新绘制。** `Item No.` 使用 Amazon 订单号分三行居中，**不是 SKU**；`Item Name` 用约 12pt Times 粗体居中自动换行，`Description` 用粗体居中短商品名且不得默认空白；单价、数量和行金额用 12pt 衬线字体居中。长标题必要时小幅缩小字号，不可截断和溢出。
-- 页尾：保留原样的 `Shipping fee:`、`Total Amount:`、`VAT(20%*Price):`，底部 `TRADIN` / `G TERM:` / `ORGIN:` 以及横线。不要加原模板没有的 `Items subtotal:` 行或页脚装饰。
+- 页尾：保留原样的 `Shipping fee:`、`Total Amount:`，VAT 标签位置保留，百分比按订单站点替换为 `VAT(19%*Price):` 等，底部 `TRADIN` / `G TERM:` / `ORGIN:` 以及横线。不要加原模板没有的 `Items subtotal:` 行或页脚装饰。
 - 原模板 `Total Amount` 缺少订单实付总额时显示**已知商品小计**，并在交付说明提示这不是已核实的最终支付额；不能编造运费。已提供真正 `order_total` 时显示已确认的总额。
-- VAT 只按含税口径 `Price / 1.2 * 0.2` 计算；价款 €373,66 → VAT €62,28；价款 €7,99 → VAT €1,33，保留原标签 `VAT(20%*Price):`。这只是用户要求的固定业务计算规则，实际税务适用性须人工确认。
+- VAT 按 [技能入口税率表](../SKILL.md) 从订单销售渠道取税率 `r`，用含税口径 `Price / (1 + r) * r` 计算并同步替换右下角百分比。FR 20% 时价款 €7,99 → VAT €1,33；DE 19% 时价款 €119,00 → VAT €19,00。表格是用户指定业务规则，实际税务适用性须独立核实。
 - **VAT 同行对齐**：原母版 `VAT(20%*Price):`、欧元符号 `€` 的文字基线均为 PDF y=`664.13 pt`；新金额必须以 x=`506.4 pt`、y=`664.13 pt`、Arial 近似 Helvetica `9.95 pt` 绘制，金额紧跟 `€`，不得使用 Courier 字体产生松散字距，也不得使用 `666.0 pt` 的下沉基线。验收时以 PDF 文字 span 的 `origin.y` 差小于 `0.2 pt` 为准。
 - 未确认的买家税号、运费、原产国、Tracking 和 Remote area 保持空白。**不能复制旧发票中的 `CHINA` 或 `No` 作为新订单事实**。
 
@@ -25,11 +25,11 @@
 | 商品行 | y≈500.8—610.5，不能移动 |
 | 收件人姓名 | `Importer/Buyer/Receiver` 值 x≈157；Contact 和 Company Name 不填值 |
 | 买家地址 | x≈106.9。第 1 行街道、第 2 行楼栋（两行 baseline 314.0 / 329.5）；三行时字号约 9.55pt，baseline 308.4 / 319.3 / 330.2，不得压到 City 内容 |
-| Total Amount / VAT | 原 PDF 标签保持不动，仅替换右侧数值 |
+| Total Amount / VAT | 原位置保持不动，VAT 百分比和右侧数值同步替换 |
 
 ## 页面和异常
 
-- 仅针对**法国站 EUR** 与已登记卖家母版；其他站点/币种需要对应已确认母版。
+- 支持税率表内已确认站点的 **EUR** 订单与已登记卖家母版；非 EUR 币种仍需对应已确认母版。
 - 一页一个商品项；多商品复制原母版到第二页，不压缩行高。合计与 VAT 只在最后一页出现。
 - 卖家主体与所选母版不符、国家名或地址无法在固定栏中排下、超长标题最小字号仍超出时，停止并说明需要匹配或扩展母版；不偷偷删字。
 - 生成后渲染 A4 图像，逐项检查 PDF 原母版灰色表头及边线、收件人、地址、`Item No.`、`Item Name`、`Description`、单价、数量、合计与 VAT，所有新内容均可选择复制。
@@ -38,7 +38,7 @@
 
 - 原母版 `Country` 静态打印 France；Renhaoyuan 空白母版没有预填国家。按各母版情况只清除该值并打印本单英文国家，不可漏填或出现两国叠字。
 - `shipping_fee` 与 `shipping_discount` 均记录原值；固定表格的 `Shipping fee` 单行展示净运费，金额 `shipping_fee - shipping_discount`，无运费时留空，不能把促销抵扣再当成额外收入。
-- 原模板的 `VAT(20%*Price)` 保留用户指定的含税计算口径，但是否适用于 Belgium 等跨境订单必须与 Amazon 税务记录核实，不把模板口径宣传为法定正确税率。
+- 原模板的 VAT 百分比随销售站点变化；收件国家只用于 Country 栏，不覆盖站点。含税计算是用户指定业务口径，不把站点表宣传为已核实的法定适用税率。
 
 ## 日期填写规范
 

@@ -171,6 +171,113 @@ class InvoiceTests(unittest.TestCase):
         self.assertNotIn('Express',txt)
         self.assertNotIn('Amazon FBA',txt)
 
+    def test_marketplace_rates_and_pdf_labels(self):
+        cases = [('UK', 'Amazon.co.uk', '20', '20.00'),
+                 ('DE', 'Amazon.de', '19', '19.00'),
+                 ('FR', 'Amazon.fr', '20', '20.00'),
+                 ('IT', 'Amazon.it', '22', '22.00'),
+                 ('ES', 'Amazon.es', '21', '21.00'),
+                 ('NL', 'Amazon.nl', '21', '21.00'),
+                 ('PL', 'Amazon.pl', '23', '23.00'),
+                 ('CZ', '', '21', '21.00'),
+                 ('AT', '', '20', '20.00'),
+                 ('BE', 'Amazon.com.be', '21', '21.00')]
+        for seller in ['jiuyue', 'renhaoyuan']:
+            for code, channel, percent, expected in cases:
+                with self.subTest(seller=seller, code=code), tempfile.TemporaryDirectory() as td:
+                    data=deepcopy(SAMPLE)
+                    data.update(seller_template=seller, sales_channel=channel, marketplace_code=code)
+                    # A gross price of 100 + rate yields exactly rate in VAT.
+                    gross=str(Decimal('100')+Decimal(percent))
+                    data['items'][0].update(unit_price=gross, line_total=gross)
+                    data['order_total']=gross
+                    n=mod.normalize(data)
+                    self.assertEqual(n['tax']['amount'],Decimal(expected))
+                    self.assertEqual(n['marketplace_code'],code)
+                    pdf=Path(td)/'invoice.pdf'
+                    mod.invoice_pdf(n,pdf)
+                    with fitz.open(pdf) as doc:
+                        page=doc[0]
+                        text=page.get_text()
+                        label=f'VAT({percent}%*Price):'
+                        self.assertIn(label,text)
+                        self.assertEqual(text.count('VAT('),1)
+                        if percent!='20':
+                            self.assertNotIn('VAT(20%*Price):',text)
+                        spans=[sp for block in page.get_text('dict')['blocks']
+                               for line in block.get('lines',[]) for sp in line['spans']]
+                        lab=next(sp for sp in spans if sp['text']==label)
+                        euro=next(sp for sp in spans if sp['text'].strip()=='€' and 650<sp['origin'][1]<675)
+                        amount=next(sp for sp in spans if sp['text']==expected.replace('.',','))
+                        self.assertLess(abs(lab['origin'][1]-amount['origin'][1]),0.2)
+                        self.assertLess(abs(lab['origin'][1]-euro['origin'][1]),0.2)
+                        self.assertLessEqual(lab['bbox'][2],euro['bbox'][0])
+                        self.assertAlmostEqual(page.rect.width,595.3,places=1)
+
+    def test_sales_channel_is_not_delivery_country(self):
+        data=deepcopy(SAMPLE)
+        data['buyer']['country']='Belgium'
+        self.assertEqual(mod.normalize(data)['tax']['rate'],'0.20')
+        data['sales_channel']='Amazon.com.be'
+        self.assertEqual(mod.normalize(data)['tax']['rate'],'0.21')
+        data['sales_channel']='https://www.AMAZON.DE/'
+        self.assertEqual(mod.normalize(data)['tax']['rate'],'0.19')
+
+    def test_missing_unknown_and_conflicting_sites_fail(self):
+        for channel, code in [('', ''), ('Amazon.com', ''), ('Amazon.de.example.test', ''),
+                              ('Amazon.de', 'FR'), ('', 'XX'), ('Amazon.com', 'FR')]:
+            data=deepcopy(SAMPLE)
+            data.update(sales_channel=channel,marketplace_code=code)
+            with self.subTest(channel=channel, code=code),self.assertRaises(ValueError):
+                mod.normalize(data)
+
+    def test_supplied_rate_and_amount_must_match_site(self):
+        for tax in [{'rate':'0.20'}, {'rate':'NaN'}, {'rate':'19%'}, {'amount':'1.33'}]:
+            data=deepcopy(SAMPLE)
+            data.update(sales_channel='Amazon.de', tax=tax)
+            with self.subTest(tax=tax), self.assertRaises(ValueError):
+                mod.normalize(data)
+        data['tax']={'rate':'0.19','amount':'1.28'}
+        self.assertEqual(mod.normalize(data)['tax']['amount'],Decimal('1.28'))
+
+    def test_dynamic_rate_uses_total_and_rounds_to_cents(self):
+        data=deepcopy(SAMPLE)
+        data.update(sales_channel='Amazon.it',shipping_fee='1.00',order_total='8.99')
+        n=mod.normalize(data)
+        self.assertEqual(n['tax']['amount'],Decimal('1.62'))
+        self.assertEqual(n['tax']['basis'],'order_total')
+        self.assertEqual(n['tax']['calculation'],'Price / 1.22 * 0.22')
+
+    def test_pound_order_text_cannot_be_printed_as_euro(self):
+        raw="""403-1234567-7654321
+销售渠道: Amazon.co.uk
+购买日期: 2026年10月1日
+| [Example Item](https://www.amazon.co.uk/gp/product/B000000000) | 数量: 1 | 商品小计: £7.99 |"""
+        parsed=mod.extract_order_text(raw)
+        self.assertEqual(parsed['currency'],'GBP')
+        with self.assertRaisesRegex(ValueError,'fixed EUR'):
+            mod.normalize(parsed)
+
+    def test_dynamic_rate_on_each_item_page(self):
+        data=deepcopy(SAMPLE)
+        data['sales_channel']='Amazon.de'
+        data['items']*=2
+        pages=self.render_text(data)
+        for page in pages:
+            self.assertIn('VAT(19%*Price):',page)
+            self.assertNotIn('VAT(20%*Price):',page)
+        self.assertIn('2,55',pages[-1])
+
+    def test_parser_reads_sales_channel_not_product_link(self):
+        raw="""403-1234567-7654321
+销售渠道： Amazon.de
+购买日期: 2026年10月1日
+| [Article Exemple](https://www.amazon.fr/gp/product/B000000000) | 数量: 1 | 商品小计: €7.99 |"""
+        parsed=mod.extract_order_text(raw)
+        self.assertEqual(mod.normalize(parsed)['tax']['rate'],'0.19')
+        with self.assertRaisesRegex(ValueError,'Conflicting sales channels'):
+            mod.extract_order_text(raw+'\n销售渠道: Amazon.fr')
+
     def test_fixed_vat_7_99(self):
         n=mod.normalize(SAMPLE)
         self.assertEqual(n['tax']['amount'],Decimal('1.33'))
@@ -422,6 +529,7 @@ class InvoiceTests(unittest.TestCase):
         raw='''403-1234567-7654321
 | [Article Exemple](https://www.amazon.fr/gp/product/B000000000) | 数量: 1 | 商品小计: €7.99 |
 购买日期: 2026年10月1日
+销售渠道: Amazon.fr
 配送地址
 | Pickup EXEMPLE<br>Rue Exemple 10<br>Lyon, 69000<br>法国 |
 Profil vendeur Amazon.fr : Renhaoyuan'''
