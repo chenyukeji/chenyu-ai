@@ -6,7 +6,7 @@
 
 - 纸张：A4，595.3 × 841.9 pt，页边距和上下留白均使用 PDF 母版原位置。
 - 抬头：按 [卖家母版](seller-templates.md) 居中打印完整公司名称。原母版为 `shenzhenshijiuyuekejiyouxiangongsi`；Renhaoyuan 母版为 `shenzhenshirenhaoyuanmaoyiyouxiangongsi`，不能只写店铺简称。各母版左侧地址、电话与 `COMMERCIAL INVOICE` 保持已确认版式。
-- 左栏：`Importer/Buyer/Receiver:` **仅填收件人姓名**（如虚构样例 Camille EXEMPLE），不填企业买家显示名；`Contact:` 和 `Company Name:` **标签不删除，但值留空**；`Address:` 仅填写街道与楼栋，不重复姓名；其余标签 `City:`、`Country:`、`Post code:`、`Tel:`、`Remote area:`、`Shipping way`、`Tracking number:` 的位置不变。
+- 左栏：`Importer/Buyer/Receiver:` **填写本单配送地址第一行原文**，可以是个人、公司、机构或取件点名称；不改用其他位置的企业买家或“联系买家”显示名；`Contact:` 和 `Company Name:` **标签不删除，但值留空**；`Address:` 仅填写街道与楼栋，不重复姓名；其余标签 `City:`、`Country:`、`Post code:`、`Tel:`、`Remote area:`、`Shipping way`、`Tracking number:` 的位置不变。
 - 右栏：`Manufacturer/Seller/Shipper:`、`Sales:`、卖家地址、`VAT number:`、`Date:` 使用原位置。Renhaoyuan 的 Sales 为 `Renhaoyuan`，附已确认邮箱；地址用拼音，不含 Business registration。卖家身份、地址及电话与所选母版一致，不默默套用另一卖家。
 - **Shipping way 固定为 `Paypal package`**，本值已经印在原母版上，不因 Amazon FBA / 加急改变。
 - **表格的列宽、边框、灰色表头、留白都从原母版读取，不重新绘制。** `Item No.` 使用 Amazon 订单号分三行居中，**不是 SKU**；`Item Name` 用约 12pt Times 粗体居中自动换行，`Description` 用粗体居中短商品名且不得默认空白；单价、数量和行金额用 12pt 衬线字体居中。长标题必要时小幅缩小字号，不可截断和溢出。
@@ -23,7 +23,7 @@
 | 七列分界 x | `9.9, 65.3, 122.3, 288.8, 381.9, 460.55, 507.05, 558.9` |
 | 灰色表头 | y≈458.1—494.8 |
 | 商品行 | y≈500.8—610.5，不能移动 |
-| 收件人姓名 | `Importer/Buyer/Receiver` 值 x≈157；Contact 和 Company Name 不填值 |
+| 收件人（配送地址第一行） | `Importer/Buyer/Receiver` 值 x≈157；Contact 和 Company Name 不填值 |
 | 买家地址 | x≈106.9。第 1 行街道、第 2 行楼栋（两行 baseline 314.0 / 329.5）；三行时字号约 9.55pt，baseline 308.4 / 319.3 / 330.2，不得压到 City 内容 |
 | Total Amount / VAT | 原位置保持不动，VAT 百分比和右侧数值同步替换 |
 

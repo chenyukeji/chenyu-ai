@@ -8,8 +8,8 @@
 | `sales_channel` | 从本单“销售渠道”读取，如 `Amazon.de`；用于 VAT 站点识别，不从商品链接或收件国推断 |
 | `marketplace_code` | 销售渠道缺失时，仅可用用户明确确认的 UK/DE/FR/IT/ES/NL/PL/CZ/AT/BE；与 sales_channel 同时给出必须一致 |
 | `currency` | 本 EUR 原母版**仅支持 EUR**，显示 `€` 和逗号小数 |
-| `buyer.company` | 原 Amazon 订单企业买家显示名（如虚构样例 Entreprise Exemple），仅保留为来源元数据；**不填写**第一行，不当作收件人姓名 |
-| `buyer.name` | 收件人姓名，填写到 **`Importer/Buyer/Receiver:` 后**。如虚构样例 `Camille EXEMPLE`；不是 Contact，也不是地址行 |
+| `buyer.company` | 原 Amazon 订单企业买家显示名（如虚构样例 Entreprise Exemple），仅保留为来源元数据；不替代配送地址第一行。若同名出现在配送地址第一行，则按首行规则填写 buyer.name |
+| `buyer.name` | 所有订单均取“配送地址”第一行原文，填写到 **`Importer/Buyer/Receiver:` 后**；个人、公司、机构、取件点名称均可，不重复确认、不删改重复词，不改用“联系买家”显示名；首行缺失或不可读时补充 |
 | `buyer.legal_company_name` | 本母版的 `Company Name:` **标签保留、值固定留空**；不把 `buyer.company` 或收件人重复写到这一行 |
 | `buyer.address_lines` | **仅街道和楼栋**，不包含收件人、城市和邮编；不重复姓名；最多三行，溢出则提示，不裁剪 |
 | `buyer.city`, `buyer.postal_code`, `buyer.country` | 目标城市、邮编、国家。法国时沿用原模板 France；比利时等其他国家仅替换国家值，不改原版布局 |

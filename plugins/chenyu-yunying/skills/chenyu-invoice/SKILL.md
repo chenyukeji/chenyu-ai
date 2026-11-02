@@ -1,6 +1,6 @@
 ---
 name: chenyu-invoice
-description: 晨玙 Amazon 商业发票生成。按已确认卖家选择 JiuYue 或 Renhaoyuan 空白 PDF 母版，保留原版式；顶部打印完整公司名称，Renhaoyuan 地址用拼音。Item No. 打印订单编号，Description 不得留空；Shipping way 固定 Paypal package；从订单销售渠道识别站点，按用户税率表计算含税 VAT 并同步替换右下角百分比；生成前验证买家和金额，生成后渲染核验。
+description: 晨玙 Amazon 商业发票生成。按已确认卖家选择 JiuYue 或 Renhaoyuan 空白 PDF 母版，保留原版式；顶部打印完整公司名称，Renhaoyuan 地址用拼音。配送地址首行统一作为收件人；Item No. 打印订单编号，Description 不得留空；Shipping way 固定 Paypal package；从订单销售渠道识别站点，按用户税率表计算含税 VAT 并同步替换右下角百分比；生成前验证买家和金额，生成后渲染核验。
 ---
 
 # 晨玙发票生成 `chenyu-invoice`
@@ -24,7 +24,7 @@ description: 晨玙 Amazon 商业发票生成。按已确认卖家选择 JiuYue 
 
 ## 生成步骤
 
-1. 只读提取订单：**销售渠道**（如 `Amazon.de`，保存为 `sales_channel`）、订单号、`buyer.name`（收件人，如虚构样例 Camille EXEMPLE）、买家类型/企业显示名（仅作来源元数据）、街道、楼栋、城市、邮编、商品标题、数量和金额。**`Importer/Buyer/Receiver:` 后仅填 `buyer.name`；`Contact:`、`Company Name:` 标签保留且不填值；`Address:` 仅打印街道/楼栋，不重复收件人姓名**。地址首行只有取件柜/机构名称时，不编造个人姓名；用户明确要求将该首行当作姓名则按本单指示填入 `buyer.name`，并从地址栏移除重复首行。这不是其他订单的通用姓名规则。
+1. 只读提取订单：**销售渠道**（如 `Amazon.de`，保存为 `sales_channel`）、订单号、`buyer.name`（本单配送地址第一行，个人或机构名称均可）、买家类型/企业显示名（仅作来源元数据）、街道、楼栋、城市、邮编、商品标题、数量和金额。**`Importer/Buyer/Receiver:` 后仅填 `buyer.name`；`Contact:`、`Company Name:` 标签保留且不填值；`Address:` 仅打印街道/楼栋，不重复收件人姓名**。**所有订单统一把“配送地址”第一行原样作为 `buyer.name`**，无论该行是个人、公司、机构或取件点名称，均直接填写，不再因其不是个人姓名而要求确认。保留首行原有重复词，不擅自去重或改写；后续行再拆分街道/楼栋、城市、邮编与国家，不在地址栏重复首行。不使用“联系买家”的显示名或其他位置的企业买家名称替代配送地址第一行；只有首行缺失、模糊或被截断时才要求补充。
 2. 验证 `items[].unit_price × quantity = line_total`；所有金额保留两位小数、法式逗号小数。币种必须是 EUR；Buyer Country 使用本单实际国家，清空或替换母版原值，不假设法国。
 3. `Item No.` **使用订单编号**分三行居中，不使用 SKU。`Item Name` 写完整已确认商品标题，衬线粗体居中自动换行；`Description` 写标题中可确认的短品名/规格（优先显式 JSON 的 `description`），不能空着。
 4. **发票 `Date:` 必须取 Amazon 订单 `购买日期`**（本地日期，忽略当天生成日期和截止配送日期）；转换为 `DD/MM/YYYY`，没有可核对的购买日期就停止并要求补充。**Shipping way 固定原母版的 `Paypal package`**；Amazon 加急/FBA 来源保留在数据中，不覆盖发票固定文字。
