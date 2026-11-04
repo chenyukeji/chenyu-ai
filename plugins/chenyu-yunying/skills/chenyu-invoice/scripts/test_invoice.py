@@ -54,6 +54,25 @@ class InvoiceTests(unittest.TestCase):
         self.assertIn('4,60', text)
         self.assertEqual(text.count('PLN'), 4)
 
+    def test_imported_seller_restores_address_label_on_every_page(self):
+        for currency, channel in [('EUR', 'Amazon.de'), ('PLN', 'Amazon.pl')]:
+            data = self.pln_example()
+            data.update(currency=currency, sales_channel=channel, order_total='49.20')
+            data['items'] *= 2
+            with self.subTest(currency=currency), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory)/'invoice.pdf'
+                mod.invoice_pdf(mod.normalize(data), path)
+                with fitz.open(path) as document:
+                    self.assertEqual(len(document), 2)
+                    for page in document:
+                        header = ' '.join(page.get_text(clip=fitz.Rect(10, 108, 580, 158)).split())
+                        expected = 'ADD: ' + ', '.join(data['seller']['address_lines'])
+                        self.assertEqual(header, expected)
+                        self.assertEqual(page.get_text().count('ADD:'), 1)
+                        self.assertNotIn('pinghujiedao', page.get_text())
+                        detail = page.get_text(clip=fitz.Rect(384, 295, 560, 378))
+                        self.assertNotIn('ADD:', detail)
+
     def test_incomplete_or_other_order_billing_message_never_falls_back(self):
         data = self.pln_example()
         data['billing_request']['order_id'] = '403-9999999-9999999'

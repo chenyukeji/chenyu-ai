@@ -494,7 +494,8 @@ def fill_imported_seller(page, seller):
     page.apply_redactions(images=0, graphics=0, text=0)
     draw_centered_lines(page, seller['company'], 14, 580, 77, 108, font=FONT_SANS, ideal=22, minimum=14)
     address = '\n'.join(seller['address_lines'])
-    header, size, leading = fit_lines(', '.join(seller['address_lines']), FONT_SANS_BOLD, 560, 46, ideal=11, minimum=9, lead=1.15)
+    # The address region is replaced wholesale; restore its fixed template label.
+    header, size, leading = fit_lines('ADD: ' + ', '.join(seller['address_lines']), FONT_SANS_BOLD, 560, 46, ideal=11, minimum=9, lead=1.15)
     for index, line in enumerate(header):
         draw_left(page, line, 14.4, 119 + index*leading, font=FONT_SANS_BOLD, size=size)
     detail, size, leading = fit_lines(address, FONT_SANS, 172, 76, ideal=10.45, minimum=9, lead=1.2)
