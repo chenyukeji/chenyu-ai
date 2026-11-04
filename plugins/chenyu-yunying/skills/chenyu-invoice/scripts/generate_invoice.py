@@ -130,7 +130,7 @@ def extract_order_text(content):
     asin = re.search(r'\bASIN\s*:\s*([A-Z0-9]{10})', s, re.I)
     qty = re.search(r'数量\s*:\s*\|?\s*(\d+)', s)
     amount_pattern = r'(?:(€|£|\$|PLN|zł)\s*([0-9.,]+)|([0-9.,]+)\s*(€|£|\$|PLN|zł))'
-    subtotal = re.search(r'商品小计\s*:\s*\|?\s*' + amount_pattern, s)
+    subtotal = re.search(r'(?:商品小计|Item subtotal)\s*[:：]\s*\|?\s*' + amount_pattern, s, re.I)
     if not product or not subtotal or not qty:
         raise ValueError('Product title, quantity or item subtotal missing; use structured JSON')
     quantity = int(qty.group(1))
@@ -151,13 +151,15 @@ def extract_order_text(content):
     if purchased:
         out['purchase_date'] = f'{int(purchased.group(1)):04d}-{int(purchased.group(2)):02d}-{int(purchased.group(3)):02d}'
     out['fulfillment'] = 'Amazon FBA' if re.search(r'(?:配送渠道|配送)\s*:\s*\|?\s*亚马逊', s) else ''
-    for label, field in [('运费总额', 'shipping_fee'), ('促销', 'shipping_discount'), ('商品总计', 'order_total')]:
+    for label, field in [('运费总额', 'shipping_fee'), ('促销', 'shipping_discount'), ('(?:商品总计|Item total)', 'order_total')]:
         sign = r'[-−]\s*' if field == 'shipping_discount' else ''
-        matched = re.search(label + r'\s*:\s*\|?\s*' + sign + amount_pattern, s)
+        matched = re.search(label + r'\s*[:：]\s*\|?\s*' + sign + amount_pattern, s, re.I)
         if matched:
             if symbols[matched.group(1) or matched.group(4)] != out['currency']:
                 raise ValueError('Conflicting currencies in order amounts')
             out[field] = str(money(matched.group(2) or matched.group(3), label))
+            if field == 'order_total':
+                out['amount_source'] = 'displayed_item_total'
     seller_profile = re.search(r'Profil vendeur Amazon\.fr\s*[:：]\s*([^\r\n|]+)', s, re.I)
     if seller_profile:
         out['seller_template'] = clean(seller_profile.group(1))
@@ -326,10 +328,10 @@ def number_fmt(value):
 def validate_currency(data):
     currency = data.get('currency')
     if currency not in CURRENCY:
-        raise ValueError('Explicit supported currency required: EUR or confirmed PLN; fixed EUR must not relabel other currencies')
-    approved = data.get('template_currency')
-    if (approved is not None and approved != currency) or (currency != 'EUR' and approved != currency):
-        raise ValueError('Non-EUR template_currency must match the explicitly confirmed original currency')
+        raise ValueError('Explicit supported currency required: EUR or PLN; fixed EUR must not relabel other currencies')
+    template_currency = data.get('template_currency')
+    if template_currency is not None and template_currency != currency:
+        raise ValueError('template_currency conflicts with original order currency; do not convert or relabel amounts')
 
 
 def insert_text(page, point, value, font, size):

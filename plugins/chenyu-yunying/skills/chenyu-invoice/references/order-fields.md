@@ -7,8 +7,8 @@
 | `invoice_date` | 不接受此 JSON 字段；可选命令行 `--invoice-date` 仅用于核对，必须等于 `purchase_date` |
 | `sales_channel` | 从本单“销售渠道”读取，如 `Amazon.de`；用于 VAT 站点识别，不从商品链接或收件国推断 |
 | `marketplace_code` | 销售渠道缺失时，仅可用用户明确确认的 UK/DE/FR/IT/ES/NL/PL/CZ/AT/BE；与 sales_channel 同时给出必须一致 |
-| `currency` | 必填实际币种；支持 EUR，以及已确认调整母版的 PLN，不能默认 EUR 或自行换汇 |
-| `template_currency` | PLN 时必须为用户明确确认的 `PLN`；若提供须与 `currency` 完全一致。只改变币种文字，不换算金额 |
+| `currency` | 必填实际币种；支持 EUR 与 PLN，默认按原币生成并自动匹配模板文字，不能默认 EUR 或自行换汇 |
+| `template_currency` | 可选兼容字段，不是审批字段；通常省略。若提供须与 `currency` 完全一致，否则报冲突，不换算金额 |
 | `billing_request` | 同订单买家明确开票留言，含 `order_id` 与完整 `buyer`；先核对订单号，优先于配送资料，不能混用字段。缺项/不匹配时停止，不退回配送地址 |
 | `buyer.vat_number` | 已提供的买方税号，在买方栏单独标为 Buyer VAT/NIP；不是卖方 VAT。留言资料放在 `billing_request.buyer` 同名字段 |
 | `buyer.company` | 原 Amazon 订单企业买家显示名（如虚构样例 Entreprise Exemple），仅保留为来源元数据；不替代配送地址第一行。若同名出现在配送地址第一行，则按首行规则填写 buyer.name |
@@ -25,7 +25,8 @@
 | `items[].sku`, `items[].asin` | 只作来源校验；**不要把 SKU 当原模板 Item No.** |
 | `shipping_fee` | 订单原始运费，已确认才填；缺失则发票留白，不假设 Amazon 配送运费为零 |
 | `shipping_discount` | 运费促销抵扣（用正数录入，如原始运费 0.75、优惠 -0.75 则填 0.75）；发票 Shipping fee 显示净运费 `shipping_fee - shipping_discount`，本例 `0,00` |
-| `order_total` | 已确认的订单实付总额；若未提供，原模板 `Total Amount` **仅展示商品小计**，交付时提醒核对 |
+| `order_total` | 本次开票金额，默认直接读单商品订单右侧“商品总计 / Item total”；多商品逐项汇总并核对费用。用户明确额外要求优先，记录依据，不取销售净收益或未税单价 |
+| `amount_source` | 默认金额来自可见商品总计时填 `displayed_item_total`，无需另要实付确认；只有确实未见总计才保留小计来源说明 |
 | `tax.amount` | 可选；脚本按销售站点税率 `r`，用 `Price / (1 + r) * r` 自动算，若填写值与该口径不符则拒绝 |
 | `tax.rate` | 可选，十进制比例（如 `"0.19"`）；必须与销售站点税率表一致，不能用于覆盖站点规则 |
 | `origin` | 有可靠依据才填 `ORGIN:` 后方，否则保持空白，旧发票 `CHINA` 不是默认事实 |

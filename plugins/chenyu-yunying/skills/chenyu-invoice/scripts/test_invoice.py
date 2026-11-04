@@ -21,7 +21,7 @@ SAMPLE=json.loads((PATH.parent.parent/'assets/order.example.json').read_text(enc
 class InvoiceTests(unittest.TestCase):
     def pln_example(self):
         data = deepcopy(SAMPLE)
-        data.update(currency='PLN', template_currency='PLN', sales_channel='Amazon.pl',
+        data.update(currency='PLN', sales_channel='Amazon.pl',
                     seller_template='imported', seller_confirmed=True, order_total='24.60')
         data['seller'] = {'company':'exampletradingcompany', 'sales_name':'Example shop',
                           'address_lines':['CN', 'example street 10', 'example building 2',
@@ -65,8 +65,8 @@ class InvoiceTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaisesRegex(ValueError, 'billing_request.buyer'):
                 mod.normalize(data)
 
-    def test_currency_and_imported_seller_need_real_confirmation(self):
-        for field, value in [('template_currency',None), ('template_currency','EUR'),
+    def test_conflicting_currency_and_unverified_seller_are_rejected(self):
+        for field, value in [('template_currency','EUR'),
                              ('seller_confirmed',False), ('seller_confirmed','true'), ('currency',None)]:
             data = self.pln_example()
             data[field] = value
@@ -121,8 +121,7 @@ class InvoiceTests(unittest.TestCase):
         self.assertEqual(parsed['order_total'], '24.60')
         self.assertEqual(parsed['shipping_fee'], '1.00')
         self.assertEqual(parsed['shipping_discount'], '1.00')
-        with self.assertRaisesRegex(ValueError, 'template_currency'):
-            mod.normalize(parsed)
+        self.assertEqual(mod.normalize(parsed)['currency'], 'PLN')
         with self.assertRaisesRegex(ValueError, 'Conflicting currencies'):
             mod.extract_order_text(raw.replace('PLN 1.00', '€1.00'))
         with self.assertRaisesRegex(ValueError, 'structured JSON billing_request'):
@@ -137,6 +136,47 @@ class InvoiceTests(unittest.TestCase):
         data['billing_request']['buyer']['name'] = 'Unsupported \U0001f600'
         with self.assertRaisesRegex(ValueError, 'Unsupported glyph'):
             self.render_text(data)
+
+    def test_original_pln_is_default_without_additional_confirmation(self):
+        for legacy in ({}, {'template_currency':None}, {'template_currency':'PLN'}):
+            data = self.pln_example()
+            data.update(legacy)
+            normalized = mod.normalize(data)
+            self.assertEqual(normalized['currency'], 'PLN')
+            self.assertEqual(normalized['items'][0]['unit_price'], Decimal('24.60'))
+            self.assertEqual(normalized['order_total'], Decimal('24.60'))
+            text = self.render_text(data)[0]
+            self.assertIn('PLN', text)
+            self.assertNotIn('€', text)
+            self.assertIn('24,60', text)
+        data = deepcopy(SAMPLE)
+        data['template_currency'] = 'PLN'
+        with self.assertRaisesRegex(ValueError, 'conflicts'):
+            mod.normalize(data)
+
+    def test_displayed_item_total_supplies_default_invoice_amount(self):
+        for subtotal_label, total_label in [('Item subtotal','Item total'), ('商品小计','商品总计')]:
+            raw = f'''403-1234567-7654321
+销售渠道: Amazon.fr
+购买日期: 2026年10月1日
+| [Example Item](https://www.amazon.fr/gp/product/B000000000) | 数量: 1 |
+Unit price (VAT exclusive): €7.49
+{subtotal_label}: €8.99
+{total_label}: €8.99
+Sales proceeds: €6.50'''
+            parsed = mod.extract_order_text(raw)
+            self.assertEqual(parsed['order_total'], '8.99')
+            self.assertEqual(parsed['amount_source'], 'displayed_item_total')
+            self.assertEqual(parsed['currency'], 'EUR')
+            parsed['buyer'] = deepcopy(SAMPLE['buyer'])
+            normalized = mod.normalize(parsed)
+            self.assertEqual(normalized['order_total'], Decimal('8.99'))
+            self.assertEqual(normalized['tax']['basis'], 'order_total')
+            self.assertFalse(any('grand total' in warning.lower() for warning in normalized['warnings']))
+            text = self.render_text(parsed)[0]
+            self.assertIn('8,99', text)
+            self.assertNotIn('7,49', text)
+            self.assertNotIn('6,50', text)
 
     def render_text(self,payload):
         norm=mod.normalize(payload)
