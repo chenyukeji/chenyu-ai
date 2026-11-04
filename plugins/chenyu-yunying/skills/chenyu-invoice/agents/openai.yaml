@@ -1,6 +1,6 @@
 interface:
   display_name: "晨玙商业发票（原版式）"
-  short_description: "按 JiuYue 或 Renhaoyuan 卖家选择原版式母版，核验日期、总额与 VAT。"
-  default_prompt: "使用 $chenyu-invoice，按订单卖家选择 JiuYue 或 Renhaoyuan 空白 PDF 母版。顶部写完整公司名称，Renhaoyuan 地址用拼音，不打印 Business registration。Date 取订单购买日期；Item No. 使用订单号，Description 不空，Shipping way 为 Paypal package，VAT = Price/1.2*0.2。生成后渲染检查。"
+  short_description: "优先买家开票留言，按已确认卖家和原币种填写原母版并核验。"
+  default_prompt: "使用 $chenyu-invoice，核对同订单买家开票留言并优先使用其抬头、地址和税号；无留言才用配送资料。按已确认固定或自有卖家填写原母版，识别实际币种，不预设法国站或换汇。PLN 须确认调整原母版；Date 取购买日期，Item No. 使用订单号，Description 不空，Shipping way 为 Paypal package。按销售站点业务税率计算含税 VAT，生成后渲染检查。"
 policy:
   allow_implicit_invocation: true

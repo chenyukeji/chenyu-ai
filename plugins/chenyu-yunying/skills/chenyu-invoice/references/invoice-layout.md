@@ -6,7 +6,7 @@
 
 - 纸张：A4，595.3 × 841.9 pt，页边距和上下留白均使用 PDF 母版原位置。
 - 抬头：按 [卖家母版](seller-templates.md) 居中打印完整公司名称。原母版为 `shenzhenshijiuyuekejiyouxiangongsi`；Renhaoyuan 母版为 `shenzhenshirenhaoyuanmaoyiyouxiangongsi`，不能只写店铺简称。各母版左侧地址、电话与 `COMMERCIAL INVOICE` 保持已确认版式。
-- 左栏：`Importer/Buyer/Receiver:` **填写本单配送地址第一行原文**，可以是个人、公司、机构或取件点名称；不改用其他位置的企业买家或“联系买家”显示名；`Contact:` 和 `Company Name:` **标签不删除，但值留空**；`Address:` 仅填写街道与楼栋，不重复姓名；其余标签 `City:`、`Country:`、`Post code:`、`Tel:`、`Remote area:`、`Shipping way`、`Tracking number:` 的位置不变。
+- 左栏：`Importer/Buyer/Receiver:` **优先填写同订单买家明确开票留言的公司/个人抬头，无留言才用配送地址首行**；不改用联系买家显示名。`Contact:` 和 `Company Name:` 标签保留，值留空；如提供买方税号，在该空白区域单独标注 `Buyer VAT/NIP:`，不占用卖方税号栏。`Address:` 仅填写对应开票街道与楼栋，不重复姓名；其余字段保持原位置。
 - 右栏：`Manufacturer/Seller/Shipper:`、`Sales:`、卖家地址、`VAT number:`、`Date:` 使用原位置。Renhaoyuan 的 Sales 为 `Renhaoyuan`，附已确认邮箱；地址用拼音，不含 Business registration。卖家身份、地址及电话与所选母版一致，不默默套用另一卖家。
 - **Shipping way 固定为 `Paypal package`**，本值已经印在原母版上，不因 Amazon FBA / 加急改变。
 - **表格的列宽、边框、灰色表头、留白都从原母版读取，不重新绘制。** `Item No.` 使用 Amazon 订单号分三行居中，**不是 SKU**；`Item Name` 用约 12pt Times 粗体居中自动换行，`Description` 用粗体居中短商品名且不得默认空白；单价、数量和行金额用 12pt 衬线字体居中。长标题必要时小幅缩小字号，不可截断和溢出。
@@ -23,13 +23,14 @@
 | 七列分界 x | `9.9, 65.3, 122.3, 288.8, 381.9, 460.55, 507.05, 558.9` |
 | 灰色表头 | y≈458.1—494.8 |
 | 商品行 | y≈500.8—610.5，不能移动 |
-| 收件人（配送地址第一行） | `Importer/Buyer/Receiver` 值 x≈157；Contact 和 Company Name 不填值 |
+| 开票抬头 | `Importer/Buyer/Receiver` 值 x≈157；买方 VAT/NIP 可在 x=157、y=274.13 单独打印，其他标签保留 |
 | 买家地址 | x≈106.9。第 1 行街道、第 2 行楼栋（两行 baseline 314.0 / 329.5）；三行时字号约 9.55pt，baseline 308.4 / 319.3 / 330.2，不得压到 City 内容 |
 | Total Amount / VAT | 原位置保持不动，VAT 百分比和右侧数值同步替换 |
 
 ## 页面和异常
 
-- 支持税率表内已确认站点的 **EUR** 订单与已登记卖家母版；非 EUR 币种仍需对应已确认母版。
+- 支持 EUR 与用户明确确认调整原母版的 PLN。PLN 两个表头替换成 `(PLN)`，合计币种 x=459、金额 x=484，VAT 币种 x=496.32、金额 x=520；保持原 y 基线和表格图形。其他币种仍需匹配且已确认的母版，不直接改标签。
+- 自有卖家 `imported` 使用原空白 PDF 的图形布局，清除固定卖家的公司、地址、Sales、电话后填写已确认快照；已知邮箱填在卖方地址上方空白处，不保留任何旧卖家值。只删替文字，不增加遮盖表格的白色矩形。
 - 一页一个商品项；多商品复制原母版到第二页，不压缩行高。合计与 VAT 只在最后一页出现。
 - 卖家主体与所选母版不符、国家名或地址无法在固定栏中排下、超长标题最小字号仍超出时，停止并说明需要匹配或扩展母版；不偷偷删字。
 - 生成后渲染 A4 图像，逐项检查 PDF 原母版灰色表头及边线、收件人、地址、`Item No.`、`Item Name`、`Description`、单价、数量、合计与 VAT，所有新内容均可选择复制。

@@ -19,6 +19,125 @@ spec.loader.exec_module(mod)
 SAMPLE=json.loads((PATH.parent.parent/'assets/order.example.json').read_text(encoding='utf-8'))
 
 class InvoiceTests(unittest.TestCase):
+    def pln_example(self):
+        data = deepcopy(SAMPLE)
+        data.update(currency='PLN', template_currency='PLN', sales_channel='Amazon.pl',
+                    seller_template='imported', seller_confirmed=True, order_total='24.60')
+        data['seller'] = {'company':'exampletradingcompany', 'sales_name':'Example shop',
+                          'address_lines':['CN', 'example street 10', 'example building 2',
+                                           'example city, Example province', '000000'],
+                          'tel':'+0000000000', 'email':'seller@example.test', 'vat_number':'SELLER-TEST'}
+        data['items'][0].update(title='Zestaw ozdób, żółty', description='Ozdoby żółte',
+                                unit_price='24.60', line_total='24.60')
+        data['billing_request'] = {'order_id':data['order_id'], 'buyer':{
+            'name':'FIRMA PRZYKŁAD', 'address_lines':['Przykładowa 21'], 'city':'Łódź',
+            'postal_code':'00-000', 'country':'Poland', 'vat_number':'PL1111111111'}}
+        return data
+
+    def test_billing_request_takes_priority_without_merging_shipping_fields(self):
+        data = self.pln_example()
+        original = deepcopy(data)
+        normalized = mod.normalize(data)
+        self.assertEqual(data, original)
+        self.assertEqual(normalized['buyer'], data['billing_request']['buyer'])
+        self.assertEqual(normalized['shipping_buyer'], data['buyer'])
+        self.assertEqual(normalized['buyer_source'], 'buyer_invoice_message')
+        text = self.render_text(data)[0]
+        for value in ('FIRMA PRZYKŁAD', 'Przykładowa 21', 'Łódź', 'PL1111111111',
+                      'SELLER-TEST', 'Zestaw ozdób, żółty', 'Ozdoby żółte'):
+            self.assertIn(value, text)
+        for value in ('Camille EXEMPLE', 'Lyon', 'France', '€', 'EUR', 'JiuYue_KeJi',
+                      mod.SOURCE_SELLER_COMPANY, '+8617371452467', 'pinghujiedao'):
+            self.assertNotIn(value, text)
+        self.assertEqual(normalized['tax']['amount'], Decimal('4.60'))
+        self.assertIn('VAT(23%*Price):', text)
+        self.assertIn('4,60', text)
+        self.assertEqual(text.count('PLN'), 4)
+
+    def test_incomplete_or_other_order_billing_message_never_falls_back(self):
+        data = self.pln_example()
+        data['billing_request']['order_id'] = '403-9999999-9999999'
+        with self.assertRaisesRegex(ValueError, 'same order_id'):
+            mod.normalize(data)
+        for field in ('name', 'city', 'postal_code', 'country', 'address_lines'):
+            data = self.pln_example()
+            del data['billing_request']['buyer'][field]
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, 'billing_request.buyer'):
+                mod.normalize(data)
+
+    def test_currency_and_imported_seller_need_real_confirmation(self):
+        for field, value in [('template_currency',None), ('template_currency','EUR'),
+                             ('seller_confirmed',False), ('seller_confirmed','true'), ('currency',None)]:
+            data = self.pln_example()
+            data[field] = value
+            with self.subTest(field=field,value=value), self.assertRaises(ValueError):
+                mod.normalize(data)
+        data = self.pln_example()
+        data['seller'] = {}
+        with self.assertRaisesRegex(ValueError, 'seller.company'):
+            mod.normalize(data)
+
+    def test_pln_template_preserves_all_original_graphics_on_each_page(self):
+        data = self.pln_example()
+        data['items'] *= 2
+        data['order_total'] = '49.20'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'invoice.pdf'
+            mod.invoice_pdf(mod.normalize(data), path)
+            with fitz.open(mod.TEMPLATE) as source, fitz.open(path) as document:
+                graphical_keys = ('items','type','rect','color','fill','width','fill_opacity','stroke_opacity')
+                expected = [{key:entry.get(key) for key in graphical_keys} for entry in source[0].get_drawings()]
+                for page in document:
+                    self.assertEqual(page.rect, source[0].rect)
+                    self.assertEqual([{key:entry.get(key) for key in graphical_keys} for entry in page.get_drawings()], expected)
+                    self.assertIn('exampletradingcompany',page.get_text())
+                    self.assertNotIn('€',page.get_text())
+                    self.assertIn('Buyer VAT/NIP: PL1111111111',page.get_text())
+                    spans = [span for block in page.get_text('dict')['blocks'] for line in block.get('lines',[]) for span in line['spans']]
+                    for span in spans:
+                        self.assertGreaterEqual(span['bbox'][0], 0)
+                        self.assertLessEqual(span['bbox'][2], page.rect.width)
+                text = document[-1].get_text()
+                self.assertIn('49,20', text)
+                self.assertIn('9,20', text)
+
+    def test_known_sellers_can_use_confirmed_pln_without_importing_identity(self):
+        for template in ('jiuyue', 'renhaoyuan'):
+            data = self.pln_example()
+            data['seller_template'] = template
+            data['seller'] = {}
+            text = self.render_text(data)[0]
+            self.assertIn(mod.SELLER_PROFILES[template]['company'], text)
+            self.assertNotIn('€', text)
+            self.assertIn('PLN', text)
+
+    def test_text_parser_reads_pln_amounts_and_rejects_mixed_currencies(self):
+        raw = '''403-1234567-7654321
+销售渠道: Amazon.pl
+购买日期: 2026年10月1日
+| [Example Item](https://www.amazon.pl/gp/product/B000000000) | 数量: 1 | 商品小计: 24,60 zł | 运费总额: PLN 1.00 | 促销: -1.00 zł | 商品总计: 24,60 zł |'''
+        parsed = mod.extract_order_text(raw)
+        self.assertEqual(parsed['currency'], 'PLN')
+        self.assertEqual(parsed['order_total'], '24.60')
+        self.assertEqual(parsed['shipping_fee'], '1.00')
+        self.assertEqual(parsed['shipping_discount'], '1.00')
+        with self.assertRaisesRegex(ValueError, 'template_currency'):
+            mod.normalize(parsed)
+        with self.assertRaisesRegex(ValueError, 'Conflicting currencies'):
+            mod.extract_order_text(raw.replace('PLN 1.00', '€1.00'))
+        with self.assertRaisesRegex(ValueError, 'structured JSON billing_request'):
+            mod.extract_order_text(raw+'\nDane do faktury: example company')
+        with self.assertRaisesRegex(ValueError, 'Conflicting order IDs'):
+            mod.extract_order_text(raw+'\n403-9999999-9999999')
+
+    def test_unicode_is_preserved_or_rejected_never_silently_dropped(self):
+        data = self.pln_example()
+        data['billing_request']['buyer']['name'] = 'Żółć Śląsk Łódź'
+        self.assertIn('Żółć Śląsk Łódź',self.render_text(data)[0])
+        data['billing_request']['buyer']['name'] = 'Unsupported \U0001f600'
+        with self.assertRaisesRegex(ValueError, 'Unsupported glyph'):
+            self.render_text(data)
+
     def render_text(self,payload):
         norm=mod.normalize(payload)
         with tempfile.TemporaryDirectory() as td:

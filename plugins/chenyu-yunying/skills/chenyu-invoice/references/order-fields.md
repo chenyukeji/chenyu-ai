@@ -7,15 +7,19 @@
 | `invoice_date` | 不接受此 JSON 字段；可选命令行 `--invoice-date` 仅用于核对，必须等于 `purchase_date` |
 | `sales_channel` | 从本单“销售渠道”读取，如 `Amazon.de`；用于 VAT 站点识别，不从商品链接或收件国推断 |
 | `marketplace_code` | 销售渠道缺失时，仅可用用户明确确认的 UK/DE/FR/IT/ES/NL/PL/CZ/AT/BE；与 sales_channel 同时给出必须一致 |
-| `currency` | 本 EUR 原母版**仅支持 EUR**，显示 `€` 和逗号小数 |
+| `currency` | 必填实际币种；支持 EUR，以及已确认调整母版的 PLN，不能默认 EUR 或自行换汇 |
+| `template_currency` | PLN 时必须为用户明确确认的 `PLN`；若提供须与 `currency` 完全一致。只改变币种文字，不换算金额 |
+| `billing_request` | 同订单买家明确开票留言，含 `order_id` 与完整 `buyer`；先核对订单号，优先于配送资料，不能混用字段。缺项/不匹配时停止，不退回配送地址 |
+| `buyer.vat_number` | 已提供的买方税号，在买方栏单独标为 Buyer VAT/NIP；不是卖方 VAT。留言资料放在 `billing_request.buyer` 同名字段 |
 | `buyer.company` | 原 Amazon 订单企业买家显示名（如虚构样例 Entreprise Exemple），仅保留为来源元数据；不替代配送地址第一行。若同名出现在配送地址第一行，则按首行规则填写 buyer.name |
-| `buyer.name` | 所有订单均取“配送地址”第一行原文，填写到 **`Importer/Buyer/Receiver:` 后**；个人、公司、机构、取件点名称均可，不重复确认、不删改重复词，不改用“联系买家”显示名；首行缺失或不可读时补充 |
+| `buyer.name` | 有同单开票留言时用 `billing_request.buyer.name` 的完整公司/个人抬头；否则取配送地址第一行原文。填写到 **`Importer/Buyer/Receiver:` 后**，不改用联系买家显示名，不改写重复词 |
 | `buyer.legal_company_name` | 本母版的 `Company Name:` **标签保留、值固定留空**；不把 `buyer.company` 或收件人重复写到这一行 |
 | `buyer.address_lines` | **仅街道和楼栋**，不包含收件人、城市和邮编；不重复姓名；最多三行，溢出则提示，不裁剪 |
 | `buyer.city`, `buyer.postal_code`, `buyer.country` | 目标城市、邮编、国家。法国时沿用原模板 France；比利时等其他国家仅替换国家值，不改原版布局 |
 | `buyer.remote_area` | 仅确认偏远区时填布尔值 `true/false`，否则留空，不沿用旧单 No |
 | `buyer.tel` / `tracking_number` | 可选，未经确认留空 |
-| `seller_template` / `--template` | `jiuyue` 或 `renhaoyuan`；与卖家身份和其他选择须一致，未知母版不可套用 |
+| `seller_template` / `--template` | `jiuyue`、`renhaoyuan` 或已确认自有卖家的 `imported`；与身份和其他选择须一致 |
+| `seller_confirmed` | 自有卖家须为布尔 `true`，依据用户确认或已保存核对快照填写，不能编造批准。`seller.company`、`seller.address_lines` 必填；可选电话、邮箱缺失留空，不继承其他公司 |
 | `seller` / 独立 `--seller` JSON | company/store_name/sales_name 可识别已保存的卖家；抬头、地址和联系方式来自匹配母版，可选填已核实 seller.vat_number；登记号不能当税号 |
 | `items[]` | 每项 `title`、`quantity`、`unit_price`、`line_total` 必填；`description` 推荐填写，若无则从标题中提取确实出现的产品词，不可空着整列 |
 | `items[].sku`, `items[].asin` | 只作来源校验；**不要把 SKU 当原模板 Item No.** |

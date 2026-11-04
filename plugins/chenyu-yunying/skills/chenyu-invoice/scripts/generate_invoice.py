@@ -26,7 +26,7 @@ SALES_CHANNEL_SITES = {
     'amazon.pl': 'PL', 'amazon.com.be': 'BE',
 }
 SHIPPING_WAY = 'Paypal package'  # Printed shipping method is fixed by the invoice template
-CURRENCY = {'EUR': '€', 'GBP': '£', 'USD': '$'}
+CURRENCY = {'EUR': '€', 'PLN': 'PLN'}
 
 
 def money(v, field='amount'):
@@ -87,7 +87,11 @@ def extract_order_text(content):
         raise ValueError('No Amazon order ID (123-1234567-1234567) found')
     if len(re.findall(r'\bSKU\s*:', s, flags=re.I)) > 1:
         raise ValueError('Multiple SKU sections found; provide structured JSON with items[]')
-    out = {'order_id': ids[0], 'currency': 'EUR', 'items': [], 'buyer': {},
+    if len(set(ids)) != 1:
+        raise ValueError('Conflicting order IDs; provide one verified order')
+    if re.search(r'Dane do faktury|开票资料|开票信息|账单地址|billing address', s, re.I):
+        raise ValueError('Buyer invoice message detected; verify it into structured JSON billing_request')
+    out = {'order_id': ids[0], 'currency': '', 'items': [], 'buyer': {},
            'sales_channel': '', 'fulfillment': '', 'warnings': []}
     channels = set(re.findall(r'销售渠道\s*[:：]\s*\|?\s*(Amazon\.[a-z.]+)', s, re.I))
     channels = {value.lower() for value in channels}
@@ -125,12 +129,14 @@ def extract_order_text(content):
     sku = re.search(r'\bSKU\s*:\s*([^|\n]+)', s, re.I)
     asin = re.search(r'\bASIN\s*:\s*([A-Z0-9]{10})', s, re.I)
     qty = re.search(r'数量\s*:\s*\|?\s*(\d+)', s)
-    subtotal = re.search(r'商品小计\s*:\s*\|?\s*([€£$])\s*([0-9.,]+)', s)
+    amount_pattern = r'(?:(€|£|\$|PLN|zł)\s*([0-9.,]+)|([0-9.,]+)\s*(€|£|\$|PLN|zł))'
+    subtotal = re.search(r'商品小计\s*:\s*\|?\s*' + amount_pattern, s)
     if not product or not subtotal or not qty:
         raise ValueError('Product title, quantity or item subtotal missing; use structured JSON')
     quantity = int(qty.group(1))
-    out['currency'] = {'€': 'EUR', '£': 'GBP', '$': 'USD'}[subtotal.group(1)]
-    line_total = money(subtotal.group(2), '商品小计')
+    symbols = {'€': 'EUR', '£': 'GBP', '$': 'USD', 'PLN': 'PLN', 'zł': 'PLN'}
+    out['currency'] = symbols[subtotal.group(1) or subtotal.group(4)]
+    line_total = money(subtotal.group(2) or subtotal.group(3), '商品小计')
     if quantity <= 0:
         raise ValueError('Quantity must be positive')
     unit = (line_total / Decimal(quantity)).quantize(CENT, rounding=ROUND_HALF_UP)
@@ -145,20 +151,18 @@ def extract_order_text(content):
     if purchased:
         out['purchase_date'] = f'{int(purchased.group(1)):04d}-{int(purchased.group(2)):02d}-{int(purchased.group(3)):02d}'
     out['fulfillment'] = 'Amazon FBA' if re.search(r'(?:配送渠道|配送)\s*:\s*\|?\s*亚马逊', s) else ''
-    fee = re.search(r'运费总额\s*:\s*\|?\s*€\s*([0-9.,]+)', s)
-    promotion = re.search(r'促销\s*:\s*\|?\s*[-−]\s*€\s*([0-9.,]+)', s)
-    grand = re.search(r'商品总计\s*:\s*\|?\s*€\s*([0-9.,]+)', s)
-    if fee:
-        out['shipping_fee'] = str(money(fee.group(1),'运费总额'))
-    if promotion:
-        out['shipping_discount'] = str(money(promotion.group(1),'促销'))
-    if grand:
-        out['order_total'] = str(money(grand.group(1),'商品总计'))
+    for label, field in [('运费总额', 'shipping_fee'), ('促销', 'shipping_discount'), ('商品总计', 'order_total')]:
+        sign = r'[-−]\s*' if field == 'shipping_discount' else ''
+        matched = re.search(label + r'\s*:\s*\|?\s*' + sign + amount_pattern, s)
+        if matched:
+            if symbols[matched.group(1) or matched.group(4)] != out['currency']:
+                raise ValueError('Conflicting currencies in order amounts')
+            out[field] = str(money(matched.group(2) or matched.group(3), label))
     seller_profile = re.search(r'Profil vendeur Amazon\.fr\s*[:：]\s*([^\r\n|]+)', s, re.I)
     if seller_profile:
         out['seller_template'] = clean(seller_profile.group(1))
-    if not fee:out['warnings'].append('Shipping fee unknown')
-    if not grand:out['warnings'].append('Order grand total unknown')
+    if 'shipping_fee' not in out:out['warnings'].append('Shipping fee unknown')
+    if 'order_total' not in out:out['warnings'].append('Order grand total unknown')
     out['warnings'].append('Country of manufacture unknown')
     return out
 
@@ -174,7 +178,9 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     d['seller'] = dict(seller or {}) | dict(d.get('seller') or {})
     d['seller_template'] = resolve_seller_template(d, template)
     validate_seller_against_template(d['seller'], d['seller_template'])
-    profile = SELLER_PROFILES[d['seller_template']]
+    if d['seller_template'] == 'imported' and d.get('seller_confirmed') is not True:
+        raise ValueError('Imported seller requires seller_confirmed from a verified saved profile or explicit confirmation')
+    profile = SELLER_PROFILES.get(d['seller_template'], {})
     d['seller'] = {key: profile[key] for key in ['company', 'tel', 'sales_name', 'email', 'store_name']
                    if key in profile} | d['seller']
     # The printed Date is ALWAYS the Amazon order purchase date, not the
@@ -191,9 +197,23 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     d['purchase_date'] = parsed_purchase.isoformat()
     if not re.fullmatch(r'\d{3}-\d{7}-\d{7}', str(d.get('order_id', ''))):
         raise ValueError('Valid order_id is required')
-    if d.get('currency', 'EUR') != 'EUR':
-        raise ValueError('This exact source invoice has fixed EUR columns; use EUR only')
-    d.setdefault('currency', 'EUR')
+    validate_currency(d)
+    if 'billing_request' in d:
+        request = d['billing_request']
+        if not isinstance(request, dict) or request.get('order_id') != d['order_id']:
+            raise ValueError('billing_request must refer to the same order_id')
+        billing = request.get('buyer')
+        if not isinstance(billing, dict):
+            raise ValueError('billing_request.buyer must contain verified invoice details')
+        for field in ('name', 'city', 'postal_code', 'country'):
+            if not isinstance(billing.get(field), str) or not billing[field].strip():
+                raise ValueError(f'billing_request.buyer.{field} is required; do not substitute shipping details')
+        streets = billing.get('address_lines')
+        if not isinstance(streets, list) or not streets or any(not isinstance(line, str) or not line.strip() for line in streets):
+            raise ValueError('billing_request.buyer.address_lines is required')
+        d['shipping_buyer'] = dict(d.get('buyer') or {})
+        d['buyer'] = dict(billing)
+        d['buyer_source'] = 'buyer_invoice_message'
     if not isinstance(d.get('items'), list) or not d['items']:
         raise ValueError('At least one item is required')
     checked = []
@@ -303,6 +323,26 @@ def number_fmt(value):
     return f'{value:.2f}'.replace('.', ',')
 
 
+def validate_currency(data):
+    currency = data.get('currency')
+    if currency not in CURRENCY:
+        raise ValueError('Explicit supported currency required: EUR or confirmed PLN; fixed EUR must not relabel other currencies')
+    approved = data.get('template_currency')
+    if (approved is not None and approved != currency) or (currency != 'EUR' and approved != currency):
+        raise ValueError('Non-EUR template_currency must match the explicitly confirmed original currency')
+
+
+def insert_text(page, point, value, font, size):
+    face = fitz.Font(fontname=font)
+    if any(not face.has_glyph(ord(char)) for char in value if not char.isspace()):
+        raise ValueError('Unsupported glyph in invoice field; use a verified compatible font')
+    if any(ord(char) > 255 for char in value):
+        resource = 'Invoice' + font
+        page.insert_font(fontname=resource, fontbuffer=face.buffer)
+        font = resource
+    page.insert_text(point, value, fontname=font, fontsize=size, overlay=True)
+
+
 def wrap_to_width(text, font, size, max_width):
     font_obj=fitz.Font(fontname=font)
     result=[]
@@ -345,7 +385,7 @@ def draw_centered_lines(page,text, x1, x2, y1, y2, *, font=FONT_BOLD, ideal=12, 
     y0=(y1+y2)/2 + size*0.32 - (len(lines)-1)*leading/2
     for n,line in enumerate(lines):
         width=fitz.get_text_length(line,fontname=font,fontsize=size)
-        page.insert_text(((x1+x2-width)/2,y0+n*leading),line,fontname=font,fontsize=size,overlay=True)
+        insert_text(page, ((x1+x2-width)/2,y0+n*leading), line, font, size)
 
 
 def draw_left(page,text,x,y,*,font=FONT_BOLD,size=12, max_width=None, minsize=8):
@@ -356,7 +396,7 @@ def draw_left(page,text,x,y,*,font=FONT_BOLD,size=12, max_width=None, minsize=8)
             size-=0.25
         if fitz.get_text_length(s,fontname=font,fontsize=size)>max_width:
             raise ValueError('Field is too long for the exact invoice template: '+s[:60])
-    page.insert_text((x,y),s,fontname=font,fontsize=size,overlay=True)
+    insert_text(page, (x,y), s, font, size)
 
 
 def draw_address(page, buyer):
@@ -392,6 +432,8 @@ def draw_address(page, buyer):
 def resolve_seller_template(data, requested=None):
     """Select only approved profiles; conflicting selectors never cross seller identities."""
     def find(value):
+        if clean(value).casefold() == 'imported':
+            return 'imported'
         for key, profile in SELLER_PROFILES.items():
             aliases = [key, profile['company'], *profile.get('aliases', [])]
             if clean(value).casefold() in [clean(alias).casefold() for alias in aliases]:
@@ -412,7 +454,7 @@ def resolve_seller_template(data, requested=None):
             key = find(value)
             if key is not None:
                 choices.append(key)
-            elif field == 'store_name':
+            elif field == 'store_name' and 'imported' not in choices:
                 raise ValueError(f'Unknown seller store: {value}; use an approved seller template')
     if len(set(choices)) > 1:
         raise ValueError('Conflicting seller template selections; confirm the order seller')
@@ -420,6 +462,13 @@ def resolve_seller_template(data, requested=None):
 
 
 def validate_seller_against_template(seller, template_id='jiuyue'):
+    if template_id == 'imported':
+        if not isinstance(seller.get('company'), str) or not seller['company'].strip():
+            raise ValueError('Imported seller.company is required')
+        address = seller.get('address_lines')
+        if not isinstance(address, list) or not address or any(not isinstance(line, str) or not line.strip() for line in address):
+            raise ValueError('Imported seller.address_lines is required')
+        return
     profile = SELLER_PROFILES[template_id]
     company=clean(seller.get('company',''))
     if company and company.casefold()!=profile['company'].casefold():
@@ -435,14 +484,55 @@ def validate_seller_against_template(seller, template_id='jiuyue'):
             raise ValueError(f'seller.{k} differs from the source template, which has fixed business letterhead')
 
 
+def fill_imported_seller(page, seller):
+    regions = [(10, 76, 580, 108), (10, 108, 580, 158), (380, 183, 580, 205),
+               (445, 261, 558, 279), (384, 295, 560, 378)]
+    for region in regions:
+        page.add_redact_annot(fitz.Rect(region), fill=False)
+    page.apply_redactions(images=0, graphics=0, text=0)
+    draw_centered_lines(page, seller['company'], 14, 580, 77, 108, font=FONT_SANS, ideal=22, minimum=14)
+    address = '\n'.join(seller['address_lines'])
+    header, size, leading = fit_lines(', '.join(seller['address_lines']), FONT_SANS_BOLD, 560, 46, ideal=11, minimum=9, lead=1.15)
+    for index, line in enumerate(header):
+        draw_left(page, line, 14.4, 119 + index*leading, font=FONT_SANS_BOLD, size=size)
+    detail, size, leading = fit_lines(address, FONT_SANS, 172, 76, ideal=10.45, minimum=9, lead=1.2)
+    for index, line in enumerate(detail):
+        draw_left(page, line, 386.4, 309.29 + index*leading, font=FONT_SANS, size=size)
+    if clean(seller.get('tel')):
+        draw_left(page, 'Tel: ' + clean(seller['tel']), 383.28, 198.05, font=FONT_SANS_BOLD, size=11, max_width=190)
+    draw_left(page, seller.get('sales_name', ''), 449.28, 273.65, font=FONT_SANS, size=10.45, max_width=108)
+    draw_left(page, seller.get('email', ''), 386.4, 289, font=FONT_SANS, size=9, max_width=172)
+
+
+def fill_currency(page, currency):
+    if currency == 'EUR':
+        return
+    symbols = page.search_for('€')
+    if len(symbols) != 4:
+        raise ValueError('Expected four original currency marks')
+    for left, right in [(381.9, 460.55), (507.05, 558.9)]:
+        page.add_redact_annot(fitz.Rect(left+1, 477, right-1, 494), fill=False)
+    for rectangle in symbols:
+        if rectangle.y0 > 600:
+            page.add_redact_annot(rectangle, fill=False)
+    page.apply_redactions(images=0, graphics=0, text=0)
+    for left, right in [(381.9, 460.55), (507.05, 558.9)]:
+        value = '(' + currency + ')'
+        width = fitz.get_text_length(value, fontname=FONT_SANS_BOLD, fontsize=10.45)
+        draw_left(page, value, (left+right-width)/2, 487.97, font=FONT_SANS_BOLD, size=10.45)
+    draw_left(page, currency, 459, 639.29, font=FONT_SANS, size=9.95)
+    draw_left(page, currency, 496.32, 664.13, font=FONT_SANS, size=9.95)
+
+
 def invoice_pdf(d,output):
     template_id = resolve_seller_template(d)
-    profile = SELLER_PROFILES[template_id]
-    template = Path(TEMPLATE) if template_id == 'jiuyue' else TEMPLATE.parent / profile['template']
+    profile = SELLER_PROFILES.get(template_id, SELLER_PROFILES['jiuyue'])
+    template = Path(TEMPLATE) if template_id in {'jiuyue', 'imported'} else TEMPLATE.parent / profile['template']
     if not template.is_file():
         raise FileNotFoundError(f'Missing bundled original-layout template: {template}')
-    if d['currency']!='EUR':
-        raise ValueError('This exact-match template has printed € headings; only EUR orders may use it')
+    validate_currency(d)
+    if template_id == 'imported' and d.get('seller_confirmed') is not True:
+        raise ValueError('Imported seller requires seller_confirmed')
     seller=d.get('seller') or {}
     validate_seller_against_template(seller, template_id)
     buyer=d.get('buyer') or {}
@@ -453,6 +543,9 @@ def invoice_pdf(d,output):
         if n:
             doc.insert_pdf(fitz.open(template))
         page=doc[n]
+        if template_id == 'imported':
+            fill_imported_seller(page, seller)
+        fill_currency(page, d['currency'])
         # Replace only the preprinted rate label, preserving its baseline and €.
         rate = Decimal(d['tax']['rate'])
         if rate != Decimal('0.20'):
@@ -460,7 +553,7 @@ def invoice_pdf(d,output):
             if len(labels) != 1:
                 raise ValueError('Expected exactly one original VAT label in the template')
             rect = labels[0]
-            page.add_redact_annot(rect, fill=(1,1,1))
+            page.add_redact_annot(rect, fill=False)
             page.apply_redactions(images=0, graphics=0, text=0)
             draw_left(page, f'VAT({rate:.0%}*Price):', rect.x0, 664.13,
                       font=FONT_SANS, size=9.95, max_width=rect.width+1)
@@ -471,18 +564,21 @@ def invoice_pdf(d,output):
         if not name:
             raise ValueError('buyer.name required for Importer/Buyer/Receiver heading')
         draw_left(page,name,157.0,256.2,font=FONT_BOLD,size=12,max_width=224)
+        if clean(buyer.get('vat_number')):
+            draw_left(page, 'Buyer VAT/NIP: ' + clean(buyer['vat_number']), 157, 274.13,
+                      font=FONT_SANS, size=10.45, max_width=224)
         draw_address(page,buyer)
         draw_left(page,buyer.get('city',''),106.9,347.2,font=FONT_BOLD,size=12,max_width=265)
         # The original mother PDF preprints France; Renhaoyuan leaves this value blank.
         # Replace only the value when needed, keeping the country label and geometry.
         country=clean(buyer.get('country',''))
         country_labels={'法国':'France','比利时':'Belgium','德国':'Germany',
-                        '意大利':'Italy','西班牙':'Spain','英国':'United Kingdom'}
+                        '意大利':'Italy','西班牙':'Spain','英国':'United Kingdom','波兰':'Poland'}
         country=country_labels.get(country,country)
         if not country:
             raise ValueError('buyer.country is required; cannot assume France')
         if country.casefold() != profile.get('printed_country', '').casefold():
-            page.add_redact_annot(fitz.Rect(106.4,359.0,178.0,377.0),fill=(1,1,1))
+            page.add_redact_annot(fitz.Rect(106.4,359.0,178.0,377.0),fill=False)
             page.apply_redactions(images=0,graphics=0,text=0)
             draw_left(page,country,106.92,372.65,font=FONT_BOLD,size=12,max_width=210)
         draw_left(page,buyer.get('postal_code',''),106.92,391.6,font=FONT_BOLD,size=12,max_width=120)
@@ -511,13 +607,13 @@ def invoice_pdf(d,output):
             # Exact source label 'Total Amount: €' is preserved, goods subtotal
             # shown when the actual final payment amount was not provided.
             price=d['order_total'] if d['order_total'] is not None else d['subtotal']
-            draw_left(page,number_fmt(price),469.0,639.0,font=FONT_SANS,size=9.9,max_width=76)
+            draw_left(page,number_fmt(price),469.0 if d['currency']=='EUR' else 484,639.29,font=FONT_SANS,size=9.9,max_width=70)
             # The template's VAT label and euro sign share the SAME text baseline:
             # 664.13 pt.  Keep the amount on that baseline as well.  Use a
             # proportionally spaced sans-serif face matching the Arial label,
             # rather than Courier's wider glyph spacing and lower baseline.
-            draw_left(page,number_fmt(d['tax']['amount']),506.4,664.13,
-                      font=FONT_SANS,size=9.95,max_width=38)
+            draw_left(page,number_fmt(d['tax']['amount']),506.4 if d['currency']=='EUR' else 520,664.13,
+                      font=FONT_SANS,size=9.95,max_width=35)
             if clean(d.get('origin')):
                 draw_left(page,d['origin'],54.2,688.4,font=FONT_SANS_BOLD,size=9.9,max_width=175)
             # The single 'Shipping fee' field shows NET shipping after a
@@ -547,7 +643,7 @@ def main(argv=None):
     g.add_argument('--input',type=Path,help='Order JSON file')
     g.add_argument('--text',type=Path,help='Copied order text/Markdown (single item)')
     p.add_argument('--seller',type=Path,help='Private seller profile JSON (not checked into Git)')
-    p.add_argument('--template', help='Approved seller template: jiuyue or renhaoyuan (aliases accepted)')
+    p.add_argument('--template', help='Approved seller template: jiuyue, renhaoyuan or confirmed imported')
     p.add_argument('--invoice-date',help='Optional confirmation of purchase date YYYY-MM-DD; must match purchase_date')
     p.add_argument('--output',type=Path,help='Output directory; filename is always <order_id>.pdf')
     args=p.parse_args(argv)

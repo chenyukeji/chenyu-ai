@@ -34,7 +34,7 @@ A+ 专用规则：仅需 A+ 时不强制采集竞品或填参考图，按 `cheny
 | 作图要求和 A+ 要求都要 | 普通图册执行 `chenyu-zuotuyaoqiu`，A+ 执行 `chenyu-aplusyaoqiu`，同一事实页、独立工作表 |
 | 普通图册图片规划、作图单、交给美工的要求 | [chenyu-zuotuyaoqiu](../chenyu-zuotuyaoqiu/SKILL.md) |
 | 自有 Listing 和作图要求 | 先统一产品事实；有竞品链接时只执行一次竞品研究；Listing 读取文字/关键词证据，作图要求读取视觉证据，两者独立生成，不互相改写 |
-| 按已确认 销售站点已确认的 EUR 订单生成商业发票 | [chenyu-invoice](../chenyu-invoice/SKILL.md)，核对购买日期、收件人、商品及金额，交付订单编号 PDF |
+| 按已确认订单生成商业发票 | [chenyu-invoice](../chenyu-invoice/SKILL.md)，优先同单买家开票留言，核对实际币种、卖家、日期、商品及金额，交付订单编号 PDF |
 | 实际制作或精修图片 | 如环境已安装美工插件，交接其总入口；否则交付作图单并说明需要美工能力 |
 | 广告投放或优化 | 明确 chenyu-guanggao 尚未实现，不声称已执行投放 |
 
