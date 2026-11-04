@@ -30,7 +30,7 @@ def _number(value):
 
 
 def analyze_monthly_surge(records, months, marketplaces, *, min_sales=300, min_growth=10,
-                          shortlist_limit=20):
+                          shortlist_limit=300):
     """Keep historical monthly values separate from present-day sales estimates."""
     if not months or not isinstance(records, list) or any(not isinstance(row, dict) for row in records):
         raise SeasonalStrategyError("H 需要目标月份和卖家精灵月度榜单记录")

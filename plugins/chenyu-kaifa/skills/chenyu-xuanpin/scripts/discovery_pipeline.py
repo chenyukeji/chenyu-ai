@@ -419,7 +419,7 @@ def _standard_decision_reason(
     return "。".join(section for section in sections if section) + "。"
 
 
-def score_candidates(candidates: list[dict], shortlist_limit=20, as_of_date=None) -> dict:
+def score_candidates(candidates: list[dict], shortlist_limit=300, as_of_date=None) -> dict:
     if isinstance(shortlist_limit, bool) or not isinstance(shortlist_limit, int) or shortlist_limit < 1:
         raise DiscoveryError("shortlist_limit must be an integer >= 1")
     results = []

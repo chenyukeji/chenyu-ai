@@ -21,6 +21,11 @@ def historical(asin='B0SEASON01', month='2025-10', **values):
             'product_name':'Seasonal item', **values}
 
 
+def test_task_defaults_to_three_hundred_but_explicit_count_wins():
+    assert run.create_task('新品榜选品')['shortlist_limit'] == 300
+    assert run.create_task('月销300单以上', task={'shortlist_limit': 50})['shortlist_limit'] == 50
+
+
 def test_month_window_rolls_over_year_and_rejects_invalid_options():
     assert strategy_h.target_months('2026-12-10', 2) == ['2025-12','2026-01','2026-02']
     assert strategy_h.target_months('2026-10-08', 3) == ['2025-10','2025-11','2025-12','2026-01']

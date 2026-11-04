@@ -138,7 +138,7 @@ def _cause_evidence(row: dict, all_records: list[dict], as_of: date) -> tuple[li
 
 
 def score_recent_fbm(qualified: list[dict], all_records: list[dict], *,
-                     as_of_date=None, shortlist_limit=20) -> dict:
+                     as_of_date=None, shortlist_limit=300) -> dict:
     as_of = _as_of(as_of_date)
     results = []
     for row in qualified:

@@ -19,7 +19,7 @@ def _snapshot_day(row):
         return None
 
 
-def analyze_evidence(strategy, records, marketplaces, shortlist_limit=20):
+def analyze_evidence(strategy, records, marketplaces, shortlist_limit=300):
     if strategy not in INPUT_HELP:
         raise ValueError("unsupported evidence strategy")
     if not isinstance(records, list) or any(not isinstance(row, dict) for row in records):

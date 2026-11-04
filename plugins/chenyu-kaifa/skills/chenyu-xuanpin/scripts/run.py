@@ -133,7 +133,7 @@ def create_task(request=None, task=None, strategy_selection=None) -> dict:
         "request": request,
         "category_resolution": category,
         "strategy_resolution": strategy,
-        "shortlist_limit": int(task.get("shortlist_limit", 20)),
+        "shortlist_limit": int(task.get("shortlist_limit", 300)),
         "required_outputs": ["candidate_pool", "scored_shortlist", "discovery_workbook"],
         "created_at": _now(),
     }
@@ -664,7 +664,7 @@ def _run_evidence_strategy(task, payload, records, candidates, sources, source_s
             if missing:
                 manifest["warnings"].append(f"{market} 导入资料未覆盖：{'、'.join(missing)}；缺少记录不代表零销量。")
     manifest["artifacts"]["source_records"] = _write_json(run_dir / "07-source-records.json", {"records": records, "sources": sources, "source_scope": source_scope, "coverage": coverage})
-    limit = max(1, min(int(payload.get("shortlist_limit") or task.get("shortlist_limit") or 20), 1000))
+    limit = max(1, min(int(payload.get("shortlist_limit") or task.get("shortlist_limit") or 300), 1000))
     if strategy == "H":
         report = strategy_h.analyze_monthly_surge(records, months, markets,
             min_sales=float(discovery.get("h_min_monthly_sales", 300)),
@@ -824,7 +824,7 @@ def run_discovery_flow(payload: dict) -> dict:
         )
         screening = score_recent_fbm(
             qualified, records, as_of_date=payload.get("as_of_date"),
-            shortlist_limit=int(payload.get("shortlist_limit") or task.get("shortlist_limit") or 20),
+            shortlist_limit=int(payload.get("shortlist_limit") or task.get("shortlist_limit") or 300),
         )
         _enrich_j_shortlist_details(screening, payload, run_dir, manifest)
         requests = ai_analysis_requests(screening)
@@ -916,7 +916,7 @@ def run_discovery_flow(payload: dict) -> dict:
     stage_started = time.perf_counter()
     screening = score_candidates(
         candidates,
-        int(payload.get("shortlist_limit") or task.get("shortlist_limit") or 20),
+        int(payload.get("shortlist_limit") or task.get("shortlist_limit") or 300),
         payload.get("as_of_date"),
     )
     _record_timing(manifest, "scoring", stage_started)
