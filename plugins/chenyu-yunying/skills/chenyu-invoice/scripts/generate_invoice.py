@@ -586,21 +586,33 @@ def invoice_pdf(d,output):
     seller=d.get('seller') or {}
     validate_seller_against_template(seller, template_id)
     buyer=d.get('buyer') or {}
-    doc=fitz.open(template)
-    # One item per copy of the original PDF page retains the exact fixed row size.
-    # Multiple items do not shrink the table to illegible proportions.
-    for n,item in enumerate(d['items']):
-        if n:
-            doc.insert_pdf(fitz.open(template))
-        page=doc[n]
+    source=fitz.open(template)
+    doc=fitz.open()
+    # Two original-height rows fit on A4 without shrinking any product text.
+    # Copy the template's vector row and move its footer by exactly one row.
+    groups = [d['items'][start:start+2] for start in range(0, len(d['items']), 2)]
+    for page_index, items in enumerate(groups):
+        shift = (len(items)-1) * (ROW_BOTTOM-ROW_TOP)
+        if not shift:
+            doc.insert_pdf(source)
+            page=doc[-1]
+        else:
+            width, height = source[0].rect.width, source[0].rect.height
+            page=doc.new_page(width=width, height=height)
+            header=fitz.Rect(0, 0, width, ROW_BOTTOM)
+            page.show_pdf_page(header, source, 0, clip=header)
+            page.show_pdf_page(fitz.Rect(0, ROW_BOTTOM, width, ROW_BOTTOM+shift), source, 0,
+                               clip=fitz.Rect(0, ROW_TOP, width, ROW_BOTTOM))
+            page.show_pdf_page(fitz.Rect(0, ROW_BOTTOM+shift, width, height), source, 0,
+                               clip=fitz.Rect(0, ROW_BOTTOM, width, height-shift))
         if template_id == 'imported':
             fill_imported_seller(page, seller)
         fill_currency(page, d['currency'])
         rate = Decimal(d['tax']['rate'])
-        page.add_redact_annot(fitz.Rect(325, 627, 558, 679), fill=False)
+        page.add_redact_annot(fitz.Rect(325, 627+shift, 558, 679+shift), fill=False)
         page.apply_redactions(images=0, graphics=0, text=0)
-        footer_rows = [('Total Amount (incl. VAT):', 639.29),
-                       ('Amount excl. VAT:', 655.29), (f'VAT ({rate:.0%}):', 671.29)]
+        footer_rows = [('Total Amount:', 639.29+shift),
+                       ('Amount excl. VAT:', 655.29+shift), (f'VAT ({rate:.0%}):', 671.29+shift)]
         for label, y in footer_rows:
             width = fitz.get_text_length(label, fontname=FONT_SANS, fontsize=9.95)
             draw_left(page, label, 492-width, y, font=FONT_SANS, size=9.95)
@@ -638,44 +650,46 @@ def invoice_pdf(d,output):
         if vatnum:draw_left(page,vatnum,450.0,406.6,font=FONT_SANS,size=9,max_width=100)
         issue=date.fromisoformat(d['purchase_date']).strftime('%d/%m/%Y')
         draw_left(page,issue,411.4,422.8,font=FONT_SANS_BOLD,size=9.9,max_width=85)
-        # Seven column borders, grey header and 110-pt table row remain unchanged.
-        draw_centered_lines(page,str(n+1),CELLS[0],CELLS[1],ROW_TOP,ROW_BOTTOM,font=FONT_SERIF,ideal=12)
-        # The reference Item No. is the Amazon ORDER number (not SKU): 3 centred lines.
-        order_id=d['order_id']
-        order_text=order_id[:8]+'\n'+order_id[8:16]+'\n'+order_id[16:]
-        draw_centered_lines(page,order_text,CELLS[1],CELLS[2],ROW_TOP,ROW_BOTTOM,font=FONT_SERIF,ideal=12)
-        draw_centered_lines(page,item['title'],CELLS[2],CELLS[3],ROW_TOP,ROW_BOTTOM,font=FONT_BOLD,ideal=12,minimum=9)
-        description=clean(item.get('description')) or inferred_description(item['title'])
-        draw_centered_lines(page,description,CELLS[3],CELLS[4],ROW_TOP,ROW_BOTTOM,font=FONT_BOLD,ideal=12,minimum=8)
-        draw_centered_lines(page,number_fmt(item['unit_price']),CELLS[4],CELLS[5],ROW_TOP,ROW_BOTTOM,font=FONT_SERIF,ideal=12)
-        draw_centered_lines(page,str(item['quantity']),CELLS[5],CELLS[6],ROW_TOP,ROW_BOTTOM,font=FONT_SERIF,ideal=12)
-        draw_centered_lines(page,number_fmt(item['line_total']),CELLS[6],CELLS[7],ROW_TOP,ROW_BOTTOM,font=FONT_SERIF,ideal=12)
-        if n==len(d['items'])-1:
-            price=d['order_total'] if d['order_total'] is not None else d['subtotal']
-            values = [CURRENCY[d['currency']] + ' ' + number_fmt(amount)
-                      for amount in (price, d['net_amount'], d['tax']['amount'])]
-            face = fitz.Font(fontname=FONT_SANS)
-            size = 9.95
-            while size > 8 and max(face.text_length(v, fontsize=size) for v in values) > 57:
-                size = max(8, size-0.25)
-            for value, (_, y) in zip(values, footer_rows):
-                width = face.text_length(value, fontsize=size)
-                if width > 57:
-                    raise ValueError('Amount is too long for the invoice footer')
-                insert_text(page, (550-width, y), value, FONT_SANS, size)
-            if clean(d.get('origin')):
-                draw_left(page,d['origin'],54.2,688.4,font=FONT_SANS_BOLD,size=9.9,max_width=175)
-            # The single 'Shipping fee' field shows NET shipping after a
-            # documented shipping promotion, so it reconciles with Total Amount.
-            shipping=d.get('shipping_net')
-            if shipping is not None:
-                draw_left(page,number_fmt(shipping),445.0,622.0,font=FONT_SANS,size=9.9,max_width=70)
-        else:
-            draw_left(page,f'Page {n+1}/{len(d["items"])}',496.0,716.0,font=FONT_SANS,size=8.5)
+        for row_index, item in enumerate(items):
+            row_top = ROW_TOP + row_index*(ROW_BOTTOM-ROW_TOP)
+            row_bottom = row_top + ROW_BOTTOM-ROW_TOP
+            draw_centered_lines(page,str(page_index*2+row_index+1),CELLS[0],CELLS[1],row_top,row_bottom,font=FONT_SERIF,ideal=12)
+            # The reference Item No. is the Amazon ORDER number (not SKU): 3 centred lines.
+            order_id=d['order_id']
+            order_text=order_id[:8]+'\n'+order_id[8:16]+'\n'+order_id[16:]
+            draw_centered_lines(page,order_text,CELLS[1],CELLS[2],row_top,row_bottom,font=FONT_SERIF,ideal=12)
+            draw_centered_lines(page,item['title'],CELLS[2],CELLS[3],row_top,row_bottom,font=FONT_BOLD,ideal=12,minimum=9)
+            description=clean(item.get('description')) or inferred_description(item['title'])
+            draw_centered_lines(page,description,CELLS[3],CELLS[4],row_top,row_bottom,font=FONT_BOLD,ideal=12,minimum=8)
+            draw_centered_lines(page,number_fmt(item['unit_price']),CELLS[4],CELLS[5],row_top,row_bottom,font=FONT_SERIF,ideal=12)
+            draw_centered_lines(page,str(item['quantity']),CELLS[5],CELLS[6],row_top,row_bottom,font=FONT_SERIF,ideal=12)
+            draw_centered_lines(page,number_fmt(item['line_total']),CELLS[6],CELLS[7],row_top,row_bottom,font=FONT_SERIF,ideal=12)
+        price=d['order_total'] if d['order_total'] is not None else d['subtotal']
+        values = [CURRENCY[d['currency']] + ' ' + number_fmt(amount)
+                  for amount in (price, d['net_amount'], d['tax']['amount'])]
+        face = fitz.Font(fontname=FONT_SANS)
+        size = 9.95
+        while size > 8 and max(face.text_length(v, fontsize=size) for v in values) > 57:
+            size = max(8, size-0.25)
+        for value, (_, y) in zip(values, footer_rows):
+            width = face.text_length(value, fontsize=size)
+            if width > 57:
+                raise ValueError('Amount is too long for the invoice footer')
+            insert_text(page, (550-width, y), value, FONT_SANS, size)
+        if clean(d.get('origin')):
+            draw_left(page,d['origin'],54.2,688.4+shift,font=FONT_SANS_BOLD,size=9.9,max_width=175)
+        # The single 'Shipping fee' field shows NET shipping after a
+        # documented shipping promotion, so it reconciles with Total Amount.
+        shipping=d.get('shipping_net')
+        if shipping is not None:
+            draw_left(page,number_fmt(shipping),445.0,622.0+shift,font=FONT_SANS,size=9.9,max_width=70)
+        if len(groups) > 1:
+            draw_left(page, f'Page {page_index+1}/{len(groups)}', 496.0, 716.0+shift, font=FONT_SANS, size=8.5)
     doc.set_metadata({'title':f'COMMERCIAL INVOICE {d["order_id"]}', 'author':'Chenyu Commercial Invoice'})
     Path(output).parent.mkdir(parents=True,exist_ok=True)
     doc.save(str(output),garbage=4,deflate=True)
     doc.close()
+    source.close()
 
 
 def resolve_output_file(order_id, requested=None):

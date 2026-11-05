@@ -64,7 +64,7 @@ class InvoiceTests(unittest.TestCase):
                 path = Path(directory)/'invoice.pdf'
                 mod.invoice_pdf(mod.normalize(data), path)
                 with fitz.open(path) as document:
-                    self.assertEqual(len(document), 2)
+                    self.assertEqual(len(document), 1)
                     for page in document:
                         header = ' '.join(page.get_text(clip=fitz.Rect(10, 108, 580, 158)).split())
                         expected = 'ADD: ' + ', '.join(data['seller']['address_lines'])
@@ -73,6 +73,37 @@ class InvoiceTests(unittest.TestCase):
                         self.assertNotIn('pinghujiedao', page.get_text())
                         detail = page.get_text(clip=fitz.Rect(384, 295, 560, 378))
                         self.assertNotIn('ADD:', detail)
+
+    def test_two_distinct_products_share_original_columns_without_shrinking(self):
+        data = self.pln_example()
+        first = deepcopy(data['items'][0])
+        second = dict(first, title='Drugi produkt', description='Drugi opis')
+        data['items'] = [first, second]
+        data['order_total'] = '49.20'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'invoice.pdf'
+            mod.invoice_pdf(mod.normalize(data), path)
+            with fitz.open(path) as doc:
+                self.assertEqual(len(doc), 1)
+                page = doc[0]
+                text = page.get_text()
+                for value in (first['title'], second['title'], 'Total Amount:', 'Amount excl. VAT:', 'VAT (23%):', '49,20', '40,00', '9,20'):
+                    self.assertIn(value, text)
+                for title, top, bottom in ((first['title'], mod.ROW_TOP, mod.ROW_BOTTOM),
+                        (second['title'], mod.ROW_BOTTOM, mod.ROW_BOTTOM*2-mod.ROW_TOP)):
+                    boxes = page.search_for(title)
+                    self.assertEqual(len(boxes), 1)
+                    self.assertGreaterEqual(boxes[0].y0, top)
+                    self.assertLessEqual(boxes[0].y1, bottom)
+                vat = page.search_for('VAT (23%):')[0]
+                self.assertGreater(vat.y0, mod.ROW_BOTTOM*2-mod.ROW_TOP)
+                self.assertLess(vat.y1, page.rect.height-30)
+                for block in page.get_text('dict')['blocks']:
+                    for line in block.get('lines', []):
+                        for span in line['spans']:
+                            self.assertLessEqual(span['bbox'][3], page.rect.height)
+                self.assertEqual(text.count('COMMERCIAL INVOICE'), 1)
+                self.assertNotIn('Page 1/2', text)
 
     def test_incomplete_or_other_order_billing_message_never_falls_back(self):
         data = self.pln_example()
@@ -99,8 +130,6 @@ class InvoiceTests(unittest.TestCase):
 
     def test_pln_template_preserves_all_original_graphics_on_each_page(self):
         data = self.pln_example()
-        data['items'] *= 2
-        data['order_total'] = '49.20'
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'invoice.pdf'
             mod.invoice_pdf(mod.normalize(data), path)
@@ -118,8 +147,8 @@ class InvoiceTests(unittest.TestCase):
                         self.assertGreaterEqual(span['bbox'][0], 0)
                         self.assertLessEqual(span['bbox'][2], page.rect.width)
                 text = document[-1].get_text()
-                self.assertIn('49,20', text)
-                self.assertIn('9,20', text)
+                self.assertIn('24,60', text)
+                self.assertIn('4,60', text)
 
     def test_known_sellers_can_use_confirmed_pln_without_importing_identity(self):
         for template in ('jiuyue', 'renhaoyuan'):
@@ -277,7 +306,7 @@ Sales proceeds: €6.50'''
         self.assertIn('Boa en plumes\nblanc, 1,8 m',text)
         self.assertIn('VAT (20%):',text)
         self.assertIn('1,33',text)
-        self.assertIn('Total Amount (incl. VAT):',text)
+        self.assertIn('Total Amount:',text)
         self.assertIn('403-1234',text)  # original Item No. is order ID, not SKU
         self.assertNotIn('EXAMPLE-WHITE-BOA',text)
         self.assertNotIn('Amazon FBA',text)
@@ -524,11 +553,11 @@ Sales proceeds: €6.50'''
         data=deepcopy(SAMPLE)
         data['items']=[dict(data['items'][0],sku=f'PRODUCT-{i}',quantity=1,unit_price='7.99',line_total='7.99',title='Boa en Plumes '+'Fête de Noël '*12) for i in range(5)]
         pdfs=self.render_text(data)
-        self.assertEqual(len(pdfs),5)
+        self.assertEqual(len(pdfs),3)
         for pdf in pdfs:
             self.assertIn('Boa en Plumes',pdf)
         self.assertIn('39,95',pdfs[-1])
-        self.assertEqual(''.join(pdfs).count('COMMERCIAL INVOICE'),5)
+        self.assertEqual(''.join(pdfs).count('COMMERCIAL INVOICE'),3)
 
     def test_conflicting_seller_rejected(self):
         data=deepcopy(SAMPLE)
@@ -725,7 +754,7 @@ Profil vendeur Amazon.fr : Renhaoyuan'''
         data['seller_template']='renhaoyuan'
         data['items']*=2
         texts=self.render_text(data)
-        self.assertEqual(len(texts),2)
+        self.assertEqual(len(texts),1)
         for text in texts:
             self.assertIn('shenzhenshirenhaoyuanmaoyiyouxiangongsi',text)
             self.assertNotIn('shenzhenshijiuyuekejiyouxiangongsi',text)
