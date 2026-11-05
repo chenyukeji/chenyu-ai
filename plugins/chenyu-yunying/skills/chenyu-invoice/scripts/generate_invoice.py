@@ -178,6 +178,8 @@ def extract_order_text(content):
     subtotal = re.search(r'(?:商品小计|Item subtotal)\s*[:：]\s*\|?\s*' + amount_pattern, s, re.I)
     if not product or not subtotal or not qty:
         raise ValueError('Product title, quantity or item subtotal missing; use structured JSON')
+    if '企业商品价格' in s:
+        raise ValueError('Business price columns require structured JSON with verified gross/net amounts')
     quantity = int(qty.group(1))
     symbols = {'€': 'EUR', '£': 'GBP', '$': 'USD', 'PLN': 'PLN', 'zł': 'PLN'}
     out['currency'] = symbols[subtotal.group(1) or subtotal.group(4)]
@@ -303,10 +305,13 @@ def normalize(data, seller=None, invoice_date=None, template=None):
             raise ValueError(f'Order total {order_total:.2f} does not match goods plus '
                              f'net shipping {expected_total:.2f}; check promotional discounts')
     basis = d.get('price_tax_basis', 'inclusive')
-    if basis not in ('inclusive', 'exclusive'):
-        raise ValueError('price_tax_basis must be inclusive or exclusive')
-    if basis == 'exclusive' and not clean(d.get('tax_basis_evidence')):
-        raise ValueError('Exclusive price requires tax_basis_evidence from source or user confirmation')
+    if basis not in ('inclusive', 'exclusive', 'both'):
+        raise ValueError('price_tax_basis must be inclusive, exclusive or both')
+    if basis in ('exclusive', 'both') and not clean(d.get('tax_basis_evidence')):
+        raise ValueError('Exclusive or dual prices require tax_basis_evidence from source or user confirmation')
+    displayed = d.get('displayed_amounts')
+    if displayed is not None and basis != 'both':
+        raise ValueError('displayed_amounts requires price_tax_basis=both; do not ignore source amounts')
     # Use the original delivery destination, before billing overrides.
     # Prefer a confirmed order total; otherwise calculate on the confirmed goods subtotal.
     site = resolve_marketplace(d)
@@ -321,7 +326,48 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     divisor = Decimal('1') + rate
     vat_basis = 'order_total' if order_total is not None else 'items_subtotal'
     price = order_total if order_total is not None else subtotal
-    if basis == 'exclusive':
+    if basis == 'both':
+        if not isinstance(displayed, dict):
+            raise ValueError('Both prices require displayed_amounts with gross and net totals')
+        gross_amount = money(displayed.get('gross'), 'displayed_amounts.gross')
+        net_amount = money(displayed.get('net'), 'displayed_amounts.net')
+        if gross_amount is None or net_amount is None:
+            raise ValueError('displayed_amounts.gross and displayed_amounts.net are required')
+        if net_amount > gross_amount:
+            raise ValueError('Displayed net amount must not exceed gross amount')
+        if order_total != gross_amount:
+            raise ValueError('Both prices require order_total equal to displayed_amounts.gross')
+        if shipping_net is None and subtotal != gross_amount:
+            raise ValueError('Both prices require gross item amounts matching gross total; reconcile fees or discounts')
+        expected_net = (gross_amount / divisor).quantize(CENT, rounding=ROUND_HALF_UP)
+        if any('net_line_total' in item for item in checked):
+            # Separate source rows may each be rounded before summation.
+            # Validate those rows instead of rounding their combined gross again.
+            source_net_subtotal = Decimal('0.00')
+            for i, item in enumerate(checked, 1):
+                source_net = money(item.get('net_line_total'), f'items[{i}].net_line_total')
+                expected_line_net = (item['line_total'] / divisor).quantize(CENT, rounding=ROUND_HALF_UP)
+                if source_net is None or source_net != expected_line_net:
+                    raise ValueError(f'items[{i}].net_line_total conflicts with gross line or destination rate')
+                source_net_subtotal += source_net
+                item['net_line_total'] = source_net
+            source_net_shipping = money(displayed.get('net_shipping'), 'displayed_amounts.net_shipping')
+            expected_net_shipping = ((shipping_net or Decimal('0')) / divisor).quantize(CENT, rounding=ROUND_HALF_UP)
+            if shipping_net and source_net_shipping is None:
+                raise ValueError('Per-line dual prices with shipping require displayed_amounts.net_shipping')
+            if source_net_shipping is not None and source_net_shipping != expected_net_shipping:
+                raise ValueError('displayed_amounts.net_shipping conflicts with gross shipping or destination rate')
+            expected_net = source_net_subtotal + (source_net_shipping or Decimal('0'))
+        if net_amount != expected_net:
+            raise ValueError(f'Displayed gross/net amounts conflict with {destination} destination rate {rate}; '
+                             'check amount scope, discounts and tax evidence')
+        # Preserve both rounded source totals. Re-adding VAT to the rounded net
+        # can lose a cent (9.99 gross / 8.39 net must yield VAT 1.60, not 1.59).
+        tax_amount = gross_amount - net_amount
+        calculation = 'displayed gross - displayed net'
+        vat_basis = 'displayed_amounts'
+        d['displayed_amounts'] = {**displayed, 'gross': gross_amount, 'net': net_amount}
+    elif basis == 'exclusive':
         tax_amount = (price * rate).quantize(CENT, rounding=ROUND_HALF_UP)
         net_amount, gross_amount = price, price + tax_amount
         calculation = f'Price * {rate.normalize()}'

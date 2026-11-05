@@ -125,6 +125,143 @@ class InvoiceTests(unittest.TestCase):
             for value in (gross.replace('.',','),vat.replace('.',','),net.replace('.',',')):
                 self.assertIn(value,text)
 
+    def dual_amount_example(self):
+        data = deepcopy(SAMPLE)
+        data.update(sales_channel='Amazon.de', order_total='9.99', price_tax_basis='both',
+                    displayed_amounts={'gross':'9.99', 'net':'8.39'},
+                    amount_source='displayed_gross_and_net',
+                    tax_basis_evidence='Confirmed company screenshot: gross unit price and net item total')
+        data['buyer']['country'] = 'Germany'
+        data['items'][0].update(unit_price='9.99', line_total='9.99')
+        data['tax'] = {}
+        return data
+
+    def test_dual_amounts_preserve_source_cent_in_pdf(self):
+        data = self.dual_amount_example()
+        original = deepcopy(data)
+        n = mod.normalize(data)
+        self.assertEqual(data, original)
+        self.assertEqual(n['gross_amount'], Decimal('9.99'))
+        self.assertEqual(n['net_amount'], Decimal('8.39'))
+        self.assertEqual(n['tax']['amount'], Decimal('1.60'))
+        self.assertEqual(n['tax']['basis'], 'displayed_amounts')
+        self.assertEqual(n['tax']['calculation'], 'displayed gross - displayed net')
+        pages = self.render_text(data)
+        self.assertEqual(len(pages), 1)
+        for value in ('9,99', '8,39', '1,60', 'VAT (19%):', 'Amount excl. VAT:'):
+            self.assertIn(value, pages[0])
+        for wrong in ('9,98', '1,59'):
+            self.assertNotIn(wrong, pages[0])
+
+    def test_dual_amounts_require_both_values_and_evidence(self):
+        for field in ('tax_basis_evidence', 'displayed_amounts', 'order_total'):
+            data = self.dual_amount_example()
+            data.pop(field)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                mod.normalize(data)
+        for field in ('gross', 'net'):
+            data = self.dual_amount_example()
+            data['displayed_amounts'].pop(field)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                mod.normalize(data)
+        for basis in ('inclusive', 'exclusive'):
+            data = self.dual_amount_example()
+            data['price_tax_basis'] = basis
+            with self.subTest(basis=basis), self.assertRaisesRegex(ValueError, 'do not ignore'):
+                mod.normalize(data)
+
+    def test_dual_amount_conflicts_are_not_silently_recomputed(self):
+        for net in ('9.99', '10.00', '8.38', '6.50'):
+            data = self.dual_amount_example()
+            data['displayed_amounts']['net'] = net
+            with self.subTest(net=net), self.assertRaises(ValueError):
+                mod.normalize(data)
+        data = self.dual_amount_example()
+        data['order_total'] = '8.39'
+        with self.assertRaisesRegex(ValueError, 'order_total equal'):
+            mod.normalize(data)
+        data = self.dual_amount_example()
+        data['items'][0].update(unit_price='8.39', line_total='8.39')
+        with self.assertRaisesRegex(ValueError, 'gross item amounts'):
+            mod.normalize(data)
+        data = self.dual_amount_example()
+        data['tax']['amount'] = '1.59'
+        with self.assertRaisesRegex(ValueError, 'VAT-both'):
+            mod.normalize(data)
+
+    def test_dual_amounts_use_shipping_country_not_marketplace(self):
+        data = self.dual_amount_example()
+        data['sales_channel'] = 'Amazon.fr'
+        self.assertEqual(mod.normalize(data)['tax']['amount'], Decimal('1.60'))
+        data['buyer']['country'] = 'France'
+        with self.assertRaisesRegex(ValueError, 'destination rate'):
+            mod.normalize(data)
+
+    def test_dual_amounts_reconcile_multiple_items_and_shipping(self):
+        data = self.dual_amount_example()
+        data['items'].append(deepcopy(data['items'][0]))
+        data.update(order_total='21.17', shipping_fee='1.19',
+                    displayed_amounts={'gross':'21.17', 'net':'17.79'})
+        n = mod.normalize(data)
+        self.assertEqual(n['tax']['amount'], Decimal('3.38'))
+        self.assertEqual(n['net_amount'] + n['tax']['amount'], n['gross_amount'])
+        self.assertEqual(len(self.render_text(data)), 1)
+        data['shipping_fee'] = '0.00'
+        with self.assertRaisesRegex(ValueError, 'goods plus'):
+            mod.normalize(data)
+
+    def test_dual_amounts_sum_rounded_source_rows_without_losing_cents(self):
+        data = self.dual_amount_example()
+        data['items'][0]['net_line_total'] = '8.39'
+        data['items'].append(deepcopy(data['items'][0]))
+        data.update(order_total='19.98', displayed_amounts={'gross':'19.98', 'net':'16.78'})
+        n = mod.normalize(data)
+        self.assertEqual(n['net_amount'], Decimal('16.78'))
+        self.assertEqual(n['tax']['amount'], Decimal('3.20'))
+        self.assertIn('16,78', self.render_text(data)[0])
+        data['items'][1]['net_line_total'] = '8.38'
+        with self.assertRaisesRegex(ValueError, 'net_line_total'):
+            mod.normalize(data)
+        data['items'][1].pop('net_line_total')
+        with self.assertRaisesRegex(ValueError, 'net_line_total'):
+            mod.normalize(data)
+
+    def test_dual_source_rows_include_matching_net_shipping(self):
+        data = self.dual_amount_example()
+        data['items'][0]['net_line_total'] = '8.39'
+        data.update(order_total='11.18', shipping_fee='1.19',
+                    displayed_amounts={'gross':'11.18', 'net':'9.39', 'net_shipping':'1.00'})
+        self.assertEqual(mod.normalize(data)['tax']['amount'], Decimal('1.79'))
+        data['displayed_amounts']['net_shipping'] = '0.99'
+        with self.assertRaisesRegex(ValueError, 'net_shipping'):
+            mod.normalize(data)
+        data['displayed_amounts'].pop('net_shipping')
+        with self.assertRaisesRegex(ValueError, 'net_shipping'):
+            mod.normalize(data)
+
+    def test_dual_amounts_support_original_pln_without_conversion(self):
+        data = self.pln_example()
+        data.update(price_tax_basis='both', tax_basis_evidence='Explicit gross and net columns',
+                    displayed_amounts={'gross':'24.60', 'net':'20.00'})
+        n = mod.normalize(data)
+        self.assertEqual(n['tax']['amount'], Decimal('4.60'))
+        text = self.render_text(data)[0]
+        self.assertIn('24,60', text)
+        self.assertIn('20,00', text)
+        self.assertIn('PLN', text)
+        self.assertNotIn('€', text)
+
+    def test_simple_text_parser_does_not_flatten_company_price_columns(self):
+        raw = '''403-1234567-7654321
+销售渠道: Amazon.de
+购买日期: 2026年10月1日
+| [Example Item](https://www.amazon.de/gp/product/B000000000) | 数量: 1 |
+商品单价: €9.99 企业商品价格
+商品小计: €8.39
+商品总计: €8.39'''
+        with self.assertRaisesRegex(ValueError, 'structured JSON'):
+            mod.extract_order_text(raw)
+
     def test_inclusive_same_price_does_not_get_tax_added_again(self):
         data=deepcopy(SAMPLE)
         data.update(sales_channel='Amazon.es',order_total='7.55')
