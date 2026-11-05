@@ -302,7 +302,12 @@ def normalize(data, seller=None, invoice_date=None, template=None):
         if order_total != expected_total:
             raise ValueError(f'Order total {order_total:.2f} does not match goods plus '
                              f'net shipping {expected_total:.2f}; check promotional discounts')
-    # Price is VAT-inclusive; use the original delivery destination, before billing overrides.
+    basis = d.get('price_tax_basis', 'inclusive')
+    if basis not in ('inclusive', 'exclusive'):
+        raise ValueError('price_tax_basis must be inclusive or exclusive')
+    if basis == 'exclusive' and not clean(d.get('tax_basis_evidence')):
+        raise ValueError('Exclusive price requires tax_basis_evidence from source or user confirmation')
+    # Use the original delivery destination, before billing overrides.
     # Prefer a confirmed order total; otherwise calculate on the confirmed goods subtotal.
     site = resolve_marketplace(d)
     destination, region, rate = resolve_destination_vat(shipping_destination)
@@ -316,19 +321,28 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     divisor = Decimal('1') + rate
     vat_basis = 'order_total' if order_total is not None else 'items_subtotal'
     price = order_total if order_total is not None else subtotal
-    tax_amount = (price / divisor * rate).quantize(CENT, rounding=ROUND_HALF_UP)
+    if basis == 'exclusive':
+        tax_amount = (price * rate).quantize(CENT, rounding=ROUND_HALF_UP)
+        net_amount, gross_amount = price, price + tax_amount
+        calculation = f'Price * {rate.normalize()}'
+    else:
+        tax_amount = (price / divisor * rate).quantize(CENT, rounding=ROUND_HALF_UP)
+        net_amount, gross_amount = price - tax_amount, price
+        calculation = f'Price / {divisor.normalize()} * {rate.normalize()}'
     if supplied_tax is not None and supplied_tax != tax_amount:
         raise ValueError(f'tax.amount {supplied_tax:.2f} disagrees with the {destination} '
-                         f'VAT-inclusive formula ({tax_amount:.2f} on {vat_basis})')
+                         f'VAT-{basis} formula ({tax_amount:.2f} on {vat_basis})')
     d['subtotal'] = subtotal
     d['shipping_fee'] = shipping
     d['shipping_discount'] = shipping_discount
     d['shipping_net'] = shipping_net
     d['order_total'] = order_total
     d['marketplace_code'] = site
-    d['net_amount'] = price - tax_amount
+    d['price_tax_basis'] = basis
+    d['gross_amount'] = gross_amount
+    d['net_amount'] = net_amount
     d['tax'] = {**tax, 'amount': tax_amount, 'rate': str(rate),
-                'calculation': f'Price / {divisor.normalize()} * {rate.normalize()}', 'basis': vat_basis,
+                'calculation': calculation, 'basis': vat_basis, 'price_tax_basis': basis,
                 'destination_country': destination, 'destination_region': region,
                 'rate_source': 'shipping_destination'}
     warnings = [w for w in d.get('warnings', []) if isinstance(w, str)]
@@ -346,7 +360,7 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     if vat_basis == 'items_subtotal':
         warnings.append('VAT is calculated on goods subtotal only; order total/shipping may be incomplete')
         warnings.append('Reference template Total Amount displays known goods subtotal; payment grand total not verified')
-    warnings.append(f'{destination} {region} {rate:.0%} VAT-inclusive calculation uses the supplied destination rate table, not tax status verification')
+    warnings.append(f'{destination} {region} {rate:.0%} VAT-{basis} calculation uses the supplied destination rate table, not tax status verification')
     if not d.get('origin'):
         warnings.append('Country of manufacture not confirmed')
     d['warnings'] = list(dict.fromkeys(warnings))
@@ -664,7 +678,7 @@ def invoice_pdf(d,output):
             draw_centered_lines(page,number_fmt(item['unit_price']),CELLS[4],CELLS[5],row_top,row_bottom,font=FONT_SERIF,ideal=12)
             draw_centered_lines(page,str(item['quantity']),CELLS[5],CELLS[6],row_top,row_bottom,font=FONT_SERIF,ideal=12)
             draw_centered_lines(page,number_fmt(item['line_total']),CELLS[6],CELLS[7],row_top,row_bottom,font=FONT_SERIF,ideal=12)
-        price=d['order_total'] if d['order_total'] is not None else d['subtotal']
+        price=d['gross_amount']
         values = [CURRENCY[d['currency']] + ' ' + number_fmt(amount)
                   for amount in (price, d['net_amount'], d['tax']['amount'])]
         face = fitz.Font(fontname=FONT_SANS)

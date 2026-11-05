@@ -105,6 +105,54 @@ class InvoiceTests(unittest.TestCase):
                 self.assertEqual(text.count('COMMERCIAL INVOICE'), 1)
                 self.assertNotIn('Page 1/2', text)
 
+    def test_confirmed_exclusive_business_price_adds_tax_and_preserves_source(self):
+        for quantity, net, vat, gross in [(1,'7.55','1.59','9.14'), (2,'15.10','3.17','18.27')]:
+            data=deepcopy(SAMPLE)
+            data.update(sales_channel='Amazon.es',order_total=net,price_tax_basis='exclusive',
+                        tax_basis_evidence='User confirmed the displayed business price is exclusive')
+            data['buyer']['country']='Spain'
+            data['tax']={}
+            data['items'][0].update(quantity=quantity,unit_price='7.55',line_total=net)
+            n=mod.normalize(data)
+            self.assertEqual(n['order_total'],Decimal(net))
+            self.assertEqual(n['items'][0]['unit_price'],Decimal('7.55'))
+            self.assertEqual(n['net_amount'],Decimal(net))
+            self.assertEqual(n['gross_amount'],Decimal(gross))
+            self.assertEqual(n['tax']['amount'],Decimal(vat))
+            self.assertEqual(n['tax']['calculation'],'Price * 0.21')
+            text=self.render_text(data)[0]
+            for value in (gross.replace('.',','),vat.replace('.',','),net.replace('.',',')):
+                self.assertIn(value,text)
+
+    def test_inclusive_same_price_does_not_get_tax_added_again(self):
+        data=deepcopy(SAMPLE)
+        data.update(sales_channel='Amazon.es',order_total='7.55')
+        data['buyer']['country']='Spain';data['tax']={}
+        data['items'][0].update(unit_price='7.55',line_total='7.55')
+        n=mod.normalize(data)
+        self.assertEqual(n['gross_amount'],Decimal('7.55'))
+        self.assertEqual(n['net_amount'],Decimal('6.24'))
+        self.assertEqual(n['tax']['amount'],Decimal('1.31'))
+
+    def test_exclusive_basis_requires_evidence_and_matches_supplied_tax(self):
+        data=deepcopy(SAMPLE);data['tax']={};data['price_tax_basis']='exclusive'
+        with self.assertRaisesRegex(ValueError,'tax_basis_evidence'):mod.normalize(data)
+        data['tax_basis_evidence']='Confirmed net price'
+        data['tax']={'amount':'1.33'}
+        with self.assertRaisesRegex(ValueError,'VAT-exclusive'):mod.normalize(data)
+        data['price_tax_basis']='unknown'
+        with self.assertRaisesRegex(ValueError,'price_tax_basis'):mod.normalize(data)
+
+    def test_exclusive_pln_with_shipping_uses_destination_rate(self):
+        data=self.pln_example()
+        data.update(price_tax_basis='exclusive',tax_basis_evidence='Confirmed source',shipping_fee='1.00',order_total='25.60')
+        data['tax']={}
+        n=mod.normalize(data)
+        self.assertEqual(n['net_amount'],Decimal('25.60'))
+        self.assertEqual(n['tax']['amount'],Decimal('5.89'))
+        self.assertEqual(n['gross_amount'],Decimal('31.49'))
+        self.assertIn('31,49',self.render_text(data)[0])
+
     def test_incomplete_or_other_order_billing_message_never_falls_back(self):
         data = self.pln_example()
         data['billing_request']['order_id'] = '403-9999999-9999999'
