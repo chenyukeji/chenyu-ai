@@ -556,7 +556,7 @@ def fill_imported_seller(page, seller):
         page.add_redact_annot(fitz.Rect(region), fill=False)
     page.apply_redactions(images=0, graphics=0, text=0)
     draw_centered_lines(page, seller['company'], 14, 580, 77, 108, font=FONT_SANS, ideal=22, minimum=14)
-    address = '\n'.join(seller['address_lines'])
+    address = 'ADD: ' + '\n'.join(seller['address_lines'])
     # The address region is replaced wholesale; restore its fixed template label.
     header, size, leading = fit_lines('ADD: ' + ', '.join(seller['address_lines']), FONT_SANS_BOLD, 560, 46, ideal=11, minimum=9, lead=1.15)
     for index, line in enumerate(header):

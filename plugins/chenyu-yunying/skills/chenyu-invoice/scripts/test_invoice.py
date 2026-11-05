@@ -69,10 +69,11 @@ class InvoiceTests(unittest.TestCase):
                         header = ' '.join(page.get_text(clip=fitz.Rect(10, 108, 580, 158)).split())
                         expected = 'ADD: ' + ', '.join(data['seller']['address_lines'])
                         self.assertEqual(header, expected)
-                        self.assertEqual(page.get_text().count('ADD:'), 1)
+                        self.assertEqual(page.get_text().count('ADD:'), 2)
                         self.assertNotIn('pinghujiedao', page.get_text())
                         detail = page.get_text(clip=fitz.Rect(384, 295, 560, 378))
-                        self.assertNotIn('ADD:', detail)
+                        self.assertEqual(detail.count('ADD:'), 1)
+                        self.assertTrue(detail.strip().startswith('ADD: '))
 
     def test_two_distinct_products_share_original_columns_without_shrinking(self):
         data = self.pln_example()
