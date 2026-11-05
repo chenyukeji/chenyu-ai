@@ -5,6 +5,7 @@ Dependencies: pymupdf (pip install pymupdf). Uses the redacted original WPS invo
 """
 from __future__ import annotations
 import argparse
+from copy import deepcopy
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import json
@@ -47,7 +48,7 @@ SHIPPING_WAY = 'Paypal package'  # Printed shipping method is fixed by the invoi
 CURRENCY = {'EUR': '€', 'PLN': 'PLN'}
 
 
-def money(v, field='amount'):
+def money(v, field='amount', *, signed=False):
     if v is None or v == '':
         return None
     if isinstance(v, bool):
@@ -56,7 +57,7 @@ def money(v, field='amount'):
         d = Decimal(str(v).replace('€', '').replace('£', '').replace(' ', '').replace(',', '.'))
     except InvalidOperation as e:
         raise ValueError(f'{field}: not a decimal amount: {v}') from e
-    if not d.is_finite() or d < 0 or d != d.quantize(CENT):
+    if not d.is_finite() or (d < 0 and not signed) or d != d.quantize(CENT):
         raise ValueError(f'{field}: expected non-negative amount with at most two decimals')
     return d
 
@@ -127,6 +128,8 @@ def extract_order_text(content):
     The assistant must confirm extraction before issuing a buyer-facing invoice.
     """
     s = content.replace('**', '')
+    if re.search(r'退款|退货|\brefund(?:ed)?\b|credit note', s, re.I):
+        raise ValueError('Refund orders require structured JSON with document_type=refund and verified refund amounts')
     ids = re.findall(r'\b\d{3}-\d{7}-\d{7}\b', s)
     if not ids:
         raise ValueError('No Amazon order ID (123-1234567-1234567) found')
@@ -216,10 +219,46 @@ def extract_order_text(content):
     return out
 
 
+def refund_amount_fields(data):
+    for key in ('order_total', 'shipping_fee', 'shipping_discount'):
+        yield data, key, key
+    for i, item in enumerate(data.get('items', []), 1):
+        for key in ('unit_price', 'line_total', 'net_line_total'):
+            yield item, key, f'items[{i}].{key}'
+    for parent, keys in (('displayed_amounts', ('gross', 'net', 'net_shipping')), ('tax', ('amount',))):
+        values = data.get(parent) or {}
+        if not isinstance(values, dict):
+            raise ValueError(f'{parent} must be an object')
+        for key in keys:
+            yield values, key, f'{parent}.{key}'
+
+
+def prepare_refund(data):
+    kind = data.get('document_type', 'invoice')
+    if kind not in ('invoice', 'refund'):
+        raise ValueError('document_type must be invoice or refund')
+    if kind != 'refund':
+        return False
+    if not isinstance(data.get('refund_evidence'), str) or not data['refund_evidence'].strip():
+        raise ValueError('Refund requires refund_evidence from the order or explicit user confirmation')
+    if not isinstance(data.get('items'), list) or any(not isinstance(item, dict) for item in data['items']):
+        raise ValueError('Refund items must be a list of objects')
+    # Reuse the same tax/discount arithmetic on magnitudes, then apply a single
+    # negative sign to every refund amount. Already negative input is not flipped.
+    source = {}
+    for values, key, label in refund_amount_fields(data):
+        if key in values and values[key] not in (None, ''):
+            source[label] = values[key]
+            values[key] = abs(money(values[key], label, signed=True))
+    data['refund_source_amounts'] = source
+    return True
+
+
 def normalize(data, seller=None, invoice_date=None, template=None):
     if not isinstance(data, dict):
         raise ValueError('Input must be a JSON object')
-    d = dict(data)
+    d = deepcopy(data)
+    refund = prepare_refund(d)
     if 'invoice_date' in d:
         raise ValueError('invoice_date is unsupported; use purchase_date')
     if not isinstance(d.get('buyer') or {}, dict) or not isinstance(d.get('seller') or {}, dict):
@@ -299,6 +338,8 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     if shipping is not None and shipping_discount > shipping:
         raise ValueError('shipping_discount must not exceed shipping_fee')
     shipping_net = (shipping - shipping_discount) if shipping is not None else None
+    if refund and (order_total is None or order_total <= 0 or order_total != subtotal + (shipping_net or Decimal('0'))):
+        raise ValueError('Refund order_total must match actual refunded items and net shipping; do not negate the original full order')
     if order_total is not None and shipping_net is not None:
         expected_total = subtotal + shipping_net
         if order_total != expected_total:
@@ -410,6 +451,13 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     if not d.get('origin'):
         warnings.append('Country of manufacture not confirmed')
     d['warnings'] = list(dict.fromkeys(warnings))
+    if refund:
+        for values, key, _ in refund_amount_fields(d):
+            if values.get(key) is not None and values.get(key) != '':
+                values[key] = -abs(money(values[key], key)) if values[key] else Decimal('0.00')
+        for key in ('subtotal', 'shipping_net', 'gross_amount', 'net_amount'):
+            if d.get(key) is not None:
+                d[key] = -abs(d[key]) if d[key] else Decimal('0.00')
     return d
 
 
@@ -743,8 +791,6 @@ def invoice_pdf(d,output):
         shipping=d.get('shipping_net')
         if shipping is not None:
             draw_left(page,number_fmt(shipping),445.0,622.0+shift,font=FONT_SANS,size=9.9,max_width=70)
-        if len(groups) > 1:
-            draw_left(page, f'Page {page_index+1}/{len(groups)}', 496.0, 716.0+shift, font=FONT_SANS, size=8.5)
     doc.set_metadata({'title':f'COMMERCIAL INVOICE {d["order_id"]}', 'author':'Chenyu Commercial Invoice'})
     Path(output).parent.mkdir(parents=True,exist_ok=True)
     doc.save(str(output),garbage=4,deflate=True)

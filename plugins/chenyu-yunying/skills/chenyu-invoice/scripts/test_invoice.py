@@ -1049,5 +1049,61 @@ Profil vendeur Amazon.fr : Renhaoyuan'''
                             self.assertLessEqual(row[1]['bbox'][2], 550.2)
                             self.assertLess(row[1]['bbox'][3], 691)
 
+class RefundTests(unittest.TestCase):
+    def sample(self, signed=False):
+        d=deepcopy(SAMPLE)
+        d.update(document_type='refund',refund_evidence='Verified refunded item and amount in test order',order_total='-12.99' if signed else '12.99')
+        d['buyer']['country']='Italy'
+        d['items'][0].update(unit_price=d['order_total'],line_total=d['order_total'])
+        return d
+
+    def test_positive_and_negative_sources_render_same_refund_without_mutation(self):
+        for signed in (False,True):
+            source=self.sample(signed);before=deepcopy(source);d=mod.normalize(source)
+            self.assertEqual(source,before)
+            self.assertEqual((d['gross_amount'],d['net_amount'],d['tax']['amount']),tuple(map(Decimal,['-12.99','-10.65','-2.34'])))
+            self.assertEqual(d['items'][0]['quantity'],1)
+            self.assertEqual(d['items'][0]['unit_price'],Decimal('-12.99'))
+            self.assertEqual(d['net_amount']+d['tax']['amount'],d['gross_amount'])
+            with tempfile.TemporaryDirectory() as folder:
+                p=Path(folder)/'refund.pdf';mod.invoice_pdf(d,p)
+                with fitz.open(p) as doc:
+                    text=doc[0].get_text()
+                    for amount in ('-12,99','-10,65','-2,34'):self.assertIn(amount,text)
+                    self.assertEqual(doc[0].get_text(clip=fitz.Rect(0,694,595.3,841.9)).strip(),'')
+
+    def test_exclusive_and_dual_prices(self):
+        for basis in ('exclusive','both'):
+            d=self.sample(True);d.update(price_tax_basis=basis,tax_basis_evidence='Verified tax basis')
+            if basis=='exclusive':
+                d['order_total']='-10.65';d['items'][0].update(unit_price='-10.65',line_total='-10.65')
+            else:
+                d['displayed_amounts']={'gross':'-12.99','net':'-10.65'}
+                d['items'][0]['net_line_total']='-10.65'
+            result=mod.normalize(d)
+            self.assertEqual(result['gross_amount'],Decimal('-12.99'))
+            self.assertEqual(result['tax']['amount'],Decimal('-2.34'))
+
+    def test_partial_refund_and_shipping_use_only_refunded_amounts(self):
+        d=self.sample();d['items'][0].update(unit_price='3.00',line_total='6.00',quantity=2)
+        d.update(shipping_fee='2.00',shipping_discount='0.50',order_total='7.50')
+        result=mod.normalize(d)
+        self.assertEqual(result['gross_amount'],Decimal('-7.50'))
+        self.assertEqual(result['shipping_net'],Decimal('-1.50'))
+        self.assertEqual(result['items'][0]['quantity'],2)
+        d['order_total']='12.99'
+        with self.assertRaisesRegex(ValueError,'actual refunded'):mod.normalize(d)
+
+    def test_refund_requires_evidence_and_normal_sales_reject_negative_values(self):
+        d=self.sample();d.pop('refund_evidence')
+        with self.assertRaisesRegex(ValueError,'refund_evidence'):mod.normalize(d)
+        d=self.sample(True);d['document_type']='invoice'
+        with self.assertRaisesRegex(ValueError,'non-negative'):mod.normalize(d)
+        d=self.sample();d['items'][0]['quantity']=-1
+        with self.assertRaisesRegex(ValueError,'positive integer'):mod.normalize(d)
+        with self.assertRaisesRegex(ValueError,'structured JSON'):
+            mod.extract_order_text('退款订单 403-1234567-7654321')
+
+
 if __name__=='__main__':
     unittest.main(verbosity=2)

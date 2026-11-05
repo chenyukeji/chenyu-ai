@@ -49,3 +49,7 @@
 PDF 文件名固定为完整 Amazon 订单编号：`<order_id>.pdf`（例如虚构样例 `403-1234567-7654321.pdf`）。不得添加前缀、日期、金额或“修正版”等后缀。多商品同订单使用同一 PDF 的多页，不为各商品分别编号。
 
 税率始终读取原始 `buyer` 配送国家／地区，`billing_request.buyer` 只决定打印抬头和地址。存在开票留言时，至少保留原始 `buyer.country`，葡萄牙还需配送邮编或 `buyer.tax_region`；不能用开票国家、站点或商品链接代替。归一化结果 `tax.destination_country`、`tax.destination_region`、`tax.rate_source` 记录税率来源。
+
+## 退款字段
+
+`document_type` 为 `invoice`（默认销售）或 `refund`。退款必填 `refund_evidence`，记录已退款状态及实际退款金额依据；金额字段可输入正数金额或负数，脚本以退款负金额输出。`items[].quantity` 始终为正整数。`order_total` 必须是实际退款合计，与退款商品及净退款运费一致。部分退款不能沿用原订单总额。`refund_source_amounts` 是脚本保留的原金额记录，仅用于内部溯源。其他金额、币种和税基字段沿用上表。
