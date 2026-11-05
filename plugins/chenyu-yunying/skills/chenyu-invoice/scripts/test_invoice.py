@@ -29,6 +29,7 @@ class InvoiceTests(unittest.TestCase):
                           'tel':'+0000000000', 'email':'seller@example.test', 'vat_number':'SELLER-TEST'}
         data['items'][0].update(title='Zestaw ozdób, żółty', description='Ozdoby żółte',
                                 unit_price='24.60', line_total='24.60')
+        data['buyer']['country'] = 'Poland'
         data['billing_request'] = {'order_id':data['order_id'], 'buyer':{
             'name':'FIRMA PRZYKŁAD', 'address_lines':['Przykładowa 21'], 'city':'Łódź',
             'postal_code':'00-000', 'country':'Poland', 'vat_number':'PL1111111111'}}
@@ -50,9 +51,9 @@ class InvoiceTests(unittest.TestCase):
                       mod.SOURCE_SELLER_COMPANY, '+8617371452467', 'pinghujiedao'):
             self.assertNotIn(value, text)
         self.assertEqual(normalized['tax']['amount'], Decimal('4.60'))
-        self.assertIn('VAT(23%*Price):', text)
+        self.assertIn('VAT (23%):', text)
         self.assertIn('4,60', text)
-        self.assertEqual(text.count('PLN'), 4)
+        self.assertEqual(text.count('PLN'), 5)
 
     def test_imported_seller_restores_address_label_on_every_page(self):
         for currency, channel in [('EUR', 'Amazon.de'), ('PLN', 'Amazon.pl')]:
@@ -140,6 +141,7 @@ class InvoiceTests(unittest.TestCase):
         self.assertEqual(parsed['order_total'], '24.60')
         self.assertEqual(parsed['shipping_fee'], '1.00')
         self.assertEqual(parsed['shipping_discount'], '1.00')
+        parsed['buyer'] = {'country': 'Poland'}
         self.assertEqual(mod.normalize(parsed)['currency'], 'PLN')
         with self.assertRaisesRegex(ValueError, 'Conflicting currencies'):
             mod.extract_order_text(raw.replace('PLN 1.00', '€1.00'))
@@ -194,7 +196,8 @@ Sales proceeds: €6.50'''
             self.assertFalse(any('grand total' in warning.lower() for warning in normalized['warnings']))
             text = self.render_text(parsed)[0]
             self.assertIn('8,99', text)
-            self.assertNotIn('7,49', text)
+            self.assertEqual(normalized['items'][0]['unit_price'], Decimal('8.99'))
+            self.assertEqual(normalized['net_amount'], Decimal('7.49'))
             self.assertNotIn('6,50', text)
 
     def render_text(self,payload):
@@ -272,9 +275,9 @@ Sales proceeds: €6.50'''
         self.assertIn('Manufacturer/Seller/Shipper:',text)
         self.assertIn('Description',text)
         self.assertIn('Boa en plumes\nblanc, 1,8 m',text)
-        self.assertIn('VAT(20%*Price):',text)
+        self.assertIn('VAT (20%):',text)
         self.assertIn('1,33',text)
-        self.assertIn('Total Amount:',text)
+        self.assertIn('Total Amount (incl. VAT):',text)
         self.assertIn('403-1234',text)  # original Item No. is order ID, not SKU
         self.assertNotIn('EXAMPLE-WHITE-BOA',text)
         self.assertNotIn('Amazon FBA',text)
@@ -349,7 +352,7 @@ Sales proceeds: €6.50'''
         self.assertNotIn('Express',txt)
         self.assertNotIn('Amazon FBA',txt)
 
-    def test_marketplace_rates_and_pdf_labels(self):
+    def test_destination_rates_and_pdf_labels(self):
         cases = [('UK', 'Amazon.co.uk', '20', '20.00'),
                  ('DE', 'Amazon.de', '19', '19.00'),
                  ('FR', 'Amazon.fr', '20', '20.00'),
@@ -365,6 +368,7 @@ Sales proceeds: €6.50'''
                 with self.subTest(seller=seller, code=code), tempfile.TemporaryDirectory() as td:
                     data=deepcopy(SAMPLE)
                     data.update(seller_template=seller, sales_channel=channel, marketplace_code=code)
+                    data['buyer']['country'] = mod.COUNTRY_NAMES[code][0]
                     # A gross price of 100 + rate yields exactly rate in VAT.
                     gross=str(Decimal('100')+Decimal(percent))
                     data['items'][0].update(unit_price=gross, line_total=gross)
@@ -377,29 +381,29 @@ Sales proceeds: €6.50'''
                     with fitz.open(pdf) as doc:
                         page=doc[0]
                         text=page.get_text()
-                        label=f'VAT({percent}%*Price):'
+                        label=f'VAT ({percent}%):'
                         self.assertIn(label,text)
-                        self.assertEqual(text.count('VAT('),1)
+                        self.assertEqual(text.count('VAT ('),1)
                         if percent!='20':
-                            self.assertNotIn('VAT(20%*Price):',text)
+                            self.assertNotIn('VAT (20%):',text)
                         spans=[sp for block in page.get_text('dict')['blocks']
                                for line in block.get('lines',[]) for sp in line['spans']]
                         lab=next(sp for sp in spans if sp['text']==label)
-                        euro=next(sp for sp in spans if sp['text'].strip()=='€' and 650<sp['origin'][1]<675)
-                        amount=next(sp for sp in spans if sp['text']==expected.replace('.',','))
+                        amount=next(sp for sp in spans if sp['text']=='€ '+expected.replace('.',','))
                         self.assertLess(abs(lab['origin'][1]-amount['origin'][1]),0.2)
-                        self.assertLess(abs(lab['origin'][1]-euro['origin'][1]),0.2)
-                        self.assertLessEqual(lab['bbox'][2],euro['bbox'][0])
+                        self.assertLessEqual(lab['bbox'][2],amount['bbox'][0])
+                        self.assertIn('Amount excl. VAT:', text)
+                        self.assertEqual(n['net_amount'], Decimal('100.00'))
                         self.assertAlmostEqual(page.rect.width,595.3,places=1)
 
     def test_sales_channel_is_not_delivery_country(self):
         data=deepcopy(SAMPLE)
         data['buyer']['country']='Belgium'
-        self.assertEqual(mod.normalize(data)['tax']['rate'],'0.20')
+        self.assertEqual(mod.normalize(data)['tax']['rate'],'0.21')
         data['sales_channel']='Amazon.com.be'
         self.assertEqual(mod.normalize(data)['tax']['rate'],'0.21')
         data['sales_channel']='https://www.AMAZON.DE/'
-        self.assertEqual(mod.normalize(data)['tax']['rate'],'0.19')
+        self.assertEqual(mod.normalize(data)['tax']['rate'],'0.21')
 
     def test_missing_unknown_and_conflicting_sites_fail(self):
         for channel, code in [('', ''), ('Amazon.com', ''), ('Amazon.de.example.test', ''),
@@ -409,10 +413,11 @@ Sales proceeds: €6.50'''
             with self.subTest(channel=channel, code=code),self.assertRaises(ValueError):
                 mod.normalize(data)
 
-    def test_supplied_rate_and_amount_must_match_site(self):
+    def test_supplied_rate_and_amount_must_match_destination(self):
         for tax in [{'rate':'0.20'}, {'rate':'NaN'}, {'rate':'19%'}, {'amount':'1.33'}]:
             data=deepcopy(SAMPLE)
             data.update(sales_channel='Amazon.de', tax=tax)
+            data['buyer']['country'] = 'Germany'
             with self.subTest(tax=tax), self.assertRaises(ValueError):
                 mod.normalize(data)
         data['tax']={'rate':'0.19','amount':'1.28'}
@@ -421,6 +426,7 @@ Sales proceeds: €6.50'''
     def test_dynamic_rate_uses_total_and_rounds_to_cents(self):
         data=deepcopy(SAMPLE)
         data.update(sales_channel='Amazon.it',shipping_fee='1.00',order_total='8.99')
+        data['buyer']['country'] = 'Italy'
         n=mod.normalize(data)
         self.assertEqual(n['tax']['amount'],Decimal('1.62'))
         self.assertEqual(n['tax']['basis'],'order_total')
@@ -439,11 +445,12 @@ Sales proceeds: €6.50'''
     def test_dynamic_rate_on_each_item_page(self):
         data=deepcopy(SAMPLE)
         data['sales_channel']='Amazon.de'
+        data['buyer']['country']='Germany'
         data['items']*=2
         pages=self.render_text(data)
         for page in pages:
-            self.assertIn('VAT(19%*Price):',page)
-            self.assertNotIn('VAT(20%*Price):',page)
+            self.assertIn('VAT (19%):',page)
+            self.assertNotIn('VAT (20%):',page)
         self.assertIn('2,55',pages[-1])
 
     def test_parser_reads_sales_channel_not_product_link(self):
@@ -452,7 +459,8 @@ Sales proceeds: €6.50'''
 购买日期: 2026年10月1日
 | [Article Exemple](https://www.amazon.fr/gp/product/B000000000) | 数量: 1 | 商品小计: €7.99 |"""
         parsed=mod.extract_order_text(raw)
-        self.assertEqual(mod.normalize(parsed)['tax']['rate'],'0.19')
+        parsed['buyer'] = {'country': 'France'}
+        self.assertEqual(mod.normalize(parsed)['tax']['rate'],'0.20')
         with self.assertRaisesRegex(ValueError,'Conflicting sales channels'):
             mod.extract_order_text(raw+'\n销售渠道: Amazon.fr')
 
@@ -471,13 +479,11 @@ Sales proceeds: €6.50'''
             with fitz.open(path) as doc:
                 spans=[s for b in doc[0].get_text('dict')['blocks']
                        for line in b.get('lines',[]) for s in line['spans']]
-                label=next(s for s in spans if s['text']=='VAT(20%*Price):')
-                euro=next(s for s in spans if s['text'].strip()=='€' and 650 < s['origin'][1] < 675)
-                amount=next(s for s in spans if s['text']=='1,33')
-                self.assertLess(abs(label['origin'][1]-euro['origin'][1]),0.2)
+                label=next(s for s in spans if s['text']=='VAT (20%):')
+                amount=next(s for s in spans if s['text']=='€ 1,33')
                 self.assertLess(abs(label['origin'][1]-amount['origin'][1]),0.2)
-                self.assertEqual(amount['font'],'Helvetica')
-                self.assertLess(abs(euro['bbox'][2]-amount['bbox'][0]),0.3)
+                self.assertIn(amount['font'], ('Helvetica', 'NimbusSans-Regular'))
+                self.assertLess(label['bbox'][2], amount['bbox'][0])
 
     def test_fixed_vat_373_66(self):
         data=deepcopy(SAMPLE)
@@ -740,6 +746,93 @@ Profil vendeur Amazon.fr : Renhaoyuan'''
                 self.assertFalse((folder/'invoice.pdf').exists())
             finally:
                 mod.TEMPLATE=original
+
+    def test_spanish_marketplace_portuguese_shipping_with_spanish_billing(self):
+        data = deepcopy(SAMPLE)
+        data['sales_channel'] = 'Amazon.es'
+        data['buyer'].update(country='Portugal', postal_code='1000-001', city='Lisboa')
+        data['billing_request'] = {'order_id': data['order_id'], 'buyer': {
+            'name': 'BILLING EXAMPLE', 'country': 'Spain', 'postal_code': '28001',
+            'city': 'Madrid', 'address_lines': ['Example street 1']}}
+        data['items'][0].update(unit_price='10.99', line_total='10.99')
+        data['order_total'] = '10.99'
+        n = mod.normalize(data)
+        self.assertEqual(n['tax']['rate'], '0.23')
+        self.assertEqual(n['tax']['destination_country'], 'PT')
+        self.assertEqual(n['tax']['destination_region'], 'mainland')
+        self.assertEqual(n['tax']['rate_source'], 'shipping_destination')
+        self.assertEqual(n['marketplace_code'], 'ES')
+        self.assertEqual(n['buyer']['country'], 'Spain')
+        self.assertEqual(n['net_amount'], Decimal('8.93'))
+        self.assertEqual(n['tax']['amount'], Decimal('2.06'))
+        text = self.render_text(data)[0]
+        for value in ('Spain', 'VAT (23%):', 'Amount excl. VAT:', '€ 10,99', '€ 8,93', '€ 2,06'):
+            self.assertIn(value, text)
+        for old in ('VAT(20%*Price):', 'VAT (21%):'):
+            self.assertNotIn(old, text)
+
+    def test_portugal_regions_aliases_and_conflicting_evidence(self):
+        for country in ('PT', 'Portugal', '葡萄牙'):
+            for postal, region, rate in [('1000-001', 'mainland', '0.23'),
+                                        ('9000-001', 'madeira', '0.22'),
+                                        ('9400-001', 'madeira', '0.22'),
+                                        ('9500-001', 'azores', '0.16')]:
+                with self.subTest(country=country, postal=postal):
+                    data = deepcopy(SAMPLE)
+                    data['buyer'].update(country=country, postal_code=postal)
+                    n = mod.normalize(data)
+                    self.assertEqual(n['tax']['rate'], rate)
+                    self.assertEqual(n['tax']['destination_region'], region)
+                    self.assertEqual(n['net_amount'] + n['tax']['amount'], n['subtotal'])
+        data['buyer'].update(postal_code='', tax_region='açores')
+        self.assertEqual(mod.normalize(data)['tax']['rate'], '0.16')
+        data['buyer']['postal_code'] = '1000-001'
+        with self.assertRaisesRegex(ValueError, 'conflicts'):
+            mod.normalize(data)
+        for changes in ({'postal_code': '', 'tax_region': ''}, {'tax_region': 'unknown'}):
+            data['buyer'].update(changes)
+            with self.assertRaises(ValueError):
+                mod.normalize(data)
+
+    def test_portugal_copied_order_preserves_shipping_postcode(self):
+        raw = """403-1234567-7654321
+销售渠道: Amazon.es
+购买日期: 2026年10月1日
+配送地址
+| Example Buyer<br>Example Street 1<br>Lisboa, 1000-001<br>葡萄牙 |
+| [Example Item](https://www.amazon.es/gp/product/B000000000) | 数量: 1 | 商品小计: €10.99 | 商品总计: €10.99 |"""
+        data = mod.extract_order_text(raw)
+        self.assertEqual(data['buyer']['country'], 'Portugal')
+        self.assertEqual(data['buyer']['postal_code'], '1000-001')
+        self.assertEqual(mod.normalize(data)['tax']['rate'], '0.23')
+
+    def test_missing_shipping_country_never_uses_billing_country_or_site(self):
+        for country in ('', 'Unknown'):
+            data = self.pln_example()
+            data['buyer']['country'] = country
+            with self.subTest(country=country), self.assertRaisesRegex(ValueError, 'shipping destination'):
+                mod.normalize(data)
+
+    def test_net_vat_rounding_reconciles_and_footer_stays_inside_page(self):
+        for currency in ('EUR', 'PLN'):
+            for price in ('0.01', '0.03', '10.99', '9999.99'):
+                with self.subTest(currency=currency, price=price), tempfile.TemporaryDirectory() as td:
+                    data = deepcopy(SAMPLE)
+                    data.update(currency=currency, sales_channel='Amazon.es', order_total=price)
+                    data['buyer'].update(country='Portugal', tax_region='mainland', postal_code='1000-001')
+                    data['items'][0].update(unit_price=price, line_total=price)
+                    n = mod.normalize(data)
+                    self.assertEqual(n['net_amount'] + n['tax']['amount'], Decimal(price))
+                    path = Path(td) / 'invoice.pdf'
+                    mod.invoice_pdf(n, path)
+                    with fitz.open(path) as doc:
+                        spans = [sp for b in doc[0].get_text('dict')['blocks'] for line in b.get('lines',[]) for sp in line['spans']]
+                        for y in (639.29, 655.29, 671.29):
+                            row = sorted([sp for sp in spans if abs(sp['origin'][1]-y)<0.2], key=lambda sp: sp['bbox'][0])
+                            self.assertEqual(len(row), 2)
+                            self.assertLess(row[0]['bbox'][2], row[1]['bbox'][0])
+                            self.assertLessEqual(row[1]['bbox'][2], 550.2)
+                            self.assertLess(row[1]['bbox'][3], 691)
 
 if __name__=='__main__':
     unittest.main(verbosity=2)

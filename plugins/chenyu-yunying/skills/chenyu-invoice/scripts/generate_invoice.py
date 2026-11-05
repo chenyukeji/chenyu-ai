@@ -16,15 +16,33 @@ from urllib.parse import urlsplit
 
 CENT = Decimal('0.01')
 # User-supplied business rates, not an automatic determination of tax treatment.
-SITE_VAT_RATES = {code: Decimal(rate) for code, rate in {
+DESTINATION_VAT_RATES = {code: Decimal(rate) for code, rate in {
     'UK': '0.20', 'DE': '0.19', 'FR': '0.20', 'IT': '0.22', 'ES': '0.21',
-    'NL': '0.21', 'PL': '0.23', 'CZ': '0.21', 'AT': '0.20', 'BE': '0.21',
+    'NL': '0.21', 'PL': '0.23', 'CZ': '0.21', 'AT': '0.20', 'BE': '0.21', 'PT': '0.23',
 }.items()}
 SALES_CHANNEL_SITES = {
     'amazon.co.uk': 'UK', 'amazon.de': 'DE', 'amazon.fr': 'FR',
     'amazon.it': 'IT', 'amazon.es': 'ES', 'amazon.nl': 'NL',
     'amazon.pl': 'PL', 'amazon.com.be': 'BE',
 }
+MARKETPLACE_CODES = {'UK', 'DE', 'FR', 'IT', 'ES', 'NL', 'PL', 'CZ', 'AT', 'BE'}
+COUNTRY_NAMES = {
+    'UK': ('United Kingdom', 'GB', '英国'), 'DE': ('Germany', 'Deutschland', '德国'),
+    'FR': ('France', '法国'), 'IT': ('Italy', 'Italia', '意大利'),
+    'ES': ('Spain', 'España', '西班牙'), 'NL': ('Netherlands', 'Nederland', '荷兰'),
+    'PL': ('Poland', 'Polska', '波兰'), 'CZ': ('Czechia', 'Czech Republic', '捷克'),
+    'AT': ('Austria', 'Österreich', '奥地利'), 'BE': ('Belgium', 'Belgique', 'België', '比利时'),
+    'PT': ('Portugal', '葡萄牙'),
+}
+COUNTRY_CODES = {alias.casefold(): code for code, names in COUNTRY_NAMES.items() for alias in (code, *names)}
+PT_REGIONS = {
+    'mainland': ('mainland', 'continental', 'continente', 'portugal continental', '葡萄牙大陆'),
+    'madeira': ('madeira', 'pt-30', '马德拉'),
+    'azores': ('azores', 'açores', 'acores', 'pt-20', '亚速尔'),
+}
+PT_RATES = {'mainland': Decimal('0.23'), 'madeira': Decimal('0.22'), 'azores': Decimal('0.16')}
+
+
 SHIPPING_WAY = 'Paypal package'  # Printed shipping method is fixed by the invoice template
 CURRENCY = {'EUR': '€', 'PLN': 'PLN'}
 
@@ -47,11 +65,11 @@ def clean(v):
     return re.sub(r'\s+', ' ', str(v or '')).strip()
 
 
-def resolve_vat_site(data):
-    """Use the order sales channel, never the delivery country or product link."""
+def resolve_marketplace(data):
+    """Validate sales-channel metadata independently of destination VAT."""
     channel = clean(data.get('sales_channel'))
     explicit = clean(data.get('marketplace_code')).upper()
-    if explicit and explicit not in SITE_VAT_RATES:
+    if explicit and explicit not in MARKETPLACE_CODES:
         raise ValueError(f'Unknown marketplace_code: {explicit}')
     site = None
     if channel:
@@ -64,8 +82,35 @@ def resolve_vat_site(data):
             raise ValueError('sales_channel conflicts with marketplace_code')
     site = site or explicit
     if not site:
-        raise ValueError('sales_channel or confirmed marketplace_code is required; cannot default to 20%')
+        raise ValueError('sales_channel or confirmed marketplace_code is required; do not infer the marketplace')
     return site
+
+
+def resolve_destination_vat(buyer):
+    """Use original shipping evidence, never invoice-address or marketplace country."""
+    country = COUNTRY_CODES.get(clean(buyer.get('country')).casefold())
+    if country is None:
+        raise ValueError('buyer.country must identify a supported shipping destination; cannot fall back to marketplace')
+    region = ''
+    rate = DESTINATION_VAT_RATES[country]
+    if country == 'PT':
+        supplied = clean(buyer.get('tax_region')).casefold()
+        if supplied:
+            region = next((key for key, aliases in PT_REGIONS.items() if supplied in aliases), '')
+            if not region:
+                raise ValueError('buyer.tax_region for Portugal must be mainland, madeira or azores')
+        postal = clean(buyer.get('postal_code'))
+        inferred = ''
+        if re.fullmatch(r'[1-9]\d{3}-?\d{3}', postal):
+            prefix = int(postal[:2])
+            inferred = 'azores' if prefix >= 95 else 'madeira' if prefix >= 90 else 'mainland'
+        if inferred and region and inferred != region:
+            raise ValueError('Portuguese shipping postal_code conflicts with tax_region')
+        region = region or inferred
+        if not region:
+            raise ValueError('Portugal requires a verified shipping postal_code or buyer.tax_region')
+        rate = PT_RATES[region]
+    return country, region, rate
 
 
 def inferred_description(title):
@@ -113,10 +158,10 @@ def extract_order_text(content):
         if address_chunks:
             out['buyer']['name'] = address_chunks[0]
             if len(address_chunks) > 1:
-                out['buyer']['country'] = {'法国':'France','比利时':'Belgium','德国':'Germany','意大利':'Italy','西班牙':'Spain'}.get(address_chunks[-1],address_chunks[-1])
+                out['buyer']['country'] = {'法国':'France','比利时':'Belgium','德国':'Germany','意大利':'Italy','西班牙':'Spain','葡萄牙':'Portugal'}.get(address_chunks[-1],address_chunks[-1])
                 addr = address_chunks[1:-1]
                 if addr:
-                    last = re.match(r'^(.+?),?\s+(\d{4,6})$', addr[-1])
+                    last = re.match(r'^(.+?),?\s+(\d{4}-\d{3}|\d{2}-\d{3}|\d{7}|\d{4,6})$', addr[-1])
                     if last:
                         out['buyer']['city'] = clean(last.group(1).rstrip(','))
                         out['buyer']['postal_code'] = last.group(2)
@@ -200,6 +245,7 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     if not re.fullmatch(r'\d{3}-\d{7}-\d{7}', str(d.get('order_id', ''))):
         raise ValueError('Valid order_id is required')
     validate_currency(d)
+    shipping_destination = dict(d.get('buyer') or {})
     if 'billing_request' in d:
         request = d['billing_request']
         if not isinstance(request, dict) or request.get('order_id') != d['order_id']:
@@ -256,23 +302,23 @@ def normalize(data, seller=None, invoice_date=None, template=None):
         if order_total != expected_total:
             raise ValueError(f'Order total {order_total:.2f} does not match goods plus '
                              f'net shipping {expected_total:.2f}; check promotional discounts')
-    # Price is VAT-inclusive; the rate comes from the verified order marketplace.
+    # Price is VAT-inclusive; use the original delivery destination, before billing overrides.
     # Prefer a confirmed order total; otherwise calculate on the confirmed goods subtotal.
-    site = resolve_vat_site(d)
-    rate = SITE_VAT_RATES[site]
+    site = resolve_marketplace(d)
+    destination, region, rate = resolve_destination_vat(shipping_destination)
     if tax.get('rate') not in (None, ''):
         try:
             supplied_rate = Decimal(str(tax['rate']))
         except InvalidOperation as e:
             raise ValueError('tax.rate must be a decimal fraction, e.g. 0.19') from e
         if not supplied_rate.is_finite() or supplied_rate != rate:
-            raise ValueError(f'tax.rate conflicts with {site} marketplace rate {rate}')
+            raise ValueError(f'tax.rate conflicts with {destination} destination rate {rate}')
     divisor = Decimal('1') + rate
     vat_basis = 'order_total' if order_total is not None else 'items_subtotal'
     price = order_total if order_total is not None else subtotal
     tax_amount = (price / divisor * rate).quantize(CENT, rounding=ROUND_HALF_UP)
     if supplied_tax is not None and supplied_tax != tax_amount:
-        raise ValueError(f'tax.amount {supplied_tax:.2f} disagrees with the {site} '
+        raise ValueError(f'tax.amount {supplied_tax:.2f} disagrees with the {destination} '
                          f'VAT-inclusive formula ({tax_amount:.2f} on {vat_basis})')
     d['subtotal'] = subtotal
     d['shipping_fee'] = shipping
@@ -280,8 +326,11 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     d['shipping_net'] = shipping_net
     d['order_total'] = order_total
     d['marketplace_code'] = site
+    d['net_amount'] = price - tax_amount
     d['tax'] = {**tax, 'amount': tax_amount, 'rate': str(rate),
-                'calculation': f'Price / {divisor.normalize()} * {rate.normalize()}', 'basis': vat_basis}
+                'calculation': f'Price / {divisor.normalize()} * {rate.normalize()}', 'basis': vat_basis,
+                'destination_country': destination, 'destination_region': region,
+                'rate_source': 'shipping_destination'}
     warnings = [w for w in d.get('warnings', []) if isinstance(w, str)]
     for key, message in [('buyer','Buyer details missing'), ('seller','Seller details missing')]:
         if not isinstance(d.get(key), dict) or not d[key]:
@@ -297,7 +346,7 @@ def normalize(data, seller=None, invoice_date=None, template=None):
     if vat_basis == 'items_subtotal':
         warnings.append('VAT is calculated on goods subtotal only; order total/shipping may be incomplete')
         warnings.append('Reference template Total Amount displays known goods subtotal; payment grand total not verified')
-    warnings.append(f'{site} {rate:.0%} VAT-inclusive calculation uses the supplied marketplace rate table, not tax status verification')
+    warnings.append(f'{destination} {region} {rate:.0%} VAT-inclusive calculation uses the supplied destination rate table, not tax status verification')
     if not d.get('origin'):
         warnings.append('Country of manufacture not confirmed')
     d['warnings'] = list(dict.fromkeys(warnings))
@@ -306,7 +355,7 @@ def normalize(data, seller=None, invoice_date=None, template=None):
 
 # This renderer fills a buyer-free copy of the ACTUAL WPS source PDF. It never
 # redraws the header or table: the original geometry, type, line strokes, grey
-# cells, and footer stay identical to the user's reference document.
+# cells stay identical; the footer adds the approved net-amount line.
 import pymupdf as fitz
 
 TEMPLATE = Path(__file__).resolve().parent.parent / 'assets' / 'blank-reference-template.pdf'
@@ -523,8 +572,6 @@ def fill_currency(page, currency):
         value = '(' + currency + ')'
         width = fitz.get_text_length(value, fontname=FONT_SANS_BOLD, fontsize=10.45)
         draw_left(page, value, (left+right-width)/2, 487.97, font=FONT_SANS_BOLD, size=10.45)
-    draw_left(page, currency, 459, 639.29, font=FONT_SANS, size=9.95)
-    draw_left(page, currency, 496.32, 664.13, font=FONT_SANS, size=9.95)
 
 
 def invoice_pdf(d,output):
@@ -549,17 +596,14 @@ def invoice_pdf(d,output):
         if template_id == 'imported':
             fill_imported_seller(page, seller)
         fill_currency(page, d['currency'])
-        # Replace only the preprinted rate label, preserving its baseline and €.
         rate = Decimal(d['tax']['rate'])
-        if rate != Decimal('0.20'):
-            labels = page.search_for('VAT(20%*Price):')
-            if len(labels) != 1:
-                raise ValueError('Expected exactly one original VAT label in the template')
-            rect = labels[0]
-            page.add_redact_annot(rect, fill=False)
-            page.apply_redactions(images=0, graphics=0, text=0)
-            draw_left(page, f'VAT({rate:.0%}*Price):', rect.x0, 664.13,
-                      font=FONT_SANS, size=9.95, max_width=rect.width+1)
+        page.add_redact_annot(fitz.Rect(325, 627, 558, 679), fill=False)
+        page.apply_redactions(images=0, graphics=0, text=0)
+        footer_rows = [('Total Amount (incl. VAT):', 639.29),
+                       ('Amount excl. VAT:', 655.29), (f'VAT ({rate:.0%}):', 671.29)]
+        for label, y in footer_rows:
+            width = fitz.get_text_length(label, fontname=FONT_SANS, fontsize=9.95)
+            draw_left(page, label, 492-width, y, font=FONT_SANS, size=9.95)
         # Recipient name is the only value printed after Importer/Buyer/Receiver.
         # Order buyer's "Entreprise Exemple" is NOT a name and is not printed here.
         # Keep both original labels Contact: and Company Name: with blank values.
@@ -576,7 +620,7 @@ def invoice_pdf(d,output):
         # Replace only the value when needed, keeping the country label and geometry.
         country=clean(buyer.get('country',''))
         country_labels={'法国':'France','比利时':'Belgium','德国':'Germany',
-                        '意大利':'Italy','西班牙':'Spain','英国':'United Kingdom','波兰':'Poland'}
+                        '意大利':'Italy','西班牙':'Spain','英国':'United Kingdom','波兰':'Poland','葡萄牙':'Portugal'}
         country=country_labels.get(country,country)
         if not country:
             raise ValueError('buyer.country is required; cannot assume France')
@@ -607,16 +651,18 @@ def invoice_pdf(d,output):
         draw_centered_lines(page,str(item['quantity']),CELLS[5],CELLS[6],ROW_TOP,ROW_BOTTOM,font=FONT_SERIF,ideal=12)
         draw_centered_lines(page,number_fmt(item['line_total']),CELLS[6],CELLS[7],ROW_TOP,ROW_BOTTOM,font=FONT_SERIF,ideal=12)
         if n==len(d['items'])-1:
-            # Exact source label 'Total Amount: €' is preserved, goods subtotal
-            # shown when the actual final payment amount was not provided.
             price=d['order_total'] if d['order_total'] is not None else d['subtotal']
-            draw_left(page,number_fmt(price),469.0 if d['currency']=='EUR' else 484,639.29,font=FONT_SANS,size=9.9,max_width=70)
-            # The template's VAT label and euro sign share the SAME text baseline:
-            # 664.13 pt.  Keep the amount on that baseline as well.  Use a
-            # proportionally spaced sans-serif face matching the Arial label,
-            # rather than Courier's wider glyph spacing and lower baseline.
-            draw_left(page,number_fmt(d['tax']['amount']),506.4 if d['currency']=='EUR' else 520,664.13,
-                      font=FONT_SANS,size=9.95,max_width=35)
+            values = [CURRENCY[d['currency']] + ' ' + number_fmt(amount)
+                      for amount in (price, d['net_amount'], d['tax']['amount'])]
+            face = fitz.Font(fontname=FONT_SANS)
+            size = 9.95
+            while size > 8 and max(face.text_length(v, fontsize=size) for v in values) > 57:
+                size = max(8, size-0.25)
+            for value, (_, y) in zip(values, footer_rows):
+                width = face.text_length(value, fontsize=size)
+                if width > 57:
+                    raise ValueError('Amount is too long for the invoice footer')
+                insert_text(page, (550-width, y), value, FONT_SANS, size)
             if clean(d.get('origin')):
                 draw_left(page,d['origin'],54.2,688.4,font=FONT_SANS_BOLD,size=9.9,max_width=175)
             # The single 'Shipping fee' field shows NET shipping after a

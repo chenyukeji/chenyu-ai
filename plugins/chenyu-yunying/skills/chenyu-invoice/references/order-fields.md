@@ -5,7 +5,7 @@
 | `order_id` | 必填，Amazon 订单号 `000-0000000-0000000`；打印在 `Item No.` 列，分三行居中 |
 | `purchase_date` | **必填**，Amazon 订单购买日期，`YYYY-MM-DD`；打印到 `Date:`，格式 `DD/MM/YYYY`。不得使用配送截至日期或生成 PDF 的当天日期 |
 | `invoice_date` | 不接受此 JSON 字段；可选命令行 `--invoice-date` 仅用于核对，必须等于 `purchase_date` |
-| `sales_channel` | 从本单“销售渠道”读取，如 `Amazon.de`；用于 VAT 站点识别，不从商品链接或收件国推断 |
+| `sales_channel` | 从本单“销售渠道”读取，如 `Amazon.de`；作为订单来源核对，不决定税率，不从商品链接或收件国推断 |
 | `marketplace_code` | 销售渠道缺失时，仅可用用户明确确认的 UK/DE/FR/IT/ES/NL/PL/CZ/AT/BE；与 sales_channel 同时给出必须一致 |
 | `currency` | 必填实际币种；支持 EUR 与 PLN，默认按原币生成并自动匹配模板文字，不能默认 EUR 或自行换汇 |
 | `template_currency` | 可选兼容字段，不是审批字段；通常省略。若提供须与 `currency` 完全一致，否则报冲突，不换算金额 |
@@ -16,6 +16,8 @@
 | `buyer.legal_company_name` | 本母版的 `Company Name:` **标签保留、值固定留空**；不把 `buyer.company` 或收件人重复写到这一行 |
 | `buyer.address_lines` | **仅街道和楼栋**，不包含收件人、城市和邮编；不重复姓名；最多三行，溢出则提示，不裁剪 |
 | `buyer.city`, `buyer.postal_code`, `buyer.country` | 目标城市、邮编、国家。法国时沿用原模板 France；比利时等其他国家仅替换国家值，不改原版布局 |
+| `buyer.tax_region` | 葡萄牙配送税区：`mainland` / `madeira` / `azores`；可由有效七位配送邮编识别。地区与邮编矛盾、或均无法识别时停止核对。不能填账单地址地区 |
+| `net_amount` | 脚本生成：含税总额减已四舍五入 VAT，PDF 展示在总额与税额之间 |
 | `buyer.remote_area` | 仅确认偏远区时填布尔值 `true/false`，否则留空，不沿用旧单 No |
 | `buyer.tel` / `tracking_number` | 可选，未经确认留空 |
 | `seller_template` / `--template` | `jiuyue`、`renhaoyuan` 或已确认自有卖家的 `imported`；与身份和其他选择须一致 |
@@ -27,8 +29,8 @@
 | `shipping_discount` | 运费促销抵扣（用正数录入，如原始运费 0.75、优惠 -0.75 则填 0.75）；发票 Shipping fee 显示净运费 `shipping_fee - shipping_discount`，本例 `0,00` |
 | `order_total` | 本次开票金额，默认直接读单商品订单右侧“商品总计 / Item total”；多商品逐项汇总并核对费用。用户明确额外要求优先，记录依据，不取销售净收益或未税单价 |
 | `amount_source` | 默认金额来自可见商品总计时填 `displayed_item_total`，无需另要实付确认；只有确实未见总计才保留小计来源说明 |
-| `tax.amount` | 可选；脚本按销售站点税率 `r`，用 `Price / (1 + r) * r` 自动算，若填写值与该口径不符则拒绝 |
-| `tax.rate` | 可选，十进制比例（如 `"0.19"`）；必须与销售站点税率表一致，不能用于覆盖站点规则 |
+| `tax.amount` | 可选；脚本按实际收货国家／地区税率 `r`，用 `Price / (1 + r) * r` 自动算，若填写值与该口径不符则拒绝 |
+| `tax.rate` | 可选，十进制比例（如 `"0.19"`）；必须与实际收货国家／地区税率表一致，不能用于覆盖配送规则 |
 | `origin` | 有可靠依据才填 `ORGIN:` 后方，否则保持空白，旧发票 `CHINA` 不是默认事实 |
 | `shipping_way` / `fulfillment` | 源订单物流信息可保留在 JSON，但发票 **Shipping way 永远显示 Paypal package** |
 
@@ -39,3 +41,5 @@
 ## 生成文件命名
 
 PDF 文件名固定为完整 Amazon 订单编号：`<order_id>.pdf`（例如虚构样例 `403-1234567-7654321.pdf`）。不得添加前缀、日期、金额或“修正版”等后缀。多商品同订单使用同一 PDF 的多页，不为各商品分别编号。
+
+税率始终读取原始 `buyer` 配送国家／地区，`billing_request.buyer` 只决定打印抬头和地址。存在开票留言时，至少保留原始 `buyer.country`，葡萄牙还需配送邮编或 `buyer.tax_region`；不能用开票国家、站点或商品链接代替。归一化结果 `tax.destination_country`、`tax.destination_region`、`tax.rate_source` 记录税率来源。

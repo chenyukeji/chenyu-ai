@@ -1,6 +1,6 @@
 interface:
   display_name: "晨玙商业发票（原版式）"
   short_description: "优先买家开票留言，按已确认卖家和原币种填写原母版并核验。"
-  default_prompt: "使用 $chenyu-invoice，核对同订单买家开票留言并优先使用其抬头、地址和税号；无留言才用配送资料。按已确认固定或自有卖家填写原母版，识别实际币种，不预设法国站或换汇。没有额外要求时默认按原币原金额生成，EUR/PLN 自动匹配模板文字，不额外询问；Date 取购买日期，Item No. 使用订单号，Description 不空，Shipping way 为 Paypal package。按销售站点业务税率计算含税 VAT，生成后渲染检查。"
+  default_prompt: "使用 $chenyu-invoice，核对同订单买家开票留言并优先使用其抬头、地址和税号；无留言才用配送资料。按已确认固定或自有卖家填写原母版，识别实际币种，不预设法国站或换汇。没有额外要求时默认按原币原金额生成，EUR/PLN 自动匹配模板文字，不额外询问；Date 取购买日期，Item No. 使用订单号，Description 不空，Shipping way 为 Paypal package。按实际收货国家／地区业务税率计算含税 VAT；保留原始配送国家及葡萄牙邮编／地区，开票留言不覆盖配送税区；PDF 在含税总额和 VAT 中间展示未税金额，生成后渲染检查。"
 policy:
   allow_implicit_invocation: true
