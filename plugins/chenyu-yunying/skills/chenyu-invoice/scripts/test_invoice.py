@@ -153,6 +153,21 @@ class InvoiceTests(unittest.TestCase):
         for wrong in ('9,98', '1,59'):
             self.assertNotIn(wrong, pages[0])
 
+    def test_english_business_order_preserves_gross_and_net(self):
+        data = self.dual_amount_example()
+        data.update(order_total='8.99', displayed_amounts={'gross':'8.99', 'net':'7.55'},
+                    tax_basis_evidence='Confirmed Amazon business order layout: Business customer; Unit price; Proceeds > Item subtotal / Item total')
+        data['items'][0].update(unit_price='8.99', line_total='8.99', net_line_total='7.55')
+        n = mod.normalize(data)
+        self.assertEqual((n['gross_amount'], n['net_amount'], n['tax']['amount']),
+                         (Decimal('8.99'), Decimal('7.55'), Decimal('1.44')))
+        text = self.render_text(data)[0]
+        for value in ('8,99', '7,55', '1,44', 'VAT (19%):'):
+            self.assertIn(value, text)
+        data['items'][0]['line_total'] = '7.55'
+        with self.assertRaisesRegex(ValueError, 'quantity × unit_price'):
+            mod.normalize(data)
+
     def test_dual_amounts_require_both_values_and_evidence(self):
         for field in ('tax_basis_evidence', 'displayed_amounts', 'order_total'):
             data = self.dual_amount_example()
