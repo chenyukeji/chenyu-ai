@@ -17,7 +17,7 @@
 | `buyer.address_lines` | **仅街道和楼栋**，不包含收件人、城市和邮编；不重复姓名；最多三行，溢出则提示，不裁剪 |
 | `buyer.city`, `buyer.postal_code`, `buyer.country` | 目标城市、邮编、国家。法国时沿用原模板 France；比利时等其他国家仅替换国家值，不改原版布局 |
 | `buyer.tax_region` | 葡萄牙配送税区：`mainland` / `madeira` / `azores`；可由有效七位配送邮编识别。地区与邮编矛盾、或均无法识别时停止核对。不能填账单地址地区 |
-| `price_tax_basis` | `inclusive`（默认，原金额含税）、`exclusive`（已确认原金额未税）或 `both`（来源同时给出含税、未税金额）；both 的商品、费用及 order_total 统一用含税口径，原未税合计另存 displayed_amounts.net |
+| `price_tax_basis` | `inclusive`（默认，原金额含税）、`exclusive`（已确认原金额未税）或 `both`（来源给出可区分且经税率核对的含税、未税金额）；企业订单的 Unit price 与 Proceeds 内 Item total 同额、又无独立未税证据时仍用 inclusive，不能把同额硬作双金额；both 的商品、费用及 order_total 统一用含税口径，原未税合计另存 displayed_amounts.net |
 | `tax_basis_evidence` | `exclusive` 和 `both` 必填来源说明，记录截图字段或用户明确确认；不得单凭两栏同额或 Business Price 标签猜测 |
 | `displayed_amounts` | `both` 必填对象，`gross`、`net` 为来源中同范围的含税／未税合计（十进制字符串）；与实际收货地税率核对，VAT 取两者差额。禁止在其他税基下忽略这组证据；不能把平台结算净收益当未税金额 |
 | `gross_amount` | 脚本生成的含税开票总额；含税来源保留原金额，未税来源为原未税金额加已四舍五入 VAT；both 保留 displayed_amounts.gross |
