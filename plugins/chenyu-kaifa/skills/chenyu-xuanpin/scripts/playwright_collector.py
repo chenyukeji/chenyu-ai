@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, unquote
 
+from selection_metrics import extract as _extract_selection_metrics
+
 from sellersprite_session import (
     launch_context as _launch_shared_sellersprite_context,
     assert_access as _assert_sellersprite_access,
@@ -880,6 +882,7 @@ def extract_sellersprite_table(page, payload: dict) -> list[dict]:
                         previous["category_links"] = raw.get("categoryLinks") or []
                         previous["category_source_ref"] = previous["source_ref"]
                     previous["product_info"] = raw.get("productInfo") or []
+                    previous.update(_extract_selection_metrics(previous))
                     previous["small_bsr"] = raw.get("smallBsr")
                     seller_match = re.search(r"BuyBox\s*卖家\s*[:：]\s*([^\r\n(]+)", detail_text, re.I)
                     if seller_match:
@@ -912,6 +915,7 @@ def extract_sellersprite_table(page, payload: dict) -> list[dict]:
         record["rating"] = _parse_decimal(record.get("rating"))
         record["monthly_rating_increase"] = _parse_integer(record.get("monthly_rating_increase"))
         record["bsr"] = _parse_integer(record.get("bsr"))
+        record.update(_extract_selection_metrics(record))
         record["fba_fee"] = _parse_decimal(record.get("fba_fee"))
         record["delivery_price"] = _parse_decimal(record.get("delivery_price"))
         record["currency"] = str(record.get("currency") or _currency_from_text(None, marketplace) or "").upper() or None

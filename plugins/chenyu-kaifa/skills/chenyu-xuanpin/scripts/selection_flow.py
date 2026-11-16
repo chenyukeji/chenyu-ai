@@ -138,6 +138,9 @@ def collect_query(query, payload, known_products):
 
 
 
+from selection_metrics import extract as extract_selection_metrics
+
+
 def original_style_rows(rows, report):
     """Put combined evidence in the familiar 15-column selection table."""
     products = {(p['marketplace'], p['asin']): p for p in report.get('families', report['products'])}
@@ -163,13 +166,21 @@ def original_style_rows(rows, report):
                            ('关联关键词', '关联关键词'), ('证据缺项', '证据缺项')):
             if row.get(key):
                 reasons.append(f'{label}：{row[key]}')
+        metrics = extract_selection_metrics(current)
+        for key in ('package_weight', 'package_dimensions'):
+            if current.get(key) is not None: metrics[key] = current[key]
+        if current.get('bsr') is not None and current.get('rank_basis') == current.get('bsr'):
+            for key in ('rank_change', 'rank_percent'):
+                if current.get(key) is not None: metrics[key] = current[key]
         result.append({'站点': row['站点'], '上架日期': row.get('上架日期'),
                        'Review数量': row.get('评论量'), '售价（当地币种）': row.get('售价'),
                        '大品类排名': current.get('bsr'), '所在品类': row.get('所在品类'),
                        '预估月销量': row.get('当前预估月销量'), '产品优点&特征': summary,
                        '缺点': evidence['缺点'], '生命周期': evidence['生命周期'], 'ASIN': row['ASIN'],
                        '亚马逊产品链接': row.get('亚马逊产品链接'), '图片': row.get('图片'),
-                       '结论': conclusion, '理由': '\n'.join(x for x in reasons if x)})
+                       '结论': conclusion, '理由': '\n'.join(x for x in reasons if x),
+                       '大品类排名变化': metrics.get('rank_change'), '大品类排名变化百分比': metrics.get('rank_percent'),
+                       '包装重量': metrics.get('package_weight'), '包装尺寸': metrics.get('package_dimensions')})
     return result
 
 
@@ -382,23 +393,30 @@ def run_selection(payload):
         for market in plan['marketplaces']:
             asins = [p['asin'] for p in batch if p['marketplace'] == market and
                      (not p.get('verified_parent_asin') or
-                      any(p['current'].get(f) is None for f in ('price','estimated_sales','source_available_date','review_count')))]
+                      any(p['current'].get(f) is None for f in ('price','estimated_sales','source_available_date','review_count','rank_change','rank_percent','package_weight','package_dimensions')))]
             if not asins:
                 continue
-            spec = {'source':'sellersprite_enrichment','marketplace':market,'asins':asins}
-            cache = folder/f'enrichment-{query_id({"context": enrichment_context, **spec})}.json'
-            result = json.loads(cache.read_text()) if cache.exists() and not payload.get('refresh') else None
-            parent_missing = any(not p.get('verified_parent_asin') for p in batch if p['marketplace'] == market)
-            if not result or result.get('collection_status') != 'complete' or parent_missing:
-                try:
-                    result = collectors.browser.collect_sellersprite_by_asin({**options,'marketplace':market,'asins':asins,'headless':True})
-                except Exception as exc:
-                    result = {'collection_status':'blocked','block_reason':type(exc).__name__,'records':[]}
-                result['query'] = {'id':query_id(spec),**spec}
-                result['selection_context'] = enrichment_context
-                write_json(cache, result)
-            if result not in results:
-                results.append(result)
+            for offset in range(0,len(asins),100):
+                chunk = asins[offset:offset+100]
+                spec = {'source':'sellersprite_enrichment','marketplace':market,'asins':chunk}
+                cache = folder/f'enrichment-{query_id({"context": enrichment_context, **spec})}.json'
+                result = json.loads(cache.read_text()) if cache.exists() and not payload.get('refresh') else None
+                parent_missing = any(not p.get('verified_parent_asin') for p in batch if p['marketplace'] == market and p['asin'] in chunk)
+                if not result or result.get('collection_status') != 'complete' or parent_missing:
+                    try:
+                        result = collectors.browser.collect_sellersprite_by_asin({**options,'marketplace':market,'asins':chunk,'headless':True})
+                    except Exception as exc:
+                        result = {'collection_status':'blocked','block_reason':type(exc).__name__,'records':[]}
+                    result['query'] = {'id':query_id(spec),**spec}
+                    result['selection_context'] = enrichment_context
+                    write_json(cache, result)
+                if result not in results:
+                    results.append(result)
+                if result.get('collection_status') == 'blocked':
+                    auth_block = result.get('block_reason') or 'sellersprite_collection_blocked'
+                    break
+            if auth_block:
+                break
         products, shortlisted = prepare()
         unchanged = {product_identity(item) for item in shortlisted
                      if before_enrichment.get(product_identity(item)) == query_id(item)}

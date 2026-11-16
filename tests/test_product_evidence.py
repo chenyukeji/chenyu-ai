@@ -103,3 +103,28 @@ def test_lower_bound_sales_are_disclosed_in_workbook_evidence():
     data['lifecycle_analysis']['history'][0]['value_kind'] = 'exact'
     with pytest.raises(ValueError, match='销量下限'):
         analysis_columns(item(), data, '2026-10-13')
+
+
+def test_verified_visible_bsr_and_package_fields_flow_to_native_rows():
+    from selection_metrics import extract
+    data = {'marketplace':'US', 'asin':'B012345678', 'bsr':11869,
+            'raw_cells':{'大类BSR':'11,869\n -454\n -4%'},
+            'product_info':['商品重量: 3.52 ounces','商品尺寸: 9 x 8 inches',
+                            '包装重量: 0.22 pounds','包装尺寸: 9.9 x 7.4 x 1.7 inches']}
+    got=extract(data)
+    assert got == {'rank_change':'-454','rank_percent':'-4%', 'rank_basis':11869, 'package_weight':'0.22 pounds',
+                   'package_dimensions':'9.9 x 7.4 x 1.7 inches'}
+    product={**item(), 'current':data}
+    report={'products':[product],'reviews':[analysis()],'plan':{'as_of_date':'2026-10-13'}}
+    row=original_style_rows([{'站点':'US','ASIN':'B012345678','分析':'室内取暖用途'}],report)[0]
+    assert row['大品类排名变化']=='-454' and row['大品类排名变化百分比']=='-4%'
+    assert row['包装重量']=='0.22 pounds' and row['包装尺寸']=='9.9 x 7.4 x 1.7 inches'
+    data.update({'rank_basis':11869,'rank_change':'-454','rank_percent':'-4%'})
+    data['bsr']=123
+    assert 'rank_change' not in extract(data)
+    stale=original_style_rows([{'站点':'US','ASIN':'B012345678','分析':'室内取暖用途'}],report)[0]
+    assert stale['大品类排名变化'] is None and stale['大品类排名变化百分比'] is None
+    data['product_info']=['商品重量: 1 kg','商品尺寸: 2 cm']
+    assert extract(data)=={}
+    data['product_info']=['包装重量: 1 kg','包装重量: 2 kg']
+    assert 'package_weight' not in extract(data)

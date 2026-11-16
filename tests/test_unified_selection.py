@@ -594,3 +594,22 @@ def test_missing_history_requests_real_collection_and_reuses_saved_points(monkey
     response = flow.run_selection({'run_dir': str(tmp_path)})
     assert not response['product_evidence_requests']
     assert response['analysis_gaps']  # Collection never pretends to be semantic analysis.
+
+
+def test_new_metrics_enrichment_batches_large_review_window_and_stops_on_block(monkeypatch,tmp_path):
+    rows=[product(asin=f'B{i:09d}') for i in range(120)]
+    monkeypatch.setattr(flow,'collect_query',lambda *args:{'collection_status':'complete','records':rows})
+    batches=[]
+    def collect(options):
+        batches.append(options['asins'])
+        return {'collection_status':'complete','records':[product(asin=asin) for asin in options['asins']]}
+    monkeypatch.setattr(flow.collectors.browser,'collect_sellersprite_by_asin',collect)
+    flow.run_selection({'scope':{**scope(['sellersprite_new']),'review_batch_size':200},'run_dir':str(tmp_path/'complete')})
+    assert list(map(len,batches)) == [100,20]
+    batches.clear()
+    def blocked(options):
+        batches.append(options['asins'])
+        return {'collection_status':'blocked','block_reason':'sellersprite_security_challenge_requires_user','records':[]}
+    monkeypatch.setattr(flow.collectors.browser,'collect_sellersprite_by_asin',blocked)
+    flow.run_selection({'scope':{**scope(['sellersprite_new']),'review_batch_size':200},'run_dir':str(tmp_path/'blocked')})
+    assert list(map(len,batches)) == [100]

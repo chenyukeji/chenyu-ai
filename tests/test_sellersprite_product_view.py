@@ -63,6 +63,7 @@ def test_expanded_category_is_bound_to_its_product(browser, detail_asin):
   headers = SELLERSPRITE_COMPETITOR_HEADERS
   cells = [''] * len(headers)
   cells[headers.index('产品信息')] = 'Winter Gloves\nASIN: B0779RDWVZ\n父ASIN: B0779RL486'
+  cells[headers.index('大类BSR')] = '11,869\n-454\n-4%'
   cells[headers.index('评分数 月新增')] = '-\n-'
   cells[headers.index('上架时间')] = '--'
   page.set_content('<table><thead><tr>' + ''.join('<th>'+escape(h)+'</th>' for h in headers) +
@@ -72,18 +73,23 @@ def test_expanded_category_is_bound_to_its_product(browser, detail_asin):
    '<a class="type" href="https://www.sellersprite.com/v3/product-research?nodeIdPaths=1">Clothing</a>'
    '<a class="type" href="https://www.sellersprite.com/v3/product-research?nodeIdPaths=2">Gloves</a>'
    '</div><div class="product-rank">#15 in Gloves</div><div class="product-info">'
-   '<span class="info-item">商品重量: 0.3 pounds</span></div></td></tr></tbody></table>')
+   '<span class="info-item">商品重量: 0.3 pounds</span>'
+   '<span class="info-item">包装重量: 0.22 pounds</span>'
+   '<span class="info-item">包装尺寸: 9 x 7 x 2 inches</span></div></td></tr></tbody></table>')
   records = extract_sellersprite_table(page, {'marketplace':'US'})
   assert len(records) == 1
   record = records[0]
   assert record['review_count'] is None and record['source_available_date'] is None
+  assert record['rank_change'] == '-454' and record['rank_percent'] == '-4%'
   if detail_asin == 'B0779RDWVZ':
    assert record['category_name'] == 'Clothing > Gloves'
    assert record['category_path'] == ['Clothing','Gloves']
    assert len(record['category_links']) == 2
-   assert record['product_info'] == ['商品重量: 0.3 pounds']
+   assert record['product_info'] == ['商品重量: 0.3 pounds', '包装重量: 0.22 pounds', '包装尺寸: 9 x 7 x 2 inches']
+   assert record['package_weight'] == '0.22 pounds' and record['package_dimensions'] == '9 x 7 x 2 inches'
    assert record['small_bsr'] == '#15 in Gloves'
   else:
    assert not record.get('category_name')
+   assert not record.get('package_weight') and not record.get('package_dimensions')
  finally:
   page.close()
