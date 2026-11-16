@@ -763,16 +763,16 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('repeats the same sentence' in error
                             for error in result['errors']))
 
-    def test_listing_package_rejects_thin_bullet_copy(self):
+    def test_listing_package_warns_on_short_bullet_copy(self):
         data = copy.deepcopy(self.listing_package())
         data['listings'][0]['bullets'][0] = (
             '📦【Klarer Lieferumfang】Die Variante enthält die angegebenen Teile. '
             'Der Inhalt lässt sich vorab überblicken.'
         )
         result = validate_legacy(data)
-        self.assertFalse(result['ready_for_delivery'])
-        self.assertTrue(any('more than 200 visible characters' in error
-                            for error in result['errors']))
+        self.assertTrue(result['ready_for_delivery'])
+        self.assertTrue(any('200 or fewer characters' in warning
+                            for warning in result['warnings']))
 
     def test_listing_package_requires_three_core_keywords_and_optional_scene(self):
         data = copy.deepcopy(self.listing_package())

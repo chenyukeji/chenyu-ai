@@ -1380,14 +1380,13 @@ def validate(data, *, require_current_search_policy=True):
                 body = re.sub(r'\s+', ' ', match.group(2)).strip()
                 buyer_bullet_texts.append((f'bullet {index}', body))
                 sentence_count = len(DESCRIPTION_SENTENCE.findall(body))
-                if not 2 <= sentence_count <= 4:
+                if not 1 <= sentence_count <= 4:
                     errors.append(
-                        f'{market}/{variant_id} bullet {index} body must contain 2-4 sentences'
+                        f'{market}/{variant_id} bullet {index} body must contain 1-4 sentences'
                     )
                 if len(body) < BULLET_BODY_MINIMUM:
-                    errors.append(
-                        f'{market}/{variant_id} bullet {index} body must contain more than '
-                        '200 visible characters of substantive copy'
+                    warnings.append(
+                        f'{market}/{variant_id} bullet {index} body has 200 or fewer characters; check whether applicable reference details can add useful information'
                     )
             if competitors:
                 validate_numbered_bullet_references(
@@ -1578,7 +1577,7 @@ def validate(data, *, require_current_search_policy=True):
                 feature_text = features[match.start():end].strip()
                 feature_body = re.split(r'[:：]', feature_text, maxsplit=1)[-1].strip()
                 sentence_count = len(DESCRIPTION_SENTENCE.findall(feature_body))
-                if not 2 <= sentence_count <= 4:
+                if not 1 <= sentence_count <= 4:
                     errors.append(
                         f'{market}/{variant_id} description feature {index} must contain '
                         '2-4 detailed sentences'
