@@ -421,3 +421,84 @@ def test_last_task_keeps_browser_running_and_releases_lease(store, fake_identity
     other.acquire_operation(0)
     other.release_operation()
     assert store.state.exists()
+
+
+def test_oversized_idle_cache_is_removed_only_after_owned_browser_exits(store, monkeypatch):
+    cache = store.profile / 'Default' / 'Cache'
+    cache.mkdir(parents=True)
+    (cache / 'cache-file').write_bytes(b'rebuildable')
+    cookie = store.profile / 'Default' / 'Cookies'
+    cookie.write_bytes(b'preserve')
+    store.operation_lock = object()
+    store.lock = object()
+    ss.private_write(store.root / 'browser-process.json', {'pid': 43210, 'seed_targets': ['seed']})
+    monkeypatch.setattr(ss, 'BROWSER_CACHE_LIMIT', 1)
+    original_read = Path.read_bytes
+    def read_bytes(path):
+        if str(path) == '/proc/43210/cmdline':
+            return ('chrome --user-data-dir=' + str(store.profile)).encode()
+        return original_read(path)
+    monkeypatch.setattr(Path, 'read_bytes', read_bytes)
+    original_readlink = os.readlink
+    monkeypatch.setattr(os, 'readlink', lambda path: '/opt/chrome' if str(path) == '/proc/43210/exe' else original_readlink(path))
+    tokens = iter(['start', None])
+    monkeypatch.setattr(ss, 'process_start_token', lambda pid: next(tokens))
+    browser = MagicMock()
+    channel = browser.new_browser_cdp_session.return_value
+    channel.send.side_effect = lambda method, *args: {'targetInfos': [{'type': 'page', 'targetId': 'seed', 'url': 'about:blank'}]} if method == 'Target.getTargets' else {}
+    assert ss.trim_idle_browser_cache(browser, store) is True
+    assert not cache.exists()
+    assert cookie.read_bytes() == b'preserve'
+    channel.send.assert_any_call('Browser.close')
+
+
+def test_oversized_cache_never_closes_unknown_window(store, monkeypatch):
+    cache = store.profile / 'Default' / 'Cache'
+    cache.mkdir(parents=True)
+    (cache / 'cache-file').write_bytes(b'rebuildable')
+    store.operation_lock = object()
+    store.lock = object()
+    ss.private_write(store.root / 'browser-process.json', {'pid': 43210, 'seed_targets': ['seed']})
+    monkeypatch.setattr(ss, 'BROWSER_CACHE_LIMIT', 1)
+    original_read = Path.read_bytes
+    monkeypatch.setattr(Path, 'read_bytes', lambda path: ('chrome --user-data-dir=' + str(store.profile)).encode() if str(path) == '/proc/43210/cmdline' else original_read(path))
+    original_readlink = os.readlink
+    monkeypatch.setattr(os, 'readlink', lambda path: '/opt/chrome' if str(path) == '/proc/43210/exe' else original_readlink(path))
+    monkeypatch.setattr(ss, 'process_start_token', lambda pid: 'start')
+    browser = MagicMock()
+    channel = browser.new_browser_cdp_session.return_value
+    channel.send.return_value = {'targetInfos': [{'type': 'page', 'targetId': 'other', 'url': 'https://example.com'}]}
+    assert ss.trim_idle_browser_cache(browser, store) is False
+    assert cache.exists()
+    assert all(call.args[0] != 'Browser.close' for call in channel.send.call_args_list)
+
+
+def test_cache_maintenance_requires_both_account_locks(store, monkeypatch):
+    cache = store.profile / 'Default' / 'Cache'
+    cache.mkdir(parents=True)
+    (cache / 'cache-file').write_bytes(b'rebuildable')
+    monkeypatch.setattr(ss, 'BROWSER_CACHE_LIMIT', 1)
+    browser = MagicMock()
+    assert ss.trim_idle_browser_cache(browser, store) is False
+    assert cache.exists()
+    browser.new_browser_cdp_session.assert_not_called()
+
+
+@pytest.mark.skipif(os.environ.get('CHENYU_BROWSER_SMOKE') != '1', reason='opt-in real Chromium check')
+def test_real_browser_oversized_cache_reclaims_and_restores_login(store, monkeypatch):
+    from playwright.sync_api import sync_playwright
+    monkeypatch.setattr(ss, 'BROWSER_CACHE_LIMIT', 1)
+    with sync_playwright() as runtime:
+        first, page, _ = ss.launch_context(runtime, {})
+        first.add_cookies([{'name': 'shared-test', 'value': 'retained',
+                            'domain': 'www.sellersprite.com', 'path': '/'}])
+        cache = store.profile / 'Default' / 'Cache'
+        cache.mkdir(parents=True, exist_ok=True)
+        (cache / 'maintenance-test').write_bytes(b'cache')
+        first.close()
+        assert not cache.exists()
+        assert ss.browser_endpoint(store) is None
+        second, page, _ = ss.launch_context(runtime, {})
+        assert any(cookie['name'] == 'shared-test' and cookie['value'] == 'retained'
+                   for cookie in second.cookies())
+        second.close()

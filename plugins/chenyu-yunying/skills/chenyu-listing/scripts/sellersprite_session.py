@@ -2,7 +2,7 @@
 
 One account lease covers browser startup, login, queries and cleanup.
 Website and manual collectors resolve the same host entry configuration.
-The browser stays running between tasks; only task-owned windows are closed.
+The browser stays running between tasks unless an oversized idle cache is safely reclaimed.
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import urllib.request
 import tempfile
@@ -21,6 +22,7 @@ from urllib.parse import urlparse
 LOGIN_URL = 'https://www.sellersprite.com/cn/w/user/login'
 DEFAULT_URL = 'https://www.sellersprite.com/v3/competitor-lookup'
 COOLDOWN_SECONDS = 300
+BROWSER_CACHE_LIMIT = 1024 ** 3
 HARD_BLOCKS = {'sellersprite_account_locked', 'invalid_credentials',
                'sellersprite_security_challenge_requires_user', 'sellersprite_session_lost',
                'sellersprite_access_denied'}
@@ -321,10 +323,94 @@ class ManagedContext:
                 if self.target_id:
                     (store.root / 'active-window.json').unlink(missing_ok=True)
                 save_session(self.context)
+                # The account operation and session locks are still held here.
+                # Maintenance is best-effort and never changes the task result.
+                try:
+                    trim_idle_browser_cache(self.browser, store)
+                except Exception as error:
+                    print('卖家精灵浏览器缓存维护未完成：' + type(error).__name__, flush=True)
             finally:
                 store.release()
         finally:
             store.release_operation()
+
+
+def trim_idle_browser_cache(browser, store):
+    """Bound reconstructible HTTP cache only after the owned task has ended.
+
+    Refuse maintenance unless both account leases are held, all pages are the
+    browser's recorded blank seeds, and the recorded Linux Chrome is verified.
+    Cookies, session state, unknown windows and task data are never removed.
+    """
+    if os.name != 'posix' or not Path('/proc').is_dir():
+        return False
+    if store.lock is None or store.operation_lock is None or (store.root / 'active-window.json').exists():
+        return False
+    profile = store.profile
+    cache = profile / 'Default' / 'Cache'
+    if (profile.is_symlink() or (profile / 'Default').is_symlink() or cache.is_symlink()
+            or not cache.is_dir() or cache.resolve().parent != (profile / 'Default').resolve()):
+        return False
+    total = 0
+    for path in cache.rglob('*'):
+        if path.is_symlink():
+            return False
+        if path.is_file():
+            total += path.stat().st_size
+            if total >= BROWSER_CACHE_LIMIT:
+                break
+    if total < BROWSER_CACHE_LIMIT:
+        return False
+    state = read_json(store.root / 'browser-process.json')
+    pid = state.get('pid')
+    seeds = state.get('seed_targets')
+    if type(pid) is not int or pid <= 0 or not isinstance(seeds, list) or not seeds:
+        return False
+    proc = Path('/proc') / str(pid)
+    try:
+        token = process_start_token(pid)
+        args = (proc / 'cmdline').read_bytes().replace(b'\0', b' ').decode(errors='replace')
+        executable = os.readlink(proc / 'exe')
+    except OSError:
+        return False
+    if not token or '--user-data-dir=' + str(profile) not in args or not executable.endswith('/chrome'):
+        return False
+    channel = browser.new_browser_cdp_session()
+    try:
+        targets = channel.send('Target.getTargets')['targetInfos']
+        if any(t.get('type') == 'page' and (t.get('targetId') not in seeds or t.get('url') != 'about:blank')
+               for t in targets):
+            return False
+        try:
+            channel.send('Browser.close')
+        except Exception:
+            # Chrome normally disconnects CDP before acknowledging close.
+            pass
+    finally:
+        try:
+            channel.detach()
+        except Exception:
+            pass
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        current = process_start_token(pid)
+        if current is None:
+            break
+        if current != token:
+            return False
+        try:
+            if (proc / 'stat').read_text().rpartition(')')[2].split()[0] == 'Z':
+                break
+        except (OSError, IndexError):
+            break
+        time.sleep(.1)
+    else:
+        return False
+    # Recheck path identity after browser exit; never follow a swapped symlink.
+    if cache.is_symlink() or not cache.is_dir() or cache.resolve().parent != (profile / 'Default').resolve():
+        return False
+    shutil.rmtree(cache)
+    return True
 
 
 def browser_endpoint(store):
