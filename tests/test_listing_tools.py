@@ -158,6 +158,12 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(analyzer.contains('Étoile', 'étoile'))
         self.assertFalse(analyzer.contains('étoile', 'etoile'))
 
+    def test_analyzer_treats_short_reference_bullets_as_advisory(self):
+        result = analyzer.analyze({'listings': [dict(marketplace='DE', title='',
+            bullets=['📦【Inhalt】Ein Set.'] * 5, description='', search_terms='')]})['listing_reviews'][0]
+        self.assertEqual(len(result['warnings']), 5)
+        self.assertFalse(any('body_chars' in issue for issue in result['issues']))
+
     def test_item_highlights_requires_a_title_core_keyword(self):
         data = self.listing_package()
         data['listings'][0]['item_highlights'] = (

@@ -64,7 +64,7 @@ def analyze(data):
         fs = fields(listing)
         st = listing.get('search_terms', '')
         all_text = '\n'.join([*fs.values(), st])
-        issues, overlaps = [], []
+        issues, warnings, overlaps = [], [], []
         for brand in data.get('brands', []):
             if contains(all_text, brand):
                 issues.append('Known brand candidate: ' + brand)
@@ -94,7 +94,7 @@ def analyze(data):
         for index in range(1, 6):
             value = lengths.get(f'bullet_{index}_body_chars')
             if value is not None and value <= 200:
-                issues.append(f'bullet_{index}_body_chars: {value} must exceed 200')
+                warnings.append(f'bullet_{index}_body_chars: {value}; review applicable reference details, short copy is allowed')
         for name, count in lengths.items():
             if name in limits and count > limits[name]:
                 issues.append(f'{name}: {count} exceeds {limits[name]}')
@@ -135,7 +135,7 @@ def analyze(data):
                             k for k in ('title_chars', 'item_highlights_chars',
                                         'search_terms_bytes') if k not in limits
                         ],
-                        'issues': issues, 'overlap_review': overlaps, 'coverage': coverage,
+                        'issues': issues, 'warnings': warnings, 'overlap_review': overlaps, 'coverage': coverage,
                         'semantic_review_required': True})
     return {'keyword_frequency': frequency, 'listing_reviews': reviews}
 
