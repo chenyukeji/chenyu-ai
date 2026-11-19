@@ -159,7 +159,7 @@ def legacy_running_jobs(jobs: Path) -> list[str]:
 
 
 def sync(repo: Path, market: Path, cache: Path, codex: str, status: Path,
-         releases: Path | None = None, jobs: Path | None = None) -> int:
+         releases: Path | None = None, jobs: Path | None = None, *, source_only: bool = False) -> int:
     lock = status.with_suffix('.lock')
     lock.parent.mkdir(parents=True, exist_ok=True)
     with lock.open('w') as stream:
@@ -199,7 +199,8 @@ def sync(repo: Path, market: Path, cache: Path, codex: str, status: Path,
                 active = git(repo, 'rev-parse', 'HEAD')
                 if active != remote:
                     raise RuntimeError('checkout did not reach the fetched remote revision')
-                install_plugins(repo, market, cache, codex, versions)
+                if not source_only:
+                    install_plugins(repo, market, cache, codex, versions)
             save_status(status, 'current', revision=active, versions=versions)
             print(f'Plugins current at {active}: {versions}')
             return 0
@@ -218,9 +219,11 @@ def main() -> int:
     parser.add_argument('--status', type=Path, default=Path('/home/ubuntu/chenyu/chenyu-runtime/plugin-sync-status.json'))
     parser.add_argument('--releases', type=Path, default=Path('/home/ubuntu/chenyu/chenyu-runtime/plugin-releases'))
     parser.add_argument('--jobs', type=Path, default=Path('/home/ubuntu/chenyu/chenyu-web/backend/work/drop'))
+    parser.add_argument('--source-only', action='store_true',
+                        help='Activate the plugin source on a coordinator without an employee plugin cache')
     args = parser.parse_args()
     return sync(args.repo.resolve(), args.market.resolve(), args.cache.resolve(), args.codex,
-                args.status, args.releases.resolve(), args.jobs.resolve())
+                args.status, args.releases.resolve(), args.jobs.resolve(), source_only=args.source_only)
 
 
 if __name__ == '__main__':

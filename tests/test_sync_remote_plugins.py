@@ -118,6 +118,17 @@ else:
         self.assertEqual(marker.read_text(), 'not managed by this synchronizer')
         self.assertEqual(registry.read_text(), original)
 
+    def test_coordinator_activates_verified_source_without_local_cache(self):
+        self.write_plugin(SYNC.NAMES[0], '1.0.1')
+        self.commit('Release for coordinator')
+        self.publish()
+        with patch.object(SYNC, 'install_plugins') as install:
+            self.assertEqual(SYNC.sync(self.live, self.market, self.cache, 'unused',
+                                       self.status, source_only=True), 0)
+            install.assert_not_called()
+        self.assertEqual(git(self.live, 'rev-parse', 'HEAD'), git(self.seed, 'rev-parse', 'HEAD'))
+        self.assertEqual(json.loads(self.status.read_text())['versions'][SYNC.NAMES[0]], '1.0.1')
+
     def test_dirty_checkout_is_not_overwritten(self) -> None:
         original = git(self.live, 'rev-parse', 'HEAD')
         for name in SYNC.NAMES:
