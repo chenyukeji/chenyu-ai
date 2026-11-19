@@ -17,9 +17,9 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 MARKETS = {'amazon.de': 'DE', 'amazon.fr': 'FR', 'amazon.it': 'IT',
-           'amazon.es': 'ES', 'amazon.co.uk': 'UK', 'amazon.com': 'US'}
+           'amazon.pl': 'PL', 'amazon.es': 'ES', 'amazon.co.uk': 'UK', 'amazon.com': 'US'}
 LANGUAGES = {'DE': 'de-DE', 'FR': 'fr-FR', 'IT': 'it-IT', 'ES': 'es-ES',
-             'UK': 'en-GB', 'US': 'en-US'}
+             'PL': 'pl-PL', 'UK': 'en-GB', 'US': 'en-US'}
 ASIN_PATH = re.compile(r'/(?:dp|gp/product|gp/aw/d)/([A-Z0-9]{10})(?:[/?]|$)', re.I)
 MAX_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_BYTES = 25 * 1024 * 1024

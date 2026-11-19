@@ -32,6 +32,20 @@ def validate_legacy(data):
 
 
 class ListingTests(unittest.TestCase):
+    def test_polish_locale_and_description_headings(self):
+        data = self.listing_package()
+        data['targets'] = ['PL']
+        for row in data['keywords'] + data['mappings'] + data['listings']:
+            row['marketplace'] = 'PL'
+        listing = data['listings'][0]
+        listing['language'] = 'pl-PL'
+        for source, target in zip(package_validator.MARKETS['DE'][1], package_validator.MARKETS['PL'][1]):
+            listing['description'] = listing['description'].replace(source, target)
+        errors = validate_legacy(data)['errors']
+        self.assertFalse(any('unsupported target' in e or 'language must' in e or 'description headings' in e for e in errors), errors)
+        listing['language'] = 'de-DE'
+        self.assertTrue(any('language must be pl-PL' in e for e in validate_legacy(data)['errors']))
+
     @staticmethod
     def listing_package():
         return {

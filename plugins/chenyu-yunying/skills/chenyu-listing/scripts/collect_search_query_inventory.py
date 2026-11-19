@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 DOMAINS = {'www.amazon.de': 'DE', 'www.amazon.fr': 'FR', 'www.amazon.it': 'IT',
-           'www.amazon.es': 'ES', 'www.amazon.co.uk': 'UK'}
+           'www.amazon.pl': 'PL', 'www.amazon.es': 'ES', 'www.amazon.co.uk': 'UK'}
 
 
 def collect(root):

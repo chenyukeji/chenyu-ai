@@ -11,6 +11,7 @@ MARKETS = {
     'FR': ('fr-FR', ('Caractéristiques', 'Informations sur le produit', "Contenu de l’emballage")),
     'IT': ('it-IT', ('Caratteristiche', 'Specifiche del prodotto', 'Contenuto della confezione')),
     'ES': ('es-ES', ('Características', 'Especificaciones del producto', 'Contenido del paquete')),
+    'PL': ('pl-PL', ('Cechy', 'Szczegóły produktu', 'Zawartość opakowania')),
     'UK': ('en-GB', ('Features', 'Product specifications', 'Package contents')),
 }
 ASIN = re.compile(r'\bB0[A-Z0-9]{8}\b', re.I)
@@ -49,6 +50,7 @@ DESCRIPTION_TAG = re.compile(r'<\s*/?\s*([a-zA-Z0-9]+)(?:\s[^>]*)?>')
 HTML_LAYOUT_TAG = re.compile(r'<\s*(/?)\s*(p|b|br)\s*/?\s*>', re.I)
 NOTICE_HEADINGS = {
     'DE': 'Hinweise', 'FR': 'Remarques', 'IT': 'Avvertenze',
+    'PL': 'Uwagi',
     'ES': 'Avisos', 'UK': 'Notes',
 }
 USE_CARE_HEADINGS = {
@@ -56,6 +58,7 @@ USE_CARE_HEADINGS = {
     'FR': ('Utilisation', 'Entretien'),
     'IT': ('Uso', 'Cura'),
     'ES': ('Uso', 'Cuidado'),
+    'PL': ('Użytkowanie', 'Pielęgnacja'),
     'UK': ('Use', 'Care'),
 }
 SEARCH_TERMS_STOP_WORDS = {
@@ -68,10 +71,12 @@ SEARCH_TERMS_STOP_WORDS = {
            'di', 'da', 'per', 'con', 'su', 'in'},
     'ES': {'un', 'una', 'unos', 'unas', 'el', 'la', 'los', 'las', 'y', 'o',
            'de', 'del', 'para', 'con', 'en', 'por'},
+    'PL': {'i', 'oraz', 'lub', 'do', 'dla', 'na', 'z', 'ze', 'w', 'we', 'od', 'po', 'przy'},
     'UK': {'a', 'an', 'the', 'and', 'or', 'of', 'for', 'with', 'in', 'on', 'to'},
 }
 DESCRIPTION_SENTENCE = re.compile(r'[.!?。！？]+')
 BUYER_META_PATTERNS = {
+    'PL': (re.compile(r'\b(?:kupujący może rozpoznać|klient widzi, że)\b', re.I),),
     'DE': (
         re.compile(r'\b(?:Käufer|Kunden|Verbraucher)\b', re.I),
         re.compile(
@@ -116,6 +121,7 @@ BUYER_META_PATTERNS = {
     ),
 }
 GENERIC_COHERENCE_PATTERNS = {
+    'PL': (re.compile(r'\b(?:tworzą spójną całość|dla spójnego wyglądu)\b', re.I),),
     'DE': (re.compile(r'\bzusammengehörige (?:Gruppe|Serie)\b', re.I),
            re.compile(r'\boptisch (?:zusammen|einheitlich)\b', re.I)),
     'FR': (re.compile(r'\bvisuellement cohérent', re.I),
@@ -126,6 +132,7 @@ GENERIC_COHERENCE_PATTERNS = {
     'UK': (re.compile(r'\b(?:coordinated look|cohesive set)\b', re.I),),
 }
 IMAGE_BRIEF_LEAK_PATTERNS = {
+    'PL': (re.compile(r'\b(?:w centrum kadru|na pierwszym planie zdjęcia)\b', re.I),),
     'DE': (
         re.compile(
             r'\b(?:Bildwirkung|Bildaufbau|Komposition|Kamerawinkel|Nahaufnahme|'
@@ -168,6 +175,7 @@ IMAGE_BRIEF_LEAK_PATTERNS = {
     ),
 }
 BLANKET_PROP_DISCLAIMER_PATTERNS = {
+    'PL': (re.compile(r'\b(?:rekwizyty|dekoracje widoczne na zdjęciu) nie (?:są częścią zestawu|wchodzą w skład zestawu)\b', re.I),),
     'DE': (re.compile(
         r'\b(?:weitere|andere).{0,40}(?:Dekorationen|Requisiten|Zubehör).{0,60}'
         r'(?:nicht enthalten|nicht im Lieferumfang)\b', re.I
@@ -190,6 +198,7 @@ BLANKET_PROP_DISCLAIMER_PATTERNS = {
     ),),
 }
 INTERNAL_PROCESS_PATTERNS = {
+    'PL': (re.compile(r'\b(?:według dokumentacji produktu|produkt referencyjny|wewnętrzna weryfikacja)\b', re.I),),
     'DE': (
         re.compile(r'\b(?:bestätigt(?:e|er|es|en|em)?|nicht bestätigte?)\s+'
                    r'(?:Lieferumfang|Packungsinhalt|Material|Produktdaten|Angaben)\b', re.I),

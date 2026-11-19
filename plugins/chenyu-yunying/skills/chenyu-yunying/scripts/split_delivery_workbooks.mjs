@@ -11,7 +11,6 @@ if (!sourcePath || !listingOutput || !imageBriefOutput) {
   );
 }
 
-const listingSheets = ["产品内容", "DE Listing", "FR Listing", "IT Listing", "ES Listing"];
 const imageBriefSheets = ["产品内容", "作图要求"];
 
 async function loadWorkbook() {
@@ -60,10 +59,7 @@ async function verifyAndExport(workbook, outputPath, expectedSheets, previewPref
     const ranges = {
       "产品内容": "A1:F2",
       "作图要求": "A1:G8",
-      "DE Listing": "A1:D10",
-      "FR Listing": "A1:D10",
-      "IT Listing": "A1:D10",
-      "ES Listing": "A1:D10",
+      ...Object.fromEntries(marketSheets.map((name) => [name, "A1:D10"])),
     };
     for (const sheetName of expectedSheets) {
       const preview = await workbook.render({
@@ -87,6 +83,10 @@ async function verifyAndExport(workbook, outputPath, expectedSheets, previewPref
 }
 
 const listingWorkbook = await loadWorkbook();
+const marketSheets = listingWorkbook.worksheets.items.map((sheet) => sheet.name)
+  .filter((name) => /^(DE|FR|IT|ES|UK|PL) Listing$/.test(name));
+if (!marketSheets.length) throw new Error("Missing target marketplace Listing worksheet");
+const listingSheets = ["产品内容", ...marketSheets];
 keepOnly(listingWorkbook, listingSheets);
 const listingResult = await verifyAndExport(
   listingWorkbook,
