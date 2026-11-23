@@ -239,9 +239,9 @@ def validate_visual_contract(image_brief, errors):
                 f'found {len(product_tasks)}'
             )
         task_types = [task.get('type') for task in product_tasks]
-        if not task_types or task_types[0] != 'main_image' or task_types.count('main_image') != 1:
+        if expected_count > 1 and (not task_types or task_types[0] != 'main_image' or task_types.count('main_image') != 1):
             errors.append(f'$.image_tasks for product {product_id} must start with exactly one main_image')
-        if not task_types or task_types[-1] != 'four_grid':
+        if expected_count > 1 and (not task_types or task_types[-1] != 'four_grid'):
             errors.append(f'$.image_tasks for product {product_id} must end with a four_grid scene image')
         seen_information = set()
         for task in product_tasks:
@@ -566,17 +566,24 @@ def validate_visual_contract(image_brief, errors):
                 continue
             source_id = str(anchor.get('source_image_id', '')).strip()
             _, source = seen_images.get(source_id, ({}, {}))
-            if not source or task_id not in source.get('mapped_task_ids', []):
-                errors.append(
-                    f'$.image_tasks[{task_id}].visual_anchor.source_image_id '
-                    'must cite a source mapped to this task'
-                )
             slot = anchor.get('reference_slot')
-            if not isinstance(slot, int) or isinstance(slot, bool) or not 1 <= slot <= len(embedded):
-                errors.append(
-                    f'$.image_tasks[{task_id}].visual_anchor.reference_slot '
-                    'must identify an embedded reference image'
-                )
+            valid_slot = type(slot) is int and 1 <= slot <= len(embedded)
+            own_images = image_brief.get('own_images', [])
+            own = [item for item in own_images if isinstance(item, dict) and item.get('id') == source_id] if isinstance(own_images, list) else []
+            if own:
+                own_source = own[0]
+                asset = own_source.get('asset')
+                mapped = own_source.get('mapped_task_ids')
+                if (source or len(own) != 1 or not source_id or not own_source.get('source')
+                        or not isinstance(mapped, list) or task_id not in mapped
+                        or not isinstance(asset, str) or not asset or not valid_slot
+                        or not isinstance(embedded[slot - 1], str)
+                        or Path(embedded[slot - 1]).name != asset):
+                    errors.append(f'$.image_tasks[{task_id}].visual_anchor must match its mapped own image and embedded slot')
+            elif not source or task_id not in source.get('mapped_task_ids', []):
+                errors.append(f'$.image_tasks[{task_id}].visual_anchor.source_image_id must cite a source mapped to this task')
+            if not valid_slot:
+                errors.append(f'$.image_tasks[{task_id}].visual_anchor.reference_slot must identify an embedded reference image')
             instructions = str(task.get('instructions', ''))
             for field in (('retained_layout', 'retained_density', 'replacements') if schema_version == 2 else ()):
                 value = str(anchor.get(field, '')).strip()

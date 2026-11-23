@@ -741,6 +741,25 @@ def integrated_package():
     return data
 
 
+def test_single_uploaded_canvas_can_anchor_its_own_brief():
+    data = integrated_package()
+    data['primary_reference'] = None
+    data['additional_references'] = []
+    main = data['image_tasks'][0]
+    data['image_tasks'] = [main]
+    data['products'][0].update(image_count=1, image_count_instruction='换个背景，其他不变')
+    main.update(content_mappings=[], text_mappings=[], reference_images=['internal/table-media/original.png'])
+    own = {'id': 'product-v1', 'source': 'in/product.png', 'asset': 'original.png',
+           'mapped_task_ids': [main['id']]}
+    data['own_images'] = [own]
+    main['visual_anchor'] = {'source_image_id': own['id'], 'reference_slot': 1}
+    result = VALIDATOR.validate(data)
+    assert result['ready_for_delivery'], result['errors']
+    for changes in ({'mapped_task_ids': []}, {'asset': 'another.png'}, {'source': ''}):
+        data['own_images'] = [{**own, **changes}]
+        assert not VALIDATOR.validate(data)['ready_for_delivery']
+
+
 def test_v3_legacy_composition_remains_readable():
     result = VALIDATOR.validate(integrated_package())
     assert result['ready_for_delivery'], result['errors']
