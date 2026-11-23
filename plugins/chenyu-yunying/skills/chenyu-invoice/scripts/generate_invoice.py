@@ -19,7 +19,7 @@ CENT = Decimal('0.01')
 # User-supplied business rates, not an automatic determination of tax treatment.
 DESTINATION_VAT_RATES = {code: Decimal(rate) for code, rate in {
     'UK': '0.20', 'DE': '0.19', 'FR': '0.20', 'IT': '0.22', 'ES': '0.21',
-    'NL': '0.21', 'PL': '0.23', 'CZ': '0.21', 'AT': '0.20', 'BE': '0.21', 'PT': '0.23',
+    'NL': '0.21', 'PL': '0.23', 'CZ': '0.21', 'AT': '0.20', 'BE': '0.21', 'PT': '0.23', 'LV': '0.21',
 }.items()}
 SALES_CHANNEL_SITES = {
     'amazon.co.uk': 'UK', 'amazon.de': 'DE', 'amazon.fr': 'FR',
@@ -33,7 +33,7 @@ COUNTRY_NAMES = {
     'ES': ('Spain', 'España', '西班牙'), 'NL': ('Netherlands', 'Nederland', '荷兰'),
     'PL': ('Poland', 'Polska', '波兰'), 'CZ': ('Czechia', 'Czech Republic', '捷克'),
     'AT': ('Austria', 'Österreich', '奥地利'), 'BE': ('Belgium', 'Belgique', 'België', '比利时'),
-    'PT': ('Portugal', '葡萄牙'),
+    'PT': ('Portugal', '葡萄牙'), 'LV': ('Latvia', 'Latvija', '拉脱维亚'),
 }
 COUNTRY_CODES = {alias.casefold(): code for code, names in COUNTRY_NAMES.items() for alias in (code, *names)}
 PT_REGIONS = {
@@ -740,7 +740,7 @@ def invoice_pdf(d,output):
         # Replace only the value when needed, keeping the country label and geometry.
         country=clean(buyer.get('country',''))
         country_labels={'法国':'France','比利时':'Belgium','德国':'Germany',
-                        '意大利':'Italy','西班牙':'Spain','英国':'United Kingdom','波兰':'Poland','葡萄牙':'Portugal'}
+                        '意大利':'Italy','西班牙':'Spain','英国':'United Kingdom','波兰':'Poland','葡萄牙':'Portugal','拉脱维亚':'Latvia'}
         country=country_labels.get(country,country)
         if not country:
             raise ValueError('buyer.country is required; cannot assume France')

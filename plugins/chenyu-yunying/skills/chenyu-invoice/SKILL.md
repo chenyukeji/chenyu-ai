@@ -64,11 +64,12 @@ Python 3.10+，依赖见 `scripts/requirements.txt`。`--output` 只接受目录
 | 捷克 | CZ | 21% |
 | 奥地利 | AT | 20% |
 | 比利时 | BE | 21% |
+| 拉脱维亚 | LV | 21% |
 | 葡萄牙大陆 | PT / mainland | 23% |
 | 葡萄牙马德拉 | PT / madeira | 22% |
 | 葡萄牙亚速尔 | PT / azores | 16% |
 
-`buyer` 保留原始配送来源；开票留言另存 `billing_request.buyer`。销售渠道仍作为订单来源核对，与 `marketplace_code` 同时出现时必须一致，但不决定税率。缺少收货国家或国家不受支持时停止补证据，禁止退回销售站点或账单国家猜税率。
+`buyer` 保留原始配送来源；开票留言另存 `billing_request.buyer`。销售渠道仍作为订单来源核对，与 `marketplace_code` 同时出现时必须一致，但不决定税率。缺少收货国家或国家不受支持时停止补证据，禁止退回销售站点或账单国家猜税率。拉脱维亚普通标准税率商品按 21% 处理；来源明确显示减免税率或商品可能适用例外时，先核实本单口径。[拉脱维亚税务局 VAT 税率](https://www.vid.gov.lv/lv/pievienotas-vertibas-nodokla-likmes)。
 
 葡萄牙使用配送邮编（`1000-001` 等七位格式）区分大陆、马德拉（90–94 开头）与亚速尔（95–99 开头）；也可按订单证据填 `buyer.tax_region` 为 `mainland` / `madeira` / `azores`。两者冲突则停止核对，均缺失时不默认大陆。邮编区域参考：[CTT 邮政网点表](https://www.ctt.pt/application/themes/pdfs/oferta_de_acesso_rede_postal_SITE_agosto2024.pdf)。只有开票地址时仍须补最少的实际配送国家／地区证据，不要求重复收集配送姓名和街道。
 
