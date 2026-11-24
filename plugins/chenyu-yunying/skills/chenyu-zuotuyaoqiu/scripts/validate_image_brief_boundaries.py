@@ -117,6 +117,8 @@ def explicit_final_scene(task):
     quote, layout = source.get('quote'), source.get('layout')
     if not isinstance(quote, str) or not 1 <= len(quote.strip()) <= 1200:
         return False
+    if layout == 'two_panel':
+        return bool(re.search(r'两格|双格|两联|双联|双幅拼图|(?:两|二|2)[张幅]图?(?:片|像)?[^，。；\n]{0,12}(?:拼|合成|组合成)|two[- ]panel|diptych', quote, re.I))
     if layout == 'three_panel':
         return bool(re.search(r'三格|三联|three.panel', quote, re.I))
     if layout == 'single_scene':

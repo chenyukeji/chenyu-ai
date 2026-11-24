@@ -950,7 +950,8 @@ def test_explicit_final_scene_layouts_keep_default_four_grid_guard():
     data = package()
     final = data['image_tasks'][-1]
     final.update(type='scene', scene_mode='户外')
-    for layout, quote in [('three_panel', '画面主体为横向三格分图'),
+    for layout, quote in [('two_panel', '做一张由两张图拼凑成一张的室外场景图'),
+                          ('three_panel', '画面主体为横向三格分图'),
                           ('single_scene', '找一张户外嘉年华游乐场场景')]:
         final['final_scene_instruction'] = {'layout': layout, 'quote': quote}
         assert not any('must end with a four_grid' in error
@@ -958,3 +959,8 @@ def test_explicit_final_scene_layouts_keep_default_four_grid_guard():
     final['final_scene_instruction']['quote'] = '优化末张'
     assert any('must end with a four_grid' in error
                for error in VALIDATOR.validate(data)['errors'])
+
+
+def test_two_photos_without_a_collage_instruction_do_not_authorize_two_panels():
+    task = {'type': 'scene', 'final_scene_instruction': {'layout': 'two_panel', 'quote': '请提供两张图片作为参考'}}
+    assert not VALIDATOR.explicit_final_scene(task)
