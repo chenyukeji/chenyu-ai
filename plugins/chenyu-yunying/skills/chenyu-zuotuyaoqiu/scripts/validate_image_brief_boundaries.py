@@ -109,6 +109,21 @@ def validate_omitted_images(seen_images, errors):
                           'image or cite duplicate_of: ' + ', '.join(image_ids))
 
 
+def explicit_final_scene(task):
+    """Validate the requested exception to the default final scene layout."""
+    source = task.get('final_scene_instruction')
+    if task.get('type') != 'scene' or not isinstance(source, dict):
+        return False
+    quote, layout = source.get('quote'), source.get('layout')
+    if not isinstance(quote, str) or not 1 <= len(quote.strip()) <= 1200:
+        return False
+    if layout == 'three_panel':
+        return bool(re.search(r'三格|三联|three.panel', quote, re.I))
+    if layout == 'single_scene':
+        return bool(re.search(r'单幅|单景|一张[^。\n]{0,60}场景|single.scene', quote, re.I))
+    return False
+
+
 def validate_visual_contract(image_brief, errors):
     """Validate product identity, task planning and all reference inventories."""
     if not isinstance(image_brief, dict):
@@ -214,6 +229,7 @@ def validate_visual_contract(image_brief, errors):
                 + ', '.join(unknown_products)
             )
 
+    final_scene_tasks = set()
     for product in products:
         if not isinstance(product, dict) or product.get('id') not in product_images:
             continue
@@ -241,8 +257,12 @@ def validate_visual_contract(image_brief, errors):
         task_types = [task.get('type') for task in product_tasks]
         if expected_count > 1 and (not task_types or task_types[0] != 'main_image' or task_types.count('main_image') != 1):
             errors.append(f'$.image_tasks for product {product_id} must start with exactly one main_image')
-        if expected_count > 1 and (not task_types or task_types[-1] != 'four_grid'):
-            errors.append(f'$.image_tasks for product {product_id} must end with a four_grid scene image')
+        if expected_count > 1:
+            final = product_tasks[-1] if product_tasks else {}
+            if final:
+                final_scene_tasks.add(final['id'])
+            if final.get('type') != 'four_grid' and not explicit_final_scene(final):
+                errors.append(f'$.image_tasks for product {product_id} must end with a four_grid scene image')
         seen_information = set()
         for task in product_tasks:
             information = ' '.join(words(task.get('new_information', '')))
@@ -252,6 +272,8 @@ def validate_visual_contract(image_brief, errors):
 
     for task_id, task in tasks.items():
         task_type = task.get('type')
+        if 'final_scene_instruction' in task and (task_id not in final_scene_tasks or not explicit_final_scene(task)):
+            errors.append(f'$.image_tasks[{task_id}] final_scene_instruction requires an explicit final scene layout')
         if task_type not in {'main_image', 'detail', 'feature', 'advantage', 'process', 'packaging', 'size', 'scene', 'closeup_scene', 'key_scene', 'four_grid'}:
             errors.append(f'$.image_tasks[{task_id}] has unsupported type: {task_type}')
         if task_type in ('scene', 'closeup_scene', 'key_scene'):
