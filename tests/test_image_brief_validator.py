@@ -1003,3 +1003,34 @@ def test_explicit_final_scene_layouts_keep_default_four_grid_guard():
 def test_two_photos_without_a_collage_instruction_do_not_authorize_two_panels():
     task = {'type': 'scene', 'final_scene_instruction': {'layout': 'two_panel', 'quote': '请提供两张图片作为参考'}}
     assert not VALIDATOR.explicit_final_scene(task)
+
+
+
+def test_final_scene_can_follow_an_explicitly_selected_embedded_workbook_example():
+    data = package()
+    data['schema_version'] = 3
+    final = data['image_tasks'][-1]
+    quote = '参考例图，父母在圣诞节陪伴孩子，母亲和孩子戴上本款发箍'
+    final.update(type='scene', scene_mode='single_scene', source_brief=quote,
+                 final_scene_instruction={'layout': 'single_scene', 'quote': quote},
+                 visual_anchor={'source_image_id': 'uploaded-scene', 'reference_slot': 1},
+                 reference_images=['internal/table-media/example.jpg'])
+    data['own_images'] = [{'id': 'uploaded-scene', 'source': 'in/作图要求.xlsx#Sheet1/例图7',
+                           'asset': 'example.jpg', 'mapped_task_ids': [final['id']]}]
+
+    def layout_errors(value):
+        return [e for e in VALIDATOR.validate(value)['errors']
+                if 'must end with a four_grid' in e or 'requires an explicit final scene layout' in e]
+
+    assert not layout_errors(data)
+    for field, value in (('source', 'https://example.com/example.jpg'),
+                         ('asset', 'different.jpg'), ('mapped_task_ids', ['T1'])):
+        invalid = copy.deepcopy(data)
+        invalid['own_images'][0][field] = value
+        assert layout_errors(invalid), field
+    invalid = copy.deepcopy(data)
+    invalid['image_tasks'][-1]['source_brief'] = '没有要求按这张例图排版'
+    assert layout_errors(invalid)
+    conflicting = quote + '，版式要四宫格'
+    final.update(source_brief=conflicting, final_scene_instruction={'layout': 'single_scene', 'quote': conflicting})
+    assert layout_errors(data)

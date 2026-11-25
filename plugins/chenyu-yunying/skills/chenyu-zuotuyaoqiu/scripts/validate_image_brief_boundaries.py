@@ -109,7 +109,7 @@ def validate_omitted_images(seen_images, errors):
                           'image or cite duplicate_of: ' + ', '.join(image_ids))
 
 
-def explicit_final_scene(task):
+def explicit_final_scene(task, image_brief=None):
     """Validate the requested exception to the default final scene layout."""
     source = task.get('final_scene_instruction')
     if task.get('type') != 'scene' or not isinstance(source, dict):
@@ -122,8 +122,36 @@ def explicit_final_scene(task):
     if layout == 'three_panel':
         return bool(re.search(r'三格|三联|three.panel', quote, re.I))
     if layout == 'single_scene':
-        return bool(re.search(r'单幅|单景|一张[^。\n]{0,60}场景|single.scene', quote, re.I))
+        return bool(re.search(r'单幅|单景|一张[^。\n]{0,60}场景|single.scene', quote, re.I)
+                    or uploaded_final_scene(task, image_brief, quote))
     return False
+
+
+def uploaded_final_scene(task, image_brief, quote):
+    """Accept a single scene from the example explicitly cited in its workbook row."""
+    brief = task.get('source_brief')
+    if (not image_brief or image_brief.get('schema_version') not in (2, 3)
+            or task.get('scene_mode') != 'single_scene'
+            or not isinstance(brief, str) or quote.strip() != brief.strip()
+            or not re.match(r'\s*(?:请\s*)?(?:参考|参照|按|沿用)\s*(?:(?:本行|原表)(?:的)?)?\s*例图', quote)
+            or re.search(r'四宫格|四格|拼图|多格|\bcollage\b', quote, re.I)):
+        return False
+    anchor, sources = task.get('visual_anchor'), image_brief.get('own_images')
+    images = task.get('reference_images', task.get('embedded_reference_paths', []))
+    if not isinstance(anchor, dict) or not isinstance(sources, list) or not isinstance(images, list):
+        return False
+    source_id, slot = anchor.get('source_image_id'), anchor.get('reference_slot')
+    if not isinstance(source_id, str) or not source_id or type(slot) is not int or not 1 <= slot <= len(images):
+        return False
+    matches = [s for s in sources if isinstance(s, dict) and s.get('id') == source_id]
+    if len(matches) != 1:
+        return False
+    source = matches[0]
+    location, asset, mapped = source.get('source'), source.get('asset'), source.get('mapped_task_ids')
+    return (isinstance(location, str) and bool(re.fullmatch(r'in/[^/\\#]+\.(?:xlsx|xls)#[^#\r\n]+', location, re.I))
+            and isinstance(mapped, list) and task.get('id') in mapped
+            and isinstance(asset, str) and isinstance(images[slot - 1], str)
+            and Path(images[slot - 1]).name == asset)
 
 
 def single_uploaded_edit(image_brief, product, tasks):
@@ -307,7 +335,7 @@ def validate_visual_contract(image_brief, errors):
             final = product_tasks[-1] if product_tasks else {}
             if final:
                 final_scene_tasks.add(final['id'])
-            if final.get('type') != 'four_grid' and not explicit_final_scene(final):
+            if final.get('type') != 'four_grid' and not explicit_final_scene(final, image_brief):
                 errors.append(f'$.image_tasks for product {product_id} must end with a four_grid scene image')
         seen_information = set()
         for task in product_tasks:
@@ -318,7 +346,7 @@ def validate_visual_contract(image_brief, errors):
 
     for task_id, task in tasks.items():
         task_type = task.get('type')
-        if 'final_scene_instruction' in task and (task_id not in final_scene_tasks or not explicit_final_scene(task)):
+        if 'final_scene_instruction' in task and (task_id not in final_scene_tasks or not explicit_final_scene(task, image_brief)):
             errors.append(f'$.image_tasks[{task_id}] final_scene_instruction requires an explicit final scene layout')
         if task_type not in {'main_image', 'detail', 'feature', 'advantage', 'process', 'packaging', 'size', 'scene', 'closeup_scene', 'key_scene', 'four_grid'}:
             errors.append(f'$.image_tasks[{task_id}] has unsupported type: {task_type}')
