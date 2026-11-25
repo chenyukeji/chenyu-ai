@@ -126,6 +126,46 @@ def explicit_final_scene(task):
     return False
 
 
+def single_uploaded_edit(image_brief, product, tasks):
+    """Recognize a one-image edit anchored to an uploaded original."""
+    if (image_brief.get('schema_version') not in (2, 3) or len(image_brief['products']) != 1
+            or len(tasks) != 1 or product.get('image_count') != 1):
+        return ''
+    task = tasks[0]
+    quote = product.get('image_count_instruction')
+    if (not isinstance(quote, str)
+            or not re.search(r'修改|改成|改为|调为|缩放|裁剪|换.{0,6}背景|去掉|移除|删掉|替换|保留|不变|\b(?:edit|resize|crop|remove|replace|retain|keep)\b', quote, re.I)
+            or task.get('output_count', 1) != 1):
+        return ''
+    anchor = task.get('visual_anchor')
+    sources = image_brief.get('own_images')
+    embedded = task.get('reference_images', task.get('embedded_reference_paths', []))
+    if (not isinstance(anchor, dict) or not isinstance(sources, list)
+            or not isinstance(embedded, list) or len(embedded) != 1
+            or anchor.get('reference_slot') != 1):
+        return ''
+    for source in sources:
+        if not isinstance(source, dict) or source.get('id') != anchor.get('source_image_id'):
+            continue
+        path = source.get('source')
+        if isinstance(path, str) and Path(path).parts[:1] == ('in',) and len(Path(path).parts) == 2:
+            return quote.strip()
+    return ''
+
+
+def exact_replacement_dimension(label, quote):
+    """Preserve the exact requested slash label when its units are inferable."""
+    number = r'\d+(?:\.\d+)?'
+    pair = rf'{number}/{number}cm'
+    match = re.search(
+        rf'(?<![\d.])({pair})[”"’\s]*(?:改成|改为|替换为|替换成|to)\s*[“"‘]?({pair})(?![A-Za-z0-9.])',
+        quote, re.I,
+    )
+    return bool(match and label == match[2]
+                and not dimension_label_error(label.replace('/', 'in/', 1)))
+
+
+
 def validate_visual_contract(image_brief, errors):
     """Validate product identity, task planning and all reference inventories."""
     if not isinstance(image_brief, dict):
@@ -232,6 +272,7 @@ def validate_visual_contract(image_brief, errors):
             )
 
     final_scene_tasks = set()
+    single_edits = {}
     for product in products:
         if not isinstance(product, dict) or product.get('id') not in product_images:
             continue
@@ -256,6 +297,9 @@ def validate_visual_contract(image_brief, errors):
                 f'$.image_tasks must contain {expected_count} tasks for product {product_id}; '
                 f'found {len(product_tasks)}'
             )
+        edit_quote = single_uploaded_edit(image_brief, product, product_tasks)
+        if edit_quote:
+            single_edits[product_tasks[0]['id']] = edit_quote
         task_types = [task.get('type') for task in product_tasks]
         if expected_count > 1 and (not task_types or task_types[0] != 'main_image' or task_types.count('main_image') != 1):
             errors.append(f'$.image_tasks for product {product_id} must start with exactly one main_image')
@@ -285,6 +329,7 @@ def validate_visual_contract(image_brief, errors):
                 )
         instructions = str(task.get('instructions', ''))
         on_image_text = str(task.get('on_image_text', ''))
+        edit_quote = single_edits.get(task_id, '')
         if task_type == 'size':
             evidence = task.get('dimension_source', {})
             if not isinstance(evidence, dict) or evidence.get('kind') not in (
@@ -370,7 +415,7 @@ def validate_visual_contract(image_brief, errors):
             else:
                 for label in task['dimension_labels']:
                     reason = dimension_label_error(label)
-                    if reason:
+                    if reason and not exact_replacement_dimension(label, edit_quote):
                         errors.append(f'$.image_tasks[{task_id}] dimension label {label!r} {reason}')
                     if label not in instructions:
                         errors.append(f'$.image_tasks[{task_id}] must include dimension label {label!r} in final instructions')
@@ -457,6 +502,8 @@ def validate_visual_contract(image_brief, errors):
         if str(task.get('on_image_text', '')).strip():
             errors.append(f'$.image_tasks[{task_id}] main image must have no text')
         main_covered.update(item for item in product_ids if item in product_images)
+    for task_id in single_edits:
+        main_covered.update(tasks[task_id]['product_ids'])
     missing_main = sorted(set(product_images) - main_covered)
     if missing_main:
         errors.append(
