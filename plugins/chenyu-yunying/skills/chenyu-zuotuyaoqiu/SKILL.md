@@ -41,7 +41,7 @@ description: 根据开发 Excel、已确认产品事实、自有素材及竞品�
 
 ## 图片任务规划
 
-用户或本次上传的作图单明确指定末张版式时，按该版式执行。双幅拼图、横排三格或单幅场景的末张使用 `type=scene`，并登记 `final_scene_instruction={layout,quote}`，其中 `layout` 为 `two_panel`、`three_panel` 或 `single_scene`，`quote` 逐字引用原要求。按原要求写具体构图与文字。
+用户或本次上传的作图单明确指定末张版式时，按该版式执行。双幅拼图、横排三格或单幅场景的末张使用 `type=scene`，并登记 `final_scene_instruction={layout,quote}`，其中 `layout` 为 `two_panel`、`three_panel` 或 `single_scene`，`quote` 逐字引用原要求。按原要求写具体构图与文字。末图所在行明确写着按原表例图做，且本行嵌图经实际查看是完整单幅场景时，也可沿用该版式。此时使用 scene_mode=single_scene，quote 原样引用整行要求，并用 visual_anchor 对应 own_images 中登记原表位置的实际嵌图。通用图片或竞品参考不能替代这条明确指定。
 
 每张写清要展示的产品内容及与前面图片不同的信息。按产品辨识、尺寸、结构、使用效果等实际信息安排顺序。未说明张数时每个产品默认交付 7 张图，对应 7 个不同的图片任务；用户可明确调整数量，按指定张数执行，不自行增减。张数按每个产品计算，不限制多产品包的任务总数；共用构图时仍须分别核对每个产品的实际成品数量。
 
