@@ -286,7 +286,7 @@ def test_product_image_source_is_required():
 
 
 
-def test_user_authorized_first_reference_can_supply_size():
+def test_size_requires_verifiable_data_for_the_same_product():
     data = package()
     size = data['image_tasks'][2]
     size['dimension_source'] = {
@@ -294,20 +294,26 @@ def test_user_authorized_first_reference_can_supply_size():
         'source_ref': 'B012345678 bullet_3',
         'user_instruction': '未填写的尺寸参考第一条链接',
     }
+    result = VALIDATOR.validate(data)
+    assert not result['ready_for_delivery']
+    assert any('requires a traceable dimension_source for this product' in error
+               for error in result['errors'])
+
+    size['dimension_source'] = {
+        'kind': 'confirmed_same_product',
+        'source_ref': '供应商规格表 A1，同一 SKU 外沿测量',
+    }
+    assert any('requires matching_basis' in error for error in VALIDATOR.validate(data)['errors'])
+    size['dimension_source']['matching_basis'] = '采购记录的同一 SKU、规格、测量起止点'
     assert VALIDATOR.validate(data)['ready_for_delivery']
 
-    size['dimension_source']['source_ref'] = 'B099999999 bullet_3'
-    result = VALIDATOR.validate(data)
-    assert not result['ready_for_delivery']
-    assert any('requires first-reference ASIN and user_instruction' in error
-               for error in result['errors'])
-
-    size['dimension_source']['source_ref'] = 'B012345678 bullet_3'
-    size['dimension_source']['user_instruction'] = ''
-    result = VALIDATOR.validate(data)
-    assert not result['ready_for_delivery']
-    assert any('requires first-reference ASIN and user_instruction' in error
-               for error in result['errors'])
+    size['dimension_source'] = {
+        'kind': 'development',
+        'source_ref': '开发资料注明此尺寸尚缺',
+        'status': 'missing',
+    }
+    assert any('requires a traceable dimension_source' in error
+               for error in VALIDATOR.validate(data)['errors'])
 
 
 def test_main_image_requires_a_valid_visual_choice():

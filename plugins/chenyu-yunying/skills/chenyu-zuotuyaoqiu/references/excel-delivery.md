@@ -8,7 +8,7 @@
 
 ## 产品内容
 
-每个变体一行，固定六列：产品名称、产品图片、产品尺寸、产品材料、产品规格、补充信息。产品名称逐字沿用开发文档产品详情表的“变体/变体名称”单元格（标准三表模板为第三表），不拼接颜色、款式或括号说明，不另设 SKU 名称列；图片每行必填并嵌入，来源顺序按 Skill 的身份图片规则。规格写当前变体的数量、颜色/图案、重量等具体属性，包括用户授权从第一条链接补入的适用细节；补充信息只写须保持的具体外观或结构，无则留空。不放内部来源说明或通用待补项，具体缺口写在受影响任务。
+每个变体一行，固定六列：产品名称、产品图片、产品尺寸、产品材料、产品规格、补充信息。产品名称逐字沿用开发文档产品详情表的“变体/变体名称”单元格（标准三表模板为第三表），不拼接颜色、款式或括号说明，不另设 SKU 名称列；图片每行必填并嵌入，来源顺序按 Skill 的身份图片规则。产品尺寸仅写可核实的本品尺寸。规格写当前变体的数量、颜色/图案、重量等具体属性，包括用户授权从第一条链接补入的适用非尺寸细节。补充信息只写须保持的具体外观或结构，无则留空。不放内部来源说明或通用待补项，具体缺口写在受影响任务。
 
 ## 作图要求
 
@@ -59,7 +59,7 @@
 - 多变体新任务另有 `output_count` 和 `output_groups[]`，每组对应一张独立成品，字段为全包唯一 `id`、非空 `product_ids`、非空 `replacements`（该组成品的具体产品替换要求，逐字写进 G 列）。各组的 product_ids 必须不重不漏地覆盖本行 product_ids，output_count 必须等于组数；一组多个变体还需非空 `shared_reason` 说明可见事实与文案一致的证据，并在 G 列明确同图共用。仅共用构图时每组只有一个变体。新单变体任务也建议用相同字段；旧包缺字段可读取，重新规划多变体时补齐。变体尺寸或上图文案不同且不能在共用字段无歧义表达时拆成各自任务，不能把两套尺寸混进同一成品。
 - 主图另有 `main_style`（`clean_white`、`white_with_use_inset`、`scene_hero`）、`main_style_reason`、`product_image_ids`（与本任务适用变体身份图完全一致）和 `identity_lock`。后者记录 `shape_structure`、`color_pattern`、`quantity_components`、`accessories_packaging`。主图 `on_image_text` 为空。
 - 场景任务 `scene`、`closeup_scene`、`key_scene` 另有 `scene_mode`。每个产品的最后一个任务必须为 `four_grid`，有四个场景不同的 `scene_cells`；每格都有非空 `output_scene` 和非空字符串 `output_text`，后者为该格独立场景标题，即使来源无字也必填。四格标题均须写入 `on_image_text` 与 `instructions`，执行文字按左上、右上、左下、右下分别说明标题对应场景和落点；全图总标题不能替代分格标题，也不必额外重复。中央圆形产品区可在有必要时加入，不计作第五格或额外成品；其位置、相对直径、底色、边框与产品朝向写进最终布局。 每格 `output_scene` 写入具体景别、机位、主体位置和适用的人物/环境安排，按模型规则检查差异后完整带入 `instructions` 与 Excel G 列；不只保存场景名，也不把摄影指导写进上图标题。
-- 尺寸任务有 `dimension_labels`（每项同一部位成对 cm / in）；`dimension_source` 保存 `kind`（`own_measurement`、`development`、`confirmed_same_product`、`user_adopted_primary_reference`）和 `source_ref`；已确认同款另有 `matching_basis`，用户授权首链接补充的尺寸另有 `user_instruction`，`source_ref` 指明首链接 ASIN 和原点位。不同测量值来自不同资料时在 source_ref 内逐项对应。未确认数值在执行文字标具体缺口，补齐前不得标记可交付。
+- 尺寸任务有 `dimension_labels`（每项同一部位成对 cm / in）；`dimension_source` 保存 `kind`（`own_measurement`、`development`、`confirmed_same_product`）和 `source_ref`。同款另填 `matching_basis`，证明同一产品、规格和测量口径。记录本品来源和点位，多份资料时逐项对应。必需而尚未确认的数值在执行文字标具体缺口，补齐前该图位不作为可交付。
 - 尺寸任务的 `supporting_visual.kind` 可为 `detail`、`scene`、`both`、`none`；按尺寸判断需要选择，辅助内容可以与测量主体处于同一场景，不要求独立窗口。辅助图另有 `description`、`source_ref`、`dimension_relevance`，在 instructions 写清内容、位置、占比及尺寸关系。选择单主体或用户要求纯尺寸时可用 `none`；分别在 `supporting_visual.design_reason` 记录本品为何不需要额外使用说明、保留哪些视觉层次，或在 `supporting_visual.user_instruction` 记录原指令。不能仅用测量方向少、数字可读或无适配范围证据作为省略理由；具体判断按模型规则执行。`instructions` 和 `on_image_text` 都含尺寸标签及默认标题 Product Size；用户指定其他标题或无标题时保存 `size_heading`、`size_heading_override_reason`。
 
 ### 全部参考与内容取舍
