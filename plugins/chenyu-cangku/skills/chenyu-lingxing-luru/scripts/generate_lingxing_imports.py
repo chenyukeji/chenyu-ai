@@ -171,7 +171,12 @@ def fill_product(sheet, records: list[dict]) -> None:
         raise ValueError("领星产品模板预留行不足，不能超出原母版格式。")
     for row, record in enumerate(records, start):
         size = record["size"]
-        freight = max(Decimal("2"), size[0] * size[1] * size[2] * Decimal("0.006")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if size else None
+        gross_grams = record["gross"]
+        freight = None
+        if gross_grams is not None:
+            freight = (gross_grams / Decimal("1000") * Decimal("36")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
         fields = {
             "*SKU": record["msku"], "品名": record["product_name"], "产品类型": "普通产品",
             "状态": record["status"], "单位": "件", "开发人": record["developer"],

@@ -20,8 +20,8 @@ class WarehouseImportsTests(unittest.TestCase):
         book = Workbook()
         sheet = book.active
         sheet.append(HEADERS)
-        sheet.append(['2026-10-08', '久阅科技', '运营甲', '开发乙', 'SPU-1', '示例产品', 'MSKU-1｜', 12, 100, '10*20*30', 120, 15, None, image_url])
-        sheet.append(['2026-10-09', '久阅科技', '运营甲', '开发乙', 'SPU-2', '另一产品', 'MSKU-1' if duplicate else 'MSKU-2', None, None, None, None, None, '待售', None])
+        sheet.append(['2026-10-08', '久阅科技', '运营甲', '开发乙', 'SPU-1', '示例产品', 'MSKU-1｜', 12, 40, '10*20*1', 50, 15, None, image_url])
+        sheet.append(['2026-10-09', '久阅科技', '运营甲', '开发乙', 'SPU-2', '另一产品', 'MSKU-1' if duplicate else 'MSKU-2', None, None, '5*2*1', None, None, '待售', None])
         book.save(path)
 
     def generate(self, root: Path):
@@ -55,7 +55,12 @@ class WarehouseImportsTests(unittest.TestCase):
             self.assertIsNone(sheet.cell(3, headers['图片链接']).value)
             self.assertEqual(sheet.cell(3, headers['状态']).value, '在售')
             self.assertEqual(sheet.cell(4, headers['状态']).value, '待售')
-            self.assertEqual(sheet.cell(3, headers['全部国家头程费用(含税)']).value, 36)
+            self.assertEqual(sheet.cell(3, headers['单品毛重']).value, 50)
+            self.assertEqual(sheet.cell(3, headers['全部国家头程费用(含税)']).value, 1.8)
+            self.assertEqual(sheet.cell(3, headers['全部国家头程费用币种']).value, 'CNY')
+            self.assertEqual(sheet.cell(4, headers['包装规格长']).value, 5)
+            self.assertIsNone(sheet.cell(4, headers['全部国家头程费用(含税)']).value)
+            self.assertIsNone(sheet.cell(4, headers['全部国家头程费用币种']).value)
             self.assertEqual(pairing['Sheet1']['A2'].value, 'MSKU-1')
             self.assertEqual(pairing['Sheet1']['B2'].value, 'MSKU-1')
             self.assertEqual(pairing['Sheet1']['C2'].value, 'jiuyuekeji-FR')
