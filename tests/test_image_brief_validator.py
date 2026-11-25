@@ -760,6 +760,39 @@ def test_single_uploaded_canvas_can_anchor_its_own_brief():
         assert not VALIDATOR.validate(data)['ready_for_delivery']
 
 
+def test_single_uploaded_size_edit_preserves_exact_requested_label():
+    data = integrated_package()
+    product = data['products'][0]
+    quote = '把这张图片上的2.0/5cm改成1.5/3.8cm'
+    product.update(image_count=1, image_count_instruction=quote)
+    data.update(primary_reference=None, additional_references=[])
+    size = data['image_tasks'][2]
+    label = '1.5/3.8cm'
+    size.update(content_mappings=[], text_mappings=[], reference_images=['internal/table-media/original.png'],
+                dimension_labels=[label], on_image_text=f'Product Size {label}')
+    size['instructions'] += f'；参考图片1为本次原图，{quote}'
+    size['visual_anchor'] = {'source_image_id': 'product-v1', 'reference_slot': 1}
+    own = {'id': 'product-v1', 'source': 'in/product.png', 'asset': 'original.png',
+           'mapped_task_ids': [size['id']]}
+    data['own_images'] = [own]
+    data['image_tasks'] = [size]
+    result = VALIDATOR.validate(data)
+    assert result['ready_for_delivery'], result['errors']
+
+    for invalid_quote in ('做一张尺寸图', '把图片里的手机去掉', '把图上2.0/5cm改成1.5/4.8cm'):
+        product['image_count_instruction'] = invalid_quote
+        assert any('must pair' in error for error in VALIDATOR.validate(data)['errors'])
+    product['image_count_instruction'] = '做一张尺寸图'
+    assert any('no main_image' in error for error in VALIDATOR.validate(data)['errors'])
+    product['image_count_instruction'] = quote
+    own['source'] = 'out/candidate.png'
+    assert any('no main_image' in error for error in VALIDATOR.validate(data)['errors'])
+    own['source'] = 'in/product.png'
+    del size['dimension_source']
+    assert any('dimension_source' in error for error in VALIDATOR.validate(data)['errors'])
+
+
+
 def test_v3_legacy_composition_remains_readable():
     result = VALIDATOR.validate(integrated_package())
     assert result['ready_for_delivery'], result['errors']
