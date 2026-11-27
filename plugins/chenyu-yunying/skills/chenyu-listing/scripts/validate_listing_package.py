@@ -1413,7 +1413,7 @@ def validate(data, *, require_current_search_policy=True, require_bullet_depth_r
                     if require_bullet_depth_review and not reviewed:
                         errors.append(
                             f'{context} has {issue}; expand with applicable source details, '
-                            'or provide a per-bullet short_bullet_reviews reason and detail'
+                            'or, after checking the available evidence, provide a per-bullet short_bullet_reviews reason and detail'
                         )
                     elif not reviewed:
                         warnings.append(f'{context} has {issue}; check applicable reference details')
