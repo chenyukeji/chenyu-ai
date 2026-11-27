@@ -94,7 +94,7 @@ def analyze(data):
         for index in range(1, 6):
             value = lengths.get(f'bullet_{index}_body_chars')
             if value is not None and value <= 200:
-                warnings.append(f'bullet_{index}_body_chars: {value}; review applicable reference details, short copy is allowed')
+                warnings.append(f'bullet_{index}_body_chars: {value}; expand with applicable source details or record the reason for keeping the shorter point')
         for name, count in lengths.items():
             if name in limits and count > limits[name]:
                 issues.append(f'{name}: {count} exceeds {limits[name]}')

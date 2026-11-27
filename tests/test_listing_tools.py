@@ -794,6 +794,25 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('200 or fewer characters' in warning
                             for warning in result['warnings']))
 
+    def test_current_delivery_reviews_each_short_bullet_without_a_minimum_length_gate(self):
+        data = self.listing_package()
+        listing = data['listings'][0]
+        listing['bullets'][0] = '📦【Lieferumfang】Vier Figuren gehören zum Set.'
+        listing['bullets'][1] = '📦【Positionierung】Die Figuren stehen auf flachen Flächen.'
+        review = lambda: package_validator.validate(
+            data, require_current_search_policy=False, require_bullet_depth_review=True)
+        def missing(result):
+            return [error for error in result['errors'] if 'per-bullet short_bullet_reviews' in error]
+        self.assertEqual(len(missing(review())), 2)
+        listing['short_bullet_reviews'] = {
+            'bullet_1': {'reason': 'limited_evidence', 'detail': 'The source confirms only the set count.'},
+            'bullet_2': {'reason': 'requested_concise', 'detail': '  '},
+        }
+        self.assertEqual(len(missing(review())), 1)
+        listing['short_bullet_reviews']['bullet_2']['detail'] = 'The user requested a one-sentence placement point.'
+        result = review()
+        self.assertTrue(result['ready_for_delivery'], result['errors'])
+
     def test_listing_package_requires_three_core_keywords_and_optional_scene(self):
         data = copy.deepcopy(self.listing_package())
         self.assertTrue(validate_legacy(data)['ready_for_delivery'])

@@ -37,7 +37,8 @@ TITLE_MEASUREMENT = re.compile(
 )
 ITEM_HIGHLIGHTS_LIMIT = 125
 ITEM_HIGHLIGHTS_TARGET_MINIMUM = 120
-BULLET_BODY_MINIMUM = 201
+BULLET_BODY_TARGET = 200
+SHORT_BULLET_REASONS = {'limited_evidence', 'market_limit', 'requested_concise', 'preserved_copy'}
 SEARCH_TERMS_MAX_BYTES = 249
 SEARCH_TERMS_TARGET_BYTES = 240
 BUYER_FACT_FIELDS = (
@@ -1027,7 +1028,7 @@ def validate_search_coverage(data, errors):
             errors.append(f'{label} prior search terms removed without review: {", ".join(sorted(removed))}')
 
 
-def validate(data, *, require_current_search_policy=True):
+def validate(data, *, require_current_search_policy=True, require_bullet_depth_review=False):
     errors, warnings = [], []
     search_policy = data.get('search_term_policy_version', 1)
     if type(search_policy) is not int or search_policy not in (1, 2, 3, 4):
@@ -1375,6 +1376,11 @@ def validate(data, *, require_current_search_policy=True):
                 validate_source_coverage(errors, f'{market}/{variant_id} {field}', listing.get(field, ''), fragments)
         bullets = listing.get('bullets', [])
         buyer_bullet_texts = []
+        short_reviews = listing.get('short_bullet_reviews', {})
+        if not isinstance(short_reviews, dict):
+            if require_bullet_depth_review:
+                errors.append(f'{market}/{variant_id} short_bullet_reviews must be an object')
+            short_reviews = {}
         if len(bullets) != 5 or any(not str(item).strip() for item in bullets):
             errors.append(f'{market}/{variant_id} must contain five non-empty bullets')
         else:
@@ -1393,10 +1399,24 @@ def validate(data, *, require_current_search_policy=True):
                     errors.append(
                         f'{market}/{variant_id} bullet {index} body must contain 1-4 sentences'
                     )
-                if len(body) < BULLET_BODY_MINIMUM:
-                    warnings.append(
-                        f'{market}/{variant_id} bullet {index} body has 200 or fewer characters; check whether applicable reference details can add useful information'
+                if len(body) <= BULLET_BODY_TARGET or sentence_count == 1:
+                    context = f'{market}/{variant_id} bullet {index}'
+                    issue = '200 or fewer characters' if len(body) <= BULLET_BODY_TARGET else 'one sentence'
+                    review = short_reviews.get(f'bullet_{index}')
+                    reviewed = (
+                        isinstance(review, dict)
+                        and isinstance(review.get('reason'), str)
+                        and review['reason'] in SHORT_BULLET_REASONS
+                        and isinstance(review.get('detail'), str)
+                        and bool(review['detail'].strip())
                     )
+                    if require_bullet_depth_review and not reviewed:
+                        errors.append(
+                            f'{context} has {issue}; expand with applicable source details, '
+                            'or provide a per-bullet short_bullet_reviews reason and detail'
+                        )
+                    elif not reviewed:
+                        warnings.append(f'{context} has {issue}; check applicable reference details')
             if competitors:
                 validate_numbered_bullet_references(
                     errors, market, variant_id, listing, competitors
@@ -1948,7 +1968,7 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     args = parser.parse_args()
     result = validate(json.loads(args.input.read_text(encoding='utf-8-sig')),
-                      require_current_search_policy=True)
+                      require_current_search_policy=True, require_bullet_depth_review=True)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open('x', encoding='utf-8') as output:
         json.dump(result, output, ensure_ascii=False, indent=2)

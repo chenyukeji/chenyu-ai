@@ -2,6 +2,18 @@
 
 `listing-package.json` 是生成、校验和交付之间的内部接口。买家可见内容不得包含内部审核字段。
 
+## 五点正文复核
+
+每个 `listings[]` 项按目标站点和变体复核五点。正文的一句稿或不超过 200 个可见字符的稿件，先回到 `bullet_outline` 和原始竞品五点，补充仍适用于本品、尚未写入的细节。确有理由保留短稿时，在对应项增加内部字段，例如：
+
+```json
+"short_bullet_reviews": {
+  "bullet_3": {"reason": "limited_evidence", "detail": "原始五点只支持成品的表面处理，未给出适用湿度或清洁方式"}
+}
+```
+
+`reason` 可用 `limited_evidence`（记录该点具体缺什么）、`market_limit`（记录已核实的限制）、`requested_concise`（记录用户的简写要求）或 `preserved_copy`（仅用于明确要求保留原文的未修改字段）。`detail` 要逐点写明实际原因。该字段保存在内部业务包。网页及导出只使用原有交付字段。命令行交付校验会为缺失复核的短点指出站点、变体和点位。直接调用 Python 函数进行历史诊断时保留原有宽松读取，可用 `require_bullet_depth_review=True` 执行同一交付检查。
+
 ## 最小结构
 
 ```json
