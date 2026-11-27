@@ -761,6 +761,41 @@ def validate_clause_sources(errors, market, variant_id, listing, competitors, fa
             errors.append(f'{context} needs actual competitor bullet/description/A+ content, not only own facts')
 
 
+def has_competitor_bullet(competitors, asin, number):
+    return any(source_text(item, f'bullet_{number}').strip()
+               for item in competitors
+               if str(item.get('asin', '')).strip().upper() == asin.upper())
+
+
+def valid_short_bullet_review(review, variant_id, competitors, fact_by_id):
+    if not (
+        isinstance(review, dict)
+        and isinstance(review.get('reason'), str)
+        and review['reason'] in SHORT_BULLET_REASONS
+        and isinstance(review.get('detail'), str)
+        and review['detail'].strip()
+    ):
+        return False
+    if review['reason'] != 'limited_evidence':
+        return True
+    checked_evidence = review.get('checked_evidence')
+    if not isinstance(checked_evidence, list) or not checked_evidence:
+        return False
+    for reference in checked_evidence:
+        if not isinstance(reference, str) or not reference.strip():
+            return False
+        reference = reference.strip()
+        match = NUMBERED_BULLET_SOURCE.fullmatch(reference)
+        if match:
+            if not has_competitor_bullet(competitors, *match.groups()):
+                return False
+        else:
+            fact = fact_by_id.get(reference, {})
+            if fact.get('status') != 'confirmed' or variant_id not in fact.get('variant_ids', []):
+                return False
+    return True
+
+
 def validate_numbered_bullet_references(errors, market, variant_id, listing, competitors):
     references = listing.get('bullet_references', [])
     if not isinstance(references, list) or len(references) != 5 or any(not str(item).strip() for item in references):
@@ -772,9 +807,7 @@ def validate_numbered_bullet_references(errors, market, variant_id, listing, com
             errors.append(f'{market}/{variant_id} bullet {index} reference must cite ASIN 第N点 from an actual competitor bullet')
             continue
         for asin, number in pairs:
-            if not any(source_text(item, f'bullet_{number}').strip()
-                       for item in competitors
-                       if str(item.get('asin', '')).strip().upper() == asin.upper()):
+            if not has_competitor_bullet(competitors, asin, number):
                 errors.append(f'{market}/{variant_id} bullet {index} cites missing competitor point: {asin.upper()} 第{number}点')
 
 
@@ -1403,17 +1436,12 @@ def validate(data, *, require_current_search_policy=True, require_bullet_depth_r
                     context = f'{market}/{variant_id} bullet {index}'
                     issue = '200 or fewer characters' if len(body) <= BULLET_BODY_TARGET else 'one sentence'
                     review = short_reviews.get(f'bullet_{index}')
-                    reviewed = (
-                        isinstance(review, dict)
-                        and isinstance(review.get('reason'), str)
-                        and review['reason'] in SHORT_BULLET_REASONS
-                        and isinstance(review.get('detail'), str)
-                        and bool(review['detail'].strip())
-                    )
+                    reviewed = valid_short_bullet_review(review, variant_id, competitors, fact_by_id)
                     if require_bullet_depth_review and not reviewed:
                         errors.append(
-                            f'{context} has {issue}; expand with applicable source details, '
-                            'or, after checking the available evidence, provide a per-bullet short_bullet_reviews reason and detail'
+                            f'{context} has {issue}; expand with applicable source details. '
+                            'If still necessary, provide a per-bullet short_bullet_reviews reason and detail. '
+                            'For limited_evidence, include checked_evidence with actual source points or confirmed variant fact IDs.'
                         )
                     elif not reviewed:
                         warnings.append(f'{context} has {issue}; check applicable reference details')

@@ -794,7 +794,7 @@ class ListingTests(unittest.TestCase):
         self.assertTrue(any('200 or fewer characters' in warning
                             for warning in result['warnings']))
 
-    def test_current_delivery_reviews_each_short_bullet_without_a_minimum_length_gate(self):
+    def test_current_delivery_requires_evidence_for_each_short_bullet(self):
         data = self.listing_package()
         listing = data['listings'][0]
         listing['bullets'][0] = '📦【Lieferumfang】Vier Figuren gehören zum Set.'
@@ -805,13 +805,33 @@ class ListingTests(unittest.TestCase):
             return [error for error in result['errors'] if 'per-bullet short_bullet_reviews' in error]
         self.assertEqual(len(missing(review())), 2)
         listing['short_bullet_reviews'] = {
-            'bullet_1': {'reason': 'limited_evidence', 'detail': 'The source confirms only the set count.'},
+            'bullet_1': {'reason': 'limited_evidence', 'detail': 'The sources give no assembly method.'},
             'bullet_2': {'reason': 'requested_concise', 'detail': '  '},
         }
+        self.assertEqual(len(missing(review())), 2)
+        listing['short_bullet_reviews']['bullet_1']['checked_evidence'] = ['F1', 'F9']
+        self.assertEqual(len(missing(review())), 2)
+        listing['short_bullet_reviews']['bullet_1']['checked_evidence'] = ['F1']
         self.assertEqual(len(missing(review())), 1)
         listing['short_bullet_reviews']['bullet_2']['detail'] = 'The user requested a one-sentence placement point.'
         result = review()
         self.assertTrue(result['ready_for_delivery'], result['errors'])
+
+    def test_short_bullet_review_checks_numbered_sources_and_variant_facts(self):
+        competitors = [{'asin': 'B0ABCDE123', 'bullets': ['Material information']}]
+        facts = {'F1': {'status': 'confirmed', 'variant_ids': ['V2']}}
+        review = {'reason': 'limited_evidence', 'detail': 'No cleaning instructions were provided.'}
+        for reference, expected in [
+            ('B0ABCDE123 第1点', True),
+            ('B0ABCDE123 第2点', False),
+            ('F1', False),
+        ]:
+            with self.subTest(reference=reference):
+                review['checked_evidence'] = [reference]
+                self.assertEqual(
+                    package_validator.valid_short_bullet_review(review, 'V1', competitors, facts),
+                    expected,
+                )
 
     def test_listing_package_requires_three_core_keywords_and_optional_scene(self):
         data = copy.deepcopy(self.listing_package())
